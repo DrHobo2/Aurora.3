@@ -24,9 +24,8 @@ var/datum/controller/subsystem/economy/SSeconomy
 
 	create_station_account()
 
-	for(var/department in station_departments)
-		create_department_account(department)
-	create_department_account("Vendor")
+	for(var/account in department_funds)
+		create_department_account(account)
 
 	..()
 
@@ -58,9 +57,9 @@ var/datum/controller/subsystem/economy/SSeconomy
 	T.target_name = station_account.owner_name
 	T.purpose = "Account creation"
 	T.amount = 75000
-	T.date = "2nd April, 2454"
+	T.date = "13th May, 2461"
 	T.time = "11:24"
-	T.source_terminal = "Biesel GalaxyNet Terminal #277"
+	T.source_terminal = "Idris Remote Terminal #[rand(111,11111)]"
 
 	//add the account
 	add_transaction_log(station_account,T)
@@ -77,16 +76,16 @@ var/datum/controller/subsystem/economy/SSeconomy
 	department_account.account_number = next_account_number
 	next_account_number += rand(1,500)
 	department_account.remote_access_pin = rand(1111, 111111)
-	department_account.money = 5000
+	department_account.money = department_funds[department]
 
 	//create an entry in the account transaction log for when it was created
 	var/datum/transaction/T = new()
 	T.target_name = department_account.owner_name
 	T.purpose = "Account creation"
 	T.amount = department_account.money
-	T.date = "2nd April, 2454"
+	T.date = "13th May, 2461"
 	T.time = "11:24"
-	T.source_terminal = "Biesel GalaxyNet Terminal #277"
+	T.source_terminal = "Idris Remote Terminal #[rand(111,11111)]"
 
 	//add the account
 	add_transaction_log(department_account,T)
@@ -96,7 +95,7 @@ var/datum/controller/subsystem/economy/SSeconomy
 	return TRUE
 
 //Create a "normal" player account
-/datum/controller/subsystem/economy/proc/create_account(var/new_owner_name = "Default user", var/starting_funds = 0, var/obj/machinery/account_database/source_db)
+/datum/controller/subsystem/economy/proc/create_account(var/new_owner_name = "Default user", var/starting_funds = 0, var/datum/computer_file/program/account_db/source_db)
 	//create a new account
 	var/datum/money_account/M = new()
 	M.owner_name = new_owner_name
@@ -112,40 +111,37 @@ var/datum/controller/subsystem/economy/SSeconomy
 	T.amount = starting_funds
 
 	if(!source_db)
-		//set a random date, time and location some time over the past few decades
-		T.date = "[num2text(rand(1,31))] [pick("January","February","March","April","May","June","July","August","September","October","November","December")], 24[rand(10,48)]"
+		//set a random date from recent months
+		T.date = "[num2text(rand(1,31))] [pick("January","February","March","April","May")], 2461"
 		T.time = "[rand(0,24)]:[rand(11,59)]"
-		T.source_terminal = "NTGalaxyNet Terminal #[rand(111,1111)]"
+		T.source_terminal = "Idris SelfServ Terminal #[rand(111,11111)]"
 	else
 		T.date = worlddate2text()
 		T.time = worldtime2text()
 		T.source_terminal = source_db.machine_id
 
-		//create a sealed package containing the account details
-		var/obj/item/smallDelivery/P = new /obj/item/smallDelivery(source_db.loc)
+		if(source_db.computer.nano_printer)
+			var/pname = "Account information: [M.owner_name]"
+			var/info = "<b>Account details (confidential)</b><br><hr><br>"
+			info += "<i>Account holder:</i> [M.owner_name]<br>"
+			info += "<i>Account number:</i> [M.account_number]<br>"
+			info += "<i>Account pin:</i> [M.remote_access_pin]<br>"
+			info += "<i>Starting balance:</i> [M.money]电<br>"
+			info += "<i>Date and time:</i> [worldtime2text()], [worlddate2text()]<br><br>"
+			info += "<i>Creation terminal ID:</i> [source_db.machine_id]<br>"
+			var/obj/item/card/id/held_card = source_db.get_held_card()
+			info += "<i>Authorised NT officer overseeing creation:</i> [held_card.registered_name]<br>"
 
-		var/obj/item/weapon/paper/R = new /obj/item/weapon/paper(P)
-		P.wrapped = R
-		var/pname = "Account information: [M.owner_name]"
-		var/info = "<b>Account details (confidential)</b><br><hr><br>"
-		info += "<i>Account holder:</i> [M.owner_name]<br>"
-		info += "<i>Account number:</i> [M.account_number]<br>"
-		info += "<i>Account pin:</i> [M.remote_access_pin]<br>"
-		info += "<i>Starting balance:</i> $[M.money]<br>"
-		info += "<i>Date and time:</i> [worldtime2text()], [worlddate2text()]<br><br>"
-		info += "<i>Creation terminal ID:</i> [source_db.machine_id]<br>"
-		info += "<i>Authorised NT officer overseeing creation:</i> [source_db.held_card.registered_name]<br>"
-
-		R.set_content_unsafe(pname, info)
-
-		//stamp the paper
-		var/image/stampoverlay = image('icons/obj/bureaucracy.dmi')
-		stampoverlay.icon_state = "paper_stamp-cent"
-		if(!R.stamped)
-			R.stamped = new
-		R.stamped += /obj/item/weapon/stamp
-		R.add_overlay(stampoverlay)
-		R.stamps += "<HR><i>This paper has been stamped by the Accounts Database.</i>"
+			var/obj/item/paper/R = source_db.computer.nano_printer.print_text("", pname, "#deebff")
+			R.set_content_unsafe(pname, info)
+			//stamp the paper
+			var/image/stampoverlay = image('icons/obj/bureaucracy.dmi')
+			stampoverlay.icon_state = "paper_stamp-cent"
+			if(!R.stamped)
+				R.stamped = new
+			R.stamped += /obj/item/stamp
+			R.add_overlay(stampoverlay)
+			R.stamps += "<HR><i>This paper has been stamped by the Accounts Database.</i>"
 
 	//add the account
 	add_transaction_log(M,T)
@@ -244,9 +240,9 @@ var/datum/controller/subsystem/economy/SSeconomy
 
 //gets a departmental account by name
 /datum/controller/subsystem/economy/proc/get_department_account(var/department)
+	RETURN_TYPE(/datum/money_account)
 	if(department_accounts[department])
 		return department_accounts[department]
-	return
 
 /**
  * Logging functions

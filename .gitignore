@@ -1,5 +1,6 @@
 #ignore misc BYOND files
 Thumbs.db
+*.swp
 *.log
 *.rsc
 *.int
@@ -16,3 +17,4 @@ __pycache__/
 *$py.class
 /.atom-build.json
 .vscode/
+.vs/

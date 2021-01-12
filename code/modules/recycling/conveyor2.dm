@@ -76,7 +76,6 @@
 		return
 
 	if (!loc)
-		PROCLOG_WEIRD("loc is null, breaking self.")
 		stat |= BROKEN
 		return
 
@@ -117,7 +116,7 @@
 			var/obj/item/conveyor_construct/C = new/obj/item/conveyor_construct(src.loc)
 			C.id = id
 			transfer_fingerprints_to(C)
-		user << "<span class='notice'>You remove the conveyor belt.</span>"
+		to_chat(user, "<span class='notice'>You remove the conveyor belt.</span>")
 		qdel(src)
 		return
 	if(isrobot(user))	return //Carn: fix for borgs dropping their modules on conveyor belts
@@ -220,7 +219,7 @@
 // attack with hand, switch position
 /obj/machinery/conveyor_switch/attack_hand(mob/user)
 	if(!allowed(user))
-		user << "<span class='warning'>Access denied.</span>"
+		to_chat(user, "<span class='warning'>Access denied.</span>")
 		return
 
 	if(position == 0)
@@ -254,7 +253,7 @@
 		var/obj/item/conveyor_switch_construct/C = new/obj/item/conveyor_switch_construct(src.loc)
 		C.id = id
 		transfer_fingerprints_to(C)
-		user << "<span class='notice'>You deattach the conveyor switch.</span>"
+		to_chat(user, "<span class='notice'>You deattach the conveyor switch.</span>")
 		qdel(src)
 
 /obj/machinery/conveyor_switch/oneway
@@ -292,13 +291,13 @@
 	icon_state = "conveyor0"
 	name = "conveyor belt assembly"
 	desc = "A conveyor belt assembly."
-	w_class = 4
+	w_class = ITEMSIZE_LARGE
 	var/id = "" //inherited by the belt
 
 /obj/item/conveyor_construct/attackby(obj/item/I, mob/user, params)
 	..()
 	if(istype(I, /obj/item/conveyor_switch_construct))
-		user << "<span class='notice'>You link the switch to the conveyor belt assembly.</span>"
+		to_chat(user, "<span class='notice'>You link the switch to the conveyor belt assembly.</span>")
 		var/obj/item/conveyor_switch_construct/C = I
 		id = C.id
 
@@ -323,7 +322,7 @@
 	desc = "A conveyor control switch assembly."
 	icon = 'icons/obj/recycling.dmi'
 	icon_state = "switch-off"
-	w_class = 4
+	w_class = ITEMSIZE_LARGE
 	var/id = "" //inherited by the switch
 
 /obj/item/conveyor_switch_construct/New()
@@ -339,7 +338,7 @@
 			found = 1
 			break
 	if(!found)
-		user << "\icon[src]<span class=notice>The conveyor switch did not detect any linked conveyor belts in range.</span>"
+		to_chat(user, "[icon2html(src, user)]<span class=notice>The conveyor switch did not detect any linked conveyor belts in range.</span>")
 		return
 	var/obj/machinery/conveyor_switch/NC = new/obj/machinery/conveyor_switch(A, id)
 	transfer_fingerprints_to(NC)

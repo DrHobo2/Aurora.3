@@ -15,7 +15,7 @@
 	anchored = 1.0
 	var/invuln = null
 	var/bugged = 0
-	var/obj/item/weapon/camera_assembly/assembly = null
+	var/obj/item/camera_assembly/assembly = null
 
 	var/toughness = 5 //sorta fragile
 
@@ -45,7 +45,7 @@
 	for(var/obj/machinery/camera/C in cameranet.cameras)
 		var/list/tempnetwork = C.network&src.network
 		if(C != src && C.c_tag == src.c_tag && tempnetwork.len)
-			world.log << "[src.c_tag] [src.x] [src.y] [src.z] conflicts with [C.c_tag] [C.x] [C.y] [C.z]"
+			world.log <<  "[src.c_tag] [src.x] [src.y] [src.z] conflicts with [C.c_tag] [C.x] [C.y] [C.z]"
 	*/
 	if(!src.network || src.network.len < 1)
 		if(loc)
@@ -112,7 +112,7 @@
 
 /obj/machinery/camera/proc/setViewRange(var/num = 7)
 	src.view_range = num
-	cameranet.updateVisibility(src, 0)
+	cameranet.update_visibility(src, 0)
 
 /obj/machinery/camera/attack_hand(mob/living/carbon/human/user as mob)
 	if(!istype(user))
@@ -131,12 +131,12 @@
 	update_coverage()
 	// DECONSTRUCTION
 	if(W.isscrewdriver())
-		//user << "<span class='notice'>You start to [panel_open ? "close" : "open"] the camera's panel.</span>"
+		//to_chat(user, "<span class='notice'>You start to [panel_open ? "close" : "open"] the camera's panel.</span>")
 		//if(toggle_panel(user)) // No delay because no one likes screwdrivers trying to be hip and have a duration cooldown
 		panel_open = !panel_open
 		user.visible_message("<span class='warning'>[user] screws the camera's panel [panel_open ? "open" : "closed"]!</span>",
 		"<span class='notice'>You screw the camera's panel [panel_open ? "open" : "closed"].</span>")
-		playsound(src.loc, 'sound/items/Screwdriver.ogg', 50, 1)
+		playsound(src.loc, W.usesound, 50, 1)
 
 	else if((W.iswirecutter() || W.ismultitool()) && panel_open)
 		interact(user)
@@ -152,55 +152,51 @@
 				assembly.dir = src.dir
 				if(stat & BROKEN)
 					assembly.state = 2
-					user << "<span class='notice'>You repaired \the [src] frame.</span>"
+					to_chat(user, "<span class='notice'>You repaired \the [src] frame.</span>")
 				else
 					assembly.state = 1
-					user << "<span class='notice'>You cut \the [src] free from the wall.</span>"
+					to_chat(user, "<span class='notice'>You cut \the [src] free from the wall.</span>")
 					new /obj/item/stack/cable_coil(loc, 2)
 				assembly = null //so qdel doesn't eat it.
 			qdel(src)
+			return
 
 	// OTHER
-	else if (can_use() && (istype(W, /obj/item/weapon/paper) || istype(W, /obj/item/device/pda)) && isliving(user))
+	else if (can_use() && (istype(W, /obj/item/paper)) && isliving(user))
 		var/info = null
 		var/mob/living/U = user
-		var/obj/item/weapon/paper/X = null
-		var/obj/item/device/pda/P = null
+		var/obj/item/paper/X = null
 
 		var/itemname = ""
-		if(istype(W, /obj/item/weapon/paper))
+		if(istype(W, /obj/item/paper))
 			X = W
 			itemname = X.name
 			info = X.info
-		else
-			P = W
-			itemname = P.name
-			info = P.notehtml
-		U << "You hold \a [itemname] up to the camera ..."
+		to_chat(U, "You hold \a [itemname] up to the camera ...")
 		for(var/mob/living/silicon/ai/O in living_mob_list)
 			var/entry = O.addCameraRecord(itemname,info)
 			if(!O.client) continue
 			if(U.name == "Unknown")
-				O << "<b>[U]</b> holds \a [itemname] up to one of your cameras ...<a href='?src=\ref[O];readcapturedpaper=\ref[entry]'>view message</a>"
+				to_chat(O, "<b>[U]</b> holds \a [itemname] up to one of your cameras ...<a href='?src=\ref[O];readcapturedpaper=\ref[entry]'>view message</a>")
 			else
-				O << "<b><a href='byond://?src=\ref[O];track2=\ref[O];track=\ref[U];trackname=[html_encode(U.name)]'>[U]</a></b> holds \a [itemname] up to one of your cameras ...<a href='?src=\ref[O];readcapturedpaper=[entry]'>view message</a>"
+				to_chat(O, "<b><a href='byond://?src=\ref[O];track2=\ref[O];track=\ref[U];trackname=[html_encode(U.name)]'>[U]</a></b> holds \a [itemname] up to one of your cameras ...<a href='?src=\ref[O];readcapturedpaper=[entry]'>view message</a>")
 
 		for(var/mob/O in player_list)
 			if (istype(O.machine, /obj/machinery/computer/security))
 				var/obj/machinery/computer/security/S = O.machine
 				if (S.current_camera == src)
-					O << "[U] holds \a [itemname] up to one of the cameras ..."
-					O << browse(text("<HTML><HEAD><TITLE>[]</TITLE></HEAD><BODY><TT>[]</TT></BODY></HTML>", itemname, info), text("window=[]", itemname)) //Force people watching to open the page so they can't see it again
+					to_chat(O, "[U] holds \a [itemname] up to one of the cameras ...")
+					O << browse(text("<HTML><HEAD><TITLE>[]</TITLE></HEAD><BODY><TT>[]</TT></BODY></HTML>", itemname, info), text("window=[]", itemname)) //Force people watching to open the page so they can't see it again)
 
-	else if (istype(W, /obj/item/weapon/camera_bug))
+	else if (istype(W, /obj/item/camera_bug))
 		if (!src.can_use())
-			user << "<span class='warning'>Camera non-functional.</span>"
+			to_chat(user, "<span class='warning'>Camera non-functional.</span>")
 			return
 		if (src.bugged)
-			user << "<span class='notice'>Camera bug removed.</span>"
+			to_chat(user, "<span class='notice'>Camera bug removed.</span>")
 			src.bugged = 0
 		else
-			user << "<span class='notice'>Camera bugged.</span>"
+			to_chat(user, "<span class='notice'>Camera bugged.</span>")
 			src.bugged = 1
 
 	else if(W.damtype == BRUTE || W.damtype == BURN) //bashing cameras
@@ -211,7 +207,7 @@
 			if (istype(W, /obj/item)) //is it even possible to get into attackby() with non-items?
 				var/obj/item/I = W
 				if (I.hitsound)
-					playsound(loc, I.hitsound, 50, 1, -1)
+					playsound(loc, I.hitsound, I.get_clamped_volume(), 1, -1)
 		take_damage(W.force)
 
 	else
@@ -232,7 +228,7 @@
 				visible_message("<span class='notice'> [user] has deactivated [src]!</span>")
 			else
 				visible_message("<span class='notice'> [src] clicks and shuts down. </span>")
-			playsound(src.loc, 'sound/items/Wirecutter.ogg', 100, 1)
+			playsound(src.loc, 'sound/items/wirecutter.ogg', 100, 1)
 			icon_state = "[initial(icon_state)]1"
 			add_hiddenprint(user)
 		else
@@ -240,7 +236,7 @@
 				visible_message("<span class='notice'> [user] has reactivated [src]!</span>")
 			else
 				visible_message("<span class='notice'> [src] clicks and reactivates itself. </span>")
-			playsound(src.loc, 'sound/items/Wirecutter.ogg', 100, 1)
+			playsound(src.loc, 'sound/items/wirecutter.ogg', 100, 1)
 			icon_state = initial(icon_state)
 			add_hiddenprint(user)
 
@@ -261,7 +257,7 @@
 
 	//sparks
 	spark(loc, 5)
-	playsound(loc, "sparks", 50, 1)
+	playsound(loc, /decl/sound_category/spark_sound, 50, 1)
 
 /obj/machinery/camera/proc/set_status(var/newstatus)
 	if (status != newstatus)
@@ -285,7 +281,7 @@
 			if (S.current_camera == src)
 				O.unset_machine()
 				O.reset_view(null)
-				O << "The screen bursts into static."
+				to_chat(O, "The screen bursts into static.")
 
 /obj/machinery/camera/update_icon()
 	if (!status || (stat & BROKEN))
@@ -350,19 +346,15 @@
 	for(var/obj/machinery/camera/C in oview(4, M))
 		if(C.can_use())	// check if camera disabled
 			return C
-			break
 	return null
 
 /proc/near_range_camera(var/mob/M)
-
 	for(var/obj/machinery/camera/C in range(4, M))
 		if(C.can_use())	// check if camera disabled
 			return C
-			break
-
 	return null
 
-/obj/machinery/camera/proc/weld(var/obj/item/weapon/weldingtool/WT, var/mob/user)
+/obj/machinery/camera/proc/weld(var/obj/item/weldingtool/WT, var/mob/user)
 
 	if(busy)
 		return 0
@@ -370,11 +362,11 @@
 		return 0
 
 	// Do after stuff here
-	user << "<span class='notice'>You start to weld the [src]..</span>"
-	playsound(src.loc, 'sound/items/Welder.ogg', 50, 1)
+	to_chat(user, "<span class='notice'>You start to weld the [src]..</span>")
+	playsound(src.loc, 'sound/items/welder.ogg', 50, 1)
 	WT.eyecheck(user)
 	busy = 1
-	if(do_after(user, 100))
+	if(do_after(user, 100/WT.toolspeed))
 		busy = 0
 		if(!WT.isOn())
 			return 0
@@ -387,7 +379,7 @@
 		return
 
 	if(stat & BROKEN)
-		user << "<span class='warning'>\The [src] is broken.</span>"
+		to_chat(user, "<span class='warning'>\The [src] is broken.</span>")
 		return
 
 	user.set_machine(src)
@@ -448,20 +440,6 @@
 	cam["z"] = z
 	return cam
 
-/obj/machinery/camera/proc/update_coverage(var/network_change = 0)
-	if(network_change)
-		var/list/open_networks = difflist(network, restricted_camera_networks)
-		// Add or remove camera from the camera net as necessary
-		if(on_open_network && !open_networks.len)
-			cameranet.removeCamera(src)
-		else if(!on_open_network && open_networks.len)
-			on_open_network = 1
-			cameranet.addCamera(src)
-	else
-		cameranet.updateVisibility(src, 0)
-
-	invalidateCameraCache()
-
 // Resets the camera's wires to fully operational state. Used by one of Malfunction abilities.
 /obj/machinery/camera/proc/reset_wires()
 	if(!wires)
@@ -472,4 +450,3 @@
 	wires.MendAll()
 	update_icon()
 	update_coverage()
-

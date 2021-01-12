@@ -2,8 +2,8 @@
 
 	name = "alien"
 	desc = "What IS that?"
-	icon = 'icons/mob/alien.dmi'
-	icon_state = "alien"
+	icon = 'icons/mob/npc/alien.dmi'
+	icon_state = "alien_s"
 	pass_flags = PASSTABLE
 	health = 100
 	maxHealth = 100

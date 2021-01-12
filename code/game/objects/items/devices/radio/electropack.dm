@@ -6,23 +6,23 @@
 	frequency = 1449
 	flags = CONDUCT
 	slot_flags = SLOT_BACK
-	w_class = 5.0
+	w_class = ITEMSIZE_HUGE
 
-	matter = list(DEFAULT_WALL_MATERIAL = 10000,"glass" = 2500)
+	matter = list(DEFAULT_WALL_MATERIAL = 10000, MATERIAL_GLASS = 2500)
 
 	var/code = 2
 
 /obj/item/device/radio/electropack/attack_hand(mob/user as mob)
 	if(src == user.back)
-		user << "<span class='notice'>You need help taking this off!</span>"
+		to_chat(user, "<span class='notice'>You need help taking this off!</span>")
 		return
 	..()
 
-/obj/item/device/radio/electropack/attackby(obj/item/weapon/W as obj, mob/user as mob)
+/obj/item/device/radio/electropack/attackby(obj/item/W as obj, mob/user as mob)
 	..()
 	if(istype(W, /obj/item/clothing/head/helmet))
 		if(!b_stat)
-			user << "<span class='notice'>[src] is not ready to be attached!</span>"
+			to_chat(user, "<span class='notice'>[src] is not ready to be attached!</span>")
 			return
 		var/obj/item/assembly/shock_kit/A = new /obj/item/assembly/shock_kit( user )
 		A.icon = 'icons/obj/assemblies.dmi'
@@ -90,7 +90,7 @@
 				sleep(50)
 				if(M)
 					M.moved_recently = 0
-		M << "<span class='danger'>You feel a sharp shock!</span>"
+		to_chat(M, "<span class='danger'>You feel a sharp shock!</span>")
 		spark(M, 3)
 
 		M.Weaken(10)

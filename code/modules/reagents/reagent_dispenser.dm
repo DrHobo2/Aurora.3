@@ -1,7 +1,8 @@
 /obj/structure/reagent_dispensers
 	name = "strange dispenser"
 	desc = "What the fuck is this?"
-	icon = 'icons/obj/objects.dmi'
+	desc_info = "You can right-click this and change the amount transferred per use."
+	icon = 'icons/obj/reagent_dispensers.dmi'
 	icon_state = "watertank"
 	density = 1
 	anchored = 0
@@ -18,6 +19,7 @@
 	create_reagents(capacity)
 	if (!possible_transfer_amounts)
 		src.verbs -= /obj/structure/reagent_dispensers/verb/set_APTFT
+		desc_info = ""
 
 /obj/structure/reagent_dispensers/examine(mob/user)
 	if(!..(user, 2))
@@ -34,12 +36,12 @@
 
 /obj/structure/reagent_dispensers/ex_act(severity)
 	reagents.splash_turf(get_turf(src), reagents.total_volume)
-	visible_message(span("danger", "\The [src] bursts open, spreading reagents all over the area!"))
+	visible_message(SPAN_DANGER("\The [src] bursts open, spreading reagents all over the area!"))
 	qdel(src)
 
 /obj/structure/reagent_dispensers/attackby(obj/item/O as obj, mob/user as mob)
 
-	var/obj/item/weapon/reagent_containers/RG = O
+	var/obj/item/reagent_containers/RG = O
 	if (istype(RG) && RG.is_open_container())
 
 		var/atype
@@ -54,11 +56,12 @@
 		switch(atype)
 			if ("Fill")
 				RG.standard_dispenser_refill(user,src)
+				playsound(src.loc, 'sound/machines/reagent_dispense.ogg', 25, 1)
 			if ("Empty")
 				if(is_open_container())
 					RG.standard_pour_into(user,src)
 				else
-					to_chat(user,"<span class='notice'>The top cap is wrenched on tight!</span>")
+					to_chat(user,"<span class='notice'>The inlet cap on \the [src] is wrenched on tight!</span>")
 		return
 
 	if (O.iswrench())
@@ -71,10 +74,10 @@
 				START_PROCESSING(SSprocessing,src)
 
 		else if(accept_any_reagent)
-			var/is_closed = flags & OPENCONTAINER
-			var/verb01 = is_closed ? "unwrenches" : "wrenches"
-			var/verb02 = (is_closed ? "open" : "shut")
-			user.visible_message("<span class='notice'>[user] [verb01] the top cap [verb02] from \the [src].</span>", "<span class='notice'>You [verb01] the top cap [verb02] from \the [src].</span>")
+			if(flags & OPENCONTAINER)
+				user.visible_message(SPAN_NOTICE("[user] wrenches the inlet cap on \the [src] shut."), SPAN_NOTICE("You wrench the inlet cap back on \the [src]."))
+			else
+				user.visible_message(SPAN_NOTICE("[user] unwrenches the inlet cap from \the [src]."), SPAN_NOTICE("You unwrench the inlet cap from \the [src]."))
 			flags ^= OPENCONTAINER
 			return
 
@@ -87,62 +90,48 @@
 	var/splash_amount = min(amount_per_transfer_from_this,60) //Hard limit of 60 per process
 	reagents.trans_to_turf(get_turf(src),splash_amount)
 
-//Dispensers
-/obj/structure/reagent_dispensers/watertank
-	name = "water tank"
-	desc = "A tank filled with water."
-	icon = 'icons/obj/objects.dmi'
-	icon_state = "watertank"
-	amount_per_transfer_from_this = 10
-
-/obj/structure/reagent_dispensers/watertank/Initialize()
-	. = ..()
-	reagents.add_reagent("water",capacity)
+//Fire extinguisher tank
 
 /obj/structure/reagent_dispensers/extinguisher
 	name = "extinguisher tank"
 	desc = "A tank filled with extinguisher fluid."
-	icon = 'icons/obj/objects.dmi'
 	icon_state = "extinguisher_tank"
-	amount_per_transfer_from_this = 10
+	amount_per_transfer_from_this = 30
+	reagents_to_add = list(/datum/reagent/toxin/fertilizer/monoammoniumphosphate = 1000)
 
-/obj/structure/reagent_dispensers/extinguisher/Initialize()
-	. = ..()
-	reagents.add_reagent("monoammoniumphosphate",capacity)
+// Tanks
+/obj/structure/reagent_dispensers/watertank
+	name = "water tank"
+	desc = "A tank filled with water."
+	icon_state = "watertank"
+	amount_per_transfer_from_this = 300
+	reagents_to_add = list(/datum/reagent/water = 1000)
 
 /obj/structure/reagent_dispensers/lube
 	name = "lube tank"
 	desc = "A tank filled with a silly amount of lube."
-	icon = 'icons/obj/objects.dmi'
 	icon_state = "lubetank"
-	amount_per_transfer_from_this = 10
-
-/obj/structure/reagent_dispensers/lube/Initialize()
-	. = ..()
-	reagents.add_reagent("lube",capacity)
+	amount_per_transfer_from_this = 30
+	reagents_to_add = list(/datum/reagent/lube = 1000)
 
 /obj/structure/reagent_dispensers/fueltank
 	name = "fuel tank"
 	desc = "A tank filled with welding fuel."
-	icon = 'icons/obj/objects.dmi'
 	icon_state = "weldtank"
 	accept_any_reagent = FALSE
-	amount_per_transfer_from_this = 10
+	amount_per_transfer_from_this = 30
 	var/defuse = 0
 	var/armed = 0
 	var/obj/item/device/assembly_holder/rig = null
-
-/obj/structure/reagent_dispensers/fueltank/Initialize()
-	. = ..()
-	reagents.add_reagent("fuel",capacity)
+	reagents_to_add = list(/datum/reagent/fuel = 1000)
 
 /obj/structure/reagent_dispensers/fueltank/examine(mob/user)
 	if(!..(user, 2))
 		return
 	if (is_leaking)
-		user << "<span class='warning'>Fuel faucet is wrenched open, leaking the fuel!</span>"
+		to_chat(user, "<span class='warning'>Fuel faucet is wrenched open, leaking the fuel!</span>")
 	if(rig)
-		user << "<span class='notice'>There is some kind of device rigged to the tank.</span>"
+		to_chat(user, "<span class='notice'>There is some kind of device rigged to the tank.</span>")
 
 /obj/structure/reagent_dispensers/fueltank/attack_hand(mob/user)
 	if (rig)
@@ -153,11 +142,18 @@
 			rig = null
 			overlays = new/list()
 
-/obj/structure/reagent_dispensers/fueltank/attackby(obj/item/weapon/W as obj, mob/user as mob)
+/obj/structure/reagent_dispensers/fueltank/attackby(obj/item/W, mob/user)
 	src.add_fingerprint(user)
+	if(istype(W, /obj/item/wirecutters/bomb) && rig)
+		user.visible_message(SPAN_WARNING("\The [user] carefully removes \the [rig] from \the [src]."), \
+							SPAN_NOTICE("You carefully remove \the [rig] from \the [src]."))
+		rig.forceMove(get_turf(user))
+		user.put_in_hands(rig)
+		rig = null
+		overlays = new/list()
 	if (istype(W,/obj/item/device/assembly_holder))
 		if (rig)
-			user << "<span class='warning'>There is another device in the way.</span>"
+			to_chat(user, "<span class='warning'>There is another device in the way.</span>")
 			return ..()
 		user.visible_message("[user] begins rigging [W] to \the [src].", "You begin rigging [W] to \the [src]")
 		if(do_after(user, 20))
@@ -193,10 +189,10 @@
 /obj/structure/reagent_dispensers/fueltank/bullet_act(var/obj/item/projectile/Proj)
 	if(Proj.get_structure_damage())
 		if(istype(Proj.firer))
-			message_admins("[key_name_admin(Proj.firer)] shot fueltank at [loc.loc.name] ([loc.x],[loc.y],[loc.z]) (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[loc.x];Y=[loc.y];Z=[loc.z]'>JMP</a>).")
+			log_and_message_admins("shot a welding tank", Proj.firer)
 			log_game("[key_name(Proj.firer)] shot fueltank at [loc.loc.name] ([loc.x],[loc.y],[loc.z]).",ckey=key_name(Proj.firer))
 
-		if(!istype(Proj ,/obj/item/projectile/beam/lastertag) && !istype(Proj ,/obj/item/projectile/beam/practice) )
+		if(!istype(Proj ,/obj/item/projectile/beam/lastertag) && !istype(Proj ,/obj/item/projectile/beam/practice) && !istype(Proj ,/obj/item/projectile/kinetic))
 			ex_act(2.0)
 
 /obj/structure/reagent_dispensers/fueltank/ex_act(var/severity = 3.0)
@@ -224,22 +220,42 @@
 	..()
 	ex_act(2.0)
 
+//Wall Dispensers
+
 /obj/structure/reagent_dispensers/peppertank
 	name = "pepper spray refiller"
 	desc = "Refill pepper spray canisters."
-	icon = 'icons/obj/objects.dmi'
 	icon_state = "peppertank"
 	anchored = 1
 	density = 0
 	amount_per_transfer_from_this = 45
 	can_tamper = FALSE
+	reagents_to_add = list(/datum/reagent/capsaicin/condensed = 1000)
 
-/obj/structure/reagent_dispensers/peppertank/Initialize()
-	. = ..()
-	reagents.add_reagent("condensedcapsaicin",capacity)
+/obj/structure/reagent_dispensers/virusfood
+	name = "virus food dispenser"
+	desc = "A dispenser of virus food."
+	icon_state = "virusfoodtank"
+	amount_per_transfer_from_this = 10
+	anchored = 1
+	density = 0
+	can_tamper = FALSE
+	reagents_to_add = list(/datum/reagent/nutriment/virusfood = 1000)
+
+/obj/structure/reagent_dispensers/acid
+	name = "sulphuric acid dispenser"
+	desc = "A dispenser of acid for industrial processes."
+	icon_state = "acidtank"
+	amount_per_transfer_from_this = 10
+	anchored = 1
+	density = 0
+	can_tamper = FALSE
+	reagents_to_add = list(/datum/reagent/acid = 1000)
+
+//Water Cooler
 
 /obj/structure/reagent_dispensers/water_cooler
-	name = "water-cooler"
+	name = "water cooler"
 	desc = "A machine that dispenses water to drink."
 	amount_per_transfer_from_this = 5
 	icon = 'icons/obj/vending.dmi'
@@ -248,15 +264,12 @@
 	anchored = 1
 	capacity = 500
 	can_tamper = FALSE
+	reagents_to_add = list(/datum/reagent/water = 500)
 
-/obj/structure/reagent_dispensers/water_cooler/Initialize()
-	. = ..()
-	reagents.add_reagent("water",capacity)
-
-/obj/structure/reagent_dispensers/water_cooler/attackby(obj/item/weapon/W as obj, mob/user as mob)
+/obj/structure/reagent_dispensers/water_cooler/attackby(obj/item/W as obj, mob/user as mob)
 	if (W.isscrewdriver())
 		src.add_fingerprint(user)
-		playsound(src.loc, 'sound/items/Ratchet.ogg', 100, 1)
+		playsound(src.loc, W.usesound, 100, 1)
 		if(do_after(user, 20))
 			if(!src) return
 			switch (anchored)
@@ -270,69 +283,93 @@
 	else
 		..()
 
-/obj/structure/reagent_dispensers/beerkeg
-	name = "beer keg"
-	desc = "A beer keg"
-	icon = 'icons/obj/objects.dmi'
+//Beer Kegs
+
+/obj/structure/reagent_dispensers/keg
+	name = "keg"
+	desc = "An empty keg."
 	icon_state = "beertankTEMP"
 	amount_per_transfer_from_this = 10
 
-/obj/structure/reagent_dispensers/beerkeg/Initialize()
+/obj/structure/reagent_dispensers/keg/attackby(obj/item/W as obj, mob/user as mob)
+	if (istype(W, /obj/item/stack/rods))
+		var/obj/item/stack/rods/R = W
+		if(!R.can_use(3)) // like a tripod
+			to_chat(user, SPAN_NOTICE("You need three rods to make a still!"))
+			return
+		if(do_after(user, 20))
+			if (QDELETED(src))
+				return
+			R.use(3)
+			new /obj/structure/distillery(src.loc)
+			if(reagents)
+				to_chat(user, SPAN_NOTICE("As you prop the still up on the rods, the reagents inside are spilled. However, you successfully make the still."))
+				reagents.trans_to_turf(get_turf(src), reagents.total_volume)
+			else
+				to_chat(user, SPAN_NOTICE("You successfully build a still."))
+			qdel(src)
+		return
 	. = ..()
-	reagents.add_reagent("beer",capacity)
 
-/obj/structure/reagent_dispensers/xuizikeg
+/obj/structure/reagent_dispensers/keg/beerkeg
+	name = "beer keg"
+	desc = "A beer keg"
+	reagents_to_add = list(/datum/reagent/alcohol/ethanol/beer = 1000)
+
+/obj/structure/reagent_dispensers/keg/xuizikeg
 	name = "xuizi juice keg"
 	desc = "A keg full of Xuizi juice, blended flower buds from the Moghean Xuizi cactus. The export stamp of the Arizi Guild is imprinted on the side."
-	icon = 'icons/obj/objects.dmi'
 	icon_state = "keg_xuizi"
-	amount_per_transfer_from_this = 10
+	reagents_to_add = list(/datum/reagent/alcohol/butanol/xuizijuice = 1000)
 
-/obj/structure/reagent_dispensers/xuizikeg/Initialize()
-	. = ..()
-	reagents.add_reagent("xuizijuice",capacity)
+/obj/structure/reagent_dispensers/keg/mead
+	name = "mead barrel"
+	desc = "A wooden mead barrel."
+	icon_state = "woodkeg"
+	reagents_to_add = list(/datum/reagent/alcohol/ethanol/messa_mead = 1000)
 
-/obj/structure/reagent_dispensers/virusfood
-	name = "virus food dispenser"
-	desc = "A dispenser of virus food."
-	icon = 'icons/obj/objects.dmi'
-	icon_state = "virusfoodtank"
-	amount_per_transfer_from_this = 10
-	anchored = 1
-	density = 0
-	can_tamper = FALSE
-
-/obj/structure/reagent_dispensers/virusfood/Initialize()
-	. = ..()
-	reagents.add_reagent("virusfood", capacity)
-
-/obj/structure/reagent_dispensers/acid
-	name = "sulphuric acid dispenser"
-	desc = "A dispenser of acid for industrial processes."
-	icon = 'icons/obj/objects.dmi'
-	icon_state = "acidtank"
-	amount_per_transfer_from_this = 10
-	anchored = 1
-	density = 0
-	can_tamper = FALSE
-
-/obj/structure/reagent_dispensers/acid/Initialize()
-	. = ..()
-	reagents.add_reagent("sacid", capacity)
-
-//Cooking oil refill tank
+//Cooking oil tank
 /obj/structure/reagent_dispensers/cookingoil
 	name = "cooking oil tank"
 	desc = "A fifty-litre tank of commercial-grade corn oil, intended for use in large scale deep fryers. Store in a cool, dark place"
-	icon = 'icons/obj/objects.dmi'
 	icon_state = "oiltank"
 	amount_per_transfer_from_this = 120
 	capacity = 5000
-
-/obj/structure/reagent_dispensers/cookingoil/Initialize()
-	. = ..()
-	reagents.add_reagent("cornoil",capacity)
+	reagents_to_add = list(/datum/reagent/nutriment/triglyceride/oil/corn = 5000)
 
 /obj/structure/reagent_dispensers/cookingoil/bullet_act(var/obj/item/projectile/Proj)
 	if(Proj.get_structure_damage())
 		ex_act(2.0)
+
+//Coolant tank
+
+/obj/structure/reagent_dispensers/coolanttank
+	name = "coolant tank"
+	desc = "A tank of industrial coolant"
+	icon_state = "coolanttank"
+	amount_per_transfer_from_this = 10
+	reagents_to_add = list(/datum/reagent/coolant = 1000)
+
+/obj/structure/reagent_dispensers/coolanttank/bullet_act(var/obj/item/projectile/Proj)
+	if(Proj.get_structure_damage())
+		if (Proj.damage_type != PAIN)
+			explode()
+
+/obj/structure/reagent_dispensers/coolanttank/ex_act(var/severity = 2.0)
+	explode()
+
+/obj/structure/reagent_dispensers/coolanttank/proc/explode()
+	var/datum/effect/effect/system/smoke_spread/S = new /datum/effect/effect/system/smoke_spread
+	//S.attach(src)
+	S.set_up(5, 0, src.loc)
+
+	playsound(src.loc, 'sound/effects/smoke.ogg', 50, 1, -3)
+	INVOKE_ASYNC(S, /datum/effect/effect/system/smoke_spread/.proc/start)
+
+	var/datum/gas_mixture/env = src.loc.return_air()
+	if(env)
+		if (reagents.total_volume > 750)
+			env.temperature = 0
+		else if (reagents.total_volume > 500)
+			env.temperature -= 100
+		QDEL_IN(src, 10)

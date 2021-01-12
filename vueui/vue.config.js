@@ -1,6 +1,6 @@
 module.exports = {
   lintOnSave: false,
-  baseUrl: '',
+  publicPath: '',
   outputDir: undefined,
   assetsDir: undefined,
   runtimeCompiler: true,
@@ -50,6 +50,7 @@ module.exports = {
     config.plugin('extract-css')
       .tap(args => {
         args[0].filename = '[name].css'
+        return args
       })
   }
 }

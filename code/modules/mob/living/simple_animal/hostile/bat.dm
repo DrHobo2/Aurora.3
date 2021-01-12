@@ -1,14 +1,15 @@
 /mob/living/simple_animal/hostile/scarybat
 	name = "space bats"
 	desc = "A swarm of cute little blood sucking bats that looks pretty upset."
-	icon = 'icons/mob/bats.dmi'
+	icon = 'icons/mob/npc/bats.dmi'
 	icon_state = "bat"
 	icon_living = "bat"
 	icon_dead = "bat_dead"
 	icon_gib = "bat_dead"
 	speak_chance = 0
 	turns_per_move = 3
-	meat_type = /obj/item/weapon/reagent_containers/food/snacks/meat
+	meat_type = /obj/item/reagent_containers/food/snacks/meat
+	organ_names = list("upper bat", "mid bat", "lower bat")
 	response_help = "pets the"
 	response_disarm = "gently pushes aside the"
 	response_harm = "hits the"
@@ -20,6 +21,7 @@
 	harm_intent_damage = 8
 	melee_damage_lower = 10
 	melee_damage_upper = 10
+	resist_mod = 10 // can't grab a cloud of bats easily
 	attacktext = "bites"
 	attack_sound = 'sound/weapons/bite.ogg'
 
@@ -38,7 +40,9 @@
 
 	faction = "scarybat"
 	flying = TRUE
+	butchering_products = list(/obj/item/stack/material/animalhide = 1)
 	var/mob/living/owner
+	emote_sounds = list('sound/effects/creatures/bat.ogg')
 
 /mob/living/simple_animal/hostile/scarybat/Initialize(mapload, mob/living/L as mob)
 	. = ..()

@@ -16,12 +16,11 @@
 /proc/cmp_name_dsc(atom/a, atom/b)
 	return sorttext(a.name, b.name)
 
-var/cmp_field = "name"
-/proc/cmp_records_asc(datum/data/record/a, datum/data/record/b)
-	return sorttext(b.fields[cmp_field], a.fields[cmp_field])
+/proc/cmp_records_asc(datum/record/a, datum/record/b)
+	return sorttext(b.vars[b.cmp_field], a.vars[a.cmp_field])
 
-/proc/cmp_records_dsc(datum/data/record/a, datum/data/record/b)
-	return sorttext(a.fields[cmp_field], b.fields[cmp_field])
+/proc/cmp_records_dsc(datum/record/a, datum/record/b)
+	return sorttext(a.vars[a.cmp_field], b.vars[b.cmp_field])
 
 /proc/cmp_ckey_asc(client/a, client/b)
 	return sorttext(b.ckey, a.ckey)
@@ -76,16 +75,10 @@ var/cmp_field = "name"
 /proc/cmp_rcon_bbox(obj/machinery/power/breakerbox/BR1, obj/machinery/power/breakerbox/BR2)
 	return sorttext(BR2.RCon_tag, BR1.RCon_tag)
 
-/proc/cmp_surgery(datum/surgery_step/a, datum/surgery_step/b)
-	return b.priority - a.priority
-
-/proc/cmp_recipe_complexity_dsc(datum/recipe/A, datum/recipe/B)
+/proc/cmp_recipe_complexity_dsc(decl/recipe/A, decl/recipe/B)
 	var/a_score = LAZYLEN(A.items) + LAZYLEN(A.reagents) + LAZYLEN(A.fruit)
 	var/b_score = LAZYLEN(B.items) + LAZYLEN(B.reagents) + LAZYLEN(B.fruit)
 	return b_score - a_score
-
-/proc/cmp_pda(obj/item/device/pda/A, obj/item/device/pda/B)
-	return sorttext(B.owner, A.owner)
 
 /proc/cmp_planelayer(atom/A, atom/B)
 	return (B.plane - A.plane) || (B.layer - A.layer)

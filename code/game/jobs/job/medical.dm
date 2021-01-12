@@ -1,222 +1,278 @@
 /datum/job/cmo
 	title = "Chief Medical Officer"
 	flag = CMO
-	head_position = 1
-	department = "Medical"
+	departments = list(DEPARTMENT_MEDICAL = JOBROLE_SUPERVISOR, DEPARTMENT_COMMAND)
 	department_flag = MEDSCI
 	faction = "Station"
 	total_positions = 1
 	spawn_positions = 1
+	intro_prefix = "the"
 	supervisors = "the captain"
-	selection_color = "#ffddf0"
-	idtype = /obj/item/weapon/card/id/silver
-	req_admin_notify = 1
+	selection_color = "#15903a"
 	economic_modifier = 10
+
+	minimum_character_age = 35
+
 	access = list(access_medical, access_medical_equip, access_morgue, access_genetics, access_heads,
-			access_chemistry, access_virology, access_cmo, access_surgery, access_RC_announce, access_engine, access_construction,
+			access_pharmacy, access_virology, access_cmo, access_surgery, access_RC_announce, access_engine, access_construction,
 			access_keycard_auth, access_sec_doors, access_psychiatrist, access_eva, access_external_airlocks, access_research,
-			access_paramedic, access_maint_tunnels)
+			access_first_responder, access_maint_tunnels)
 	minimal_access = list(access_medical, access_medical_equip, access_morgue, access_genetics, access_heads,
-			access_chemistry, access_virology, access_cmo, access_surgery, access_RC_announce, access_engine, access_construction,
+			access_pharmacy, access_virology, access_cmo, access_surgery, access_RC_announce, access_engine, access_construction,
 			access_keycard_auth, access_sec_doors, access_psychiatrist, access_eva, access_external_airlocks, access_research,
-			access_paramedic, access_maint_tunnels)
+			access_first_responder, access_maint_tunnels)
 
 	minimal_player_age = 10
 	ideal_character_age = 50
+	outfit = /datum/outfit/job/cmo
 
-	bag_type = /obj/item/weapon/storage/backpack/medic
-	satchel_type = /obj/item/weapon/storage/backpack/satchel_med
-	duffel_type = /obj/item/weapon/storage/backpack/duffel/med
-	messenger_bag_type = /obj/item/weapon/storage/backpack/messenger/med
+	blacklisted_species = list(SPECIES_TAJARA_MSAI, SPECIES_TAJARA_ZHAN, SPECIES_VAURCA_WORKER, SPECIES_VAURCA_WARRIOR)
 
-	equip(var/mob/living/carbon/human/H)
-		if(!H)
-			return FALSE
-		H.equip_to_slot_or_del(new /obj/item/device/radio/headset/heads/cmo(H), slot_l_ear)
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/chief_medical_officer(H), slot_w_uniform)
-		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/brown(H), slot_shoes)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/heads/cmo(H), slot_belt)
-		H.equip_to_slot_or_del(new /obj/item/weapon/storage/firstaid/adv(H), slot_l_hand)
-		H.equip_to_slot_or_del(new /obj/item/clothing/suit/storage/toggle/labcoat/cmo(H), slot_wear_suit)
-		H.equip_to_slot_or_del(new /obj/item/device/flashlight/pen(H), slot_s_store)
-		return TRUE
+/datum/outfit/job/cmo
+	name = "Chief Medical Officer"
+	jobtype = /datum/job/cmo
+
+	uniform = /obj/item/clothing/under/rank/chief_medical_officer
+	suit = /obj/item/clothing/suit/storage/toggle/labcoat/cmo
+	suit_store = /obj/item/device/flashlight/pen
+	shoes = /obj/item/clothing/shoes/brown
+	bowman = /obj/item/device/radio/headset/heads/cmo
+	headset = /obj/item/device/radio/headset/heads/cmo/alt
+	tab_pda = /obj/item/modular_computer/handheld/pda/medical/cmo
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/medical/cmo
+	tablet = /obj/item/modular_computer/handheld/preset/medical/cmo
+	id = /obj/item/card/id/navy
+	l_hand = /obj/item/storage/firstaid/adv
+
+	backpack = /obj/item/storage/backpack/medic
+	satchel = /obj/item/storage/backpack/satchel_med
+	dufflebag = /obj/item/storage/backpack/duffel/med
+	messengerbag = /obj/item/storage/backpack/messenger/med
 
 /datum/job/doctor
-	title = "Medical Doctor"
+	title = "Physician"
 	flag = DOCTOR
-	department = "Medical"
+	departments = SIMPLEDEPT(DEPARTMENT_MEDICAL)
 	department_flag = MEDSCI
 	faction = "Station"
-	total_positions = 5
-	spawn_positions = 3
+	total_positions = 4
+	spawn_positions = 4
 	supervisors = "the chief medical officer"
-	selection_color = "#ffeef0"
+	selection_color = "#15903a"
 	economic_modifier = 7
-	access = list(access_medical, access_medical_equip, access_morgue, access_surgery, access_chemistry, access_virology, access_genetics, access_eva)
-	minimal_access = list(access_medical, access_medical_equip, access_morgue, access_surgery, access_virology, access_eva)
-	alt_titles = list("Surgeon","Emergency Physician","Nurse","Virologist")
 
-	bag_type = /obj/item/weapon/storage/backpack/medic
-	satchel_type = /obj/item/weapon/storage/backpack/satchel_med
-	duffel_type = /obj/item/weapon/storage/backpack/duffel/med
-	messenger_bag_type = /obj/item/weapon/storage/backpack/messenger/med
+	minimum_character_age = 25
+
+	access = list(access_medical, access_medical_equip, access_morgue, access_surgery, access_pharmacy, access_virology, access_genetics, access_eva)
+	minimal_access = list(access_medical, access_medical_equip, access_morgue, access_surgery, access_genetics, access_eva)
+	outfit = /datum/outfit/job/doctor
+
+/datum/job/surgeon
+	title = "Surgeon"
+	flag = SURGEON
+	departments = SIMPLEDEPT(DEPARTMENT_MEDICAL)
+	department_flag = MEDSCI
+	faction = "Station"
+	supervisors = "the chief medical officer"
+	selection_color = "#15903a"
+	economic_modifier = 7
+
+	spawn_positions = 2
+	total_positions = 2
+
+	minimum_character_age = 30
+
+	access = list(access_medical, access_medical_equip, access_morgue, access_surgery, access_pharmacy, access_virology, access_genetics, access_eva)
+	minimal_access = list(access_medical, access_medical_equip, access_morgue, access_surgery, access_genetics, access_eva)
+	outfit = /datum/outfit/job/doctor/surgeon
+
+/datum/outfit/job/doctor
+	name = "Physician"
+	base_name = "Physician"
+	jobtype = /datum/job/doctor
+
+	uniform = /obj/item/clothing/under/rank/medical
+	suit = /obj/item/clothing/suit/storage/toggle/labcoat/medical
+	shoes = /obj/item/clothing/shoes/medical
+	headset = /obj/item/device/radio/headset/headset_med
+	bowman = /obj/item/device/radio/headset/headset_med/alt
+	tab_pda = /obj/item/modular_computer/handheld/pda/medical
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/medical
+	tablet = /obj/item/modular_computer/handheld/preset/medical
+	id = /obj/item/card/id/white
+	suit_store = /obj/item/device/flashlight/pen
+
+	backpack = /obj/item/storage/backpack/medic
+	satchel = /obj/item/storage/backpack/satchel_med
+	dufflebag = /obj/item/storage/backpack/duffel/med
+	messengerbag = /obj/item/storage/backpack/messenger/med
+
+/datum/outfit/job/doctor/surgeon
+	name = "Surgeon"
+	jobtype = /datum/job/doctor
+
+	uniform = /obj/item/clothing/under/rank/medical/blue
+	suit = /obj/item/clothing/suit/storage/toggle/labcoat/surgeon
+	shoes = /obj/item/clothing/shoes/surgeon
+	head = /obj/item/clothing/head/surgery/blue
+
+/datum/outfit/job/doctor/nurse
+	name = "Nurse"
+	jobtype = /datum/job/doctor
+
+	uniform = /obj/item/clothing/under/rank/medical/purple
+	suit = null
+	head = /obj/item/clothing/head/nursehat
 
 
-/datum/job/doctor/equip_backpack(var/mob/living/carbon/human/H, var/alt_title)
-	if(has_alt_title(H, alt_title,"Virologist"))
-		bag_type = /obj/item/weapon/storage/backpack/virology
-		satchel_type = /obj/item/weapon/storage/backpack/satchel_vir
-		duffel_type = /obj/item/weapon/storage/backpack/duffel/med
-		messenger_bag_type = /obj/item/weapon/storage/backpack/messenger/viro
-		..()
-		bag_type = initial(bag_type)
-		satchel_type = initial(satchel_type)
-		duffel_type = initial(duffel_type)
-		messenger_bag_type = initial(messenger_bag_type)
-	else
-		..()
-
-/datum/job/doctor/equip(var/mob/living/carbon/human/H, var/alt_title)
-	if(!H)
-		return FALSE
-	H.equip_to_slot_or_del(new /obj/item/device/radio/headset/headset_med(H), slot_l_ear)
-	H.equip_to_slot_or_del(new /obj/item/clothing/shoes/white(H), slot_shoes)
-	H.equip_to_slot_or_del(new /obj/item/weapon/storage/firstaid/adv(H), slot_l_hand)
-
-	if(has_alt_title(H, alt_title,"Emergency Physician"))
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/medical(H), slot_w_uniform)
-		H.equip_to_slot_or_del(new /obj/item/clothing/suit/storage/toggle/fr_jacket(H), slot_wear_suit)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/medical(H), slot_belt)
-	else if(has_alt_title(H, alt_title,"Surgeon"))
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/medical/blue(H), slot_w_uniform)
-		H.equip_to_slot_or_del(new /obj/item/clothing/suit/storage/toggle/labcoat(H), slot_wear_suit)
-		H.equip_to_slot_or_del(new /obj/item/clothing/head/surgery/blue(H), slot_head)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/medical(H), slot_belt)
-	else if(has_alt_title(H, alt_title,"Virologist"))
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/virologist(H), slot_w_uniform)
-		H.equip_to_slot_or_del(new /obj/item/clothing/suit/storage/toggle/labcoat/virologist(H), slot_wear_suit)
-		H.equip_to_slot_or_del(new /obj/item/clothing/mask/surgical(H), slot_wear_mask)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/viro(H), slot_belt)
-	else if(has_alt_title(H, alt_title,"Nurse"))
-		if(H.gender == FEMALE)
-			H.equip_to_slot_or_del(new /obj/item/clothing/head/nursehat(H), slot_head)
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/medical/purple(H), slot_w_uniform)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/medical(H), slot_belt)
-	else if(has_alt_title(H, alt_title,"Medical Doctor"))
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/medical(H), slot_w_uniform)
-		H.equip_to_slot_or_del(new /obj/item/clothing/suit/storage/toggle/labcoat(H), slot_wear_suit)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/medical(H), slot_belt)
-	else
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/medical(H), slot_w_uniform)
-		H.equip_to_slot_or_del(new /obj/item/clothing/suit/storage/toggle/labcoat(H), slot_wear_suit)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/medical(H), slot_belt)
-	H.equip_to_slot_or_del(new /obj/item/device/flashlight/pen(H), slot_s_store)
-	return TRUE
-
-
-
-//Chemist is a medical job damnit	//YEAH FUCK YOU SCIENCE	-Pete	//Guys, behave -Erro
-/datum/job/chemist
-	title = "Chemist"
+/datum/job/pharmacist
+	title = "Pharmacist"
 	flag = CHEMIST
-	department = "Medical"
+	departments = SIMPLEDEPT(DEPARTMENT_MEDICAL)
 	department_flag = MEDSCI
 	faction = "Station"
 	total_positions = 2
 	spawn_positions = 2
 	supervisors = "the chief medical officer"
-	selection_color = "#ffeef0"
+	selection_color = "#15903a"
 	economic_modifier = 5
-	access = list(access_medical, access_medical_equip, access_morgue, access_surgery, access_chemistry, access_virology, access_genetics)
-	minimal_access = list(access_medical, access_medical_equip, access_chemistry)
-	alt_titles = list("Pharmacist")
 
-	bag_type = /obj/item/weapon/storage/backpack/chemistry
-	satchel_type = /obj/item/weapon/storage/backpack/satchel_chem
-	duffel_type = /obj/item/weapon/storage/backpack/duffel/chem
-	messenger_bag_type = /obj/item/weapon/storage/backpack/messenger/chem
+	minimum_character_age = 26
 
-	equip(var/mob/living/carbon/human/H)
-		if(!H)
-			return FALSE
-		H.equip_to_slot_or_del(new /obj/item/device/radio/headset/headset_med(H), slot_l_ear)
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/chemist(H), slot_w_uniform)
-		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/white(H), slot_shoes)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/chemist(H), slot_belt)
-		H.equip_to_slot_or_del(new /obj/item/clothing/suit/storage/toggle/labcoat/chemist(H), slot_wear_suit)
-		return TRUE
+	access = list(access_medical, access_medical_equip, access_morgue, access_surgery, access_pharmacy, access_virology, access_genetics)
+	minimal_access = list(access_medical, access_medical_equip, access_pharmacy, access_virology)
+	outfit = /datum/outfit/job/pharmacist
+
+/datum/outfit/job/pharmacist
+	name = "Pharmacist"
+	jobtype = /datum/job/pharmacist
+
+	uniform = /obj/item/clothing/under/rank/pharmacist
+	suit = /obj/item/clothing/suit/storage/toggle/labcoat/pharmacist
+	shoes = /obj/item/clothing/shoes/chemist
+	headset = /obj/item/device/radio/headset/headset_med
+	bowman = /obj/item/device/radio/headset/headset_med/alt
+	tab_pda = /obj/item/modular_computer/handheld/pda/medical
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/medical
+	tablet = /obj/item/modular_computer/handheld/preset/medical
+	id = /obj/item/card/id/white
+
+	backpack = /obj/item/storage/backpack/pharmacy
+	satchel = /obj/item/storage/backpack/satchel_pharm
+	dufflebag = /obj/item/storage/backpack/duffel/pharm
+	messengerbag = /obj/item/storage/backpack/messenger/pharm
 
 /datum/job/psychiatrist
 	title = "Psychiatrist"
 	flag = PSYCHIATRIST
-	department = "Medical"
+	departments = SIMPLEDEPT(DEPARTMENT_MEDICAL)
 	department_flag = MEDSCI
 	faction = "Station"
 	total_positions = 1
 	spawn_positions = 1
 	economic_modifier = 5
+
+	minimum_character_age = 30
+
 	supervisors = "the chief medical officer"
-	selection_color = "#ffeef0"
-	access = list(access_medical, access_medical_equip, access_morgue, access_surgery, access_chemistry, access_virology, access_genetics, access_psychiatrist)
+	selection_color = "#15903a"
+	access = list(access_medical, access_medical_equip, access_morgue, access_surgery, access_pharmacy, access_virology, access_genetics, access_psychiatrist)
 	minimal_access = list(access_medical, access_medical_equip, access_psychiatrist)
 	alt_titles = list("Psychologist")
+	outfit = /datum/outfit/job/psychiatrist
+	alt_outfits = list("Psychologist" = /datum/outfit/job/psychiatrist/psycho)
 
-	equip(var/mob/living/carbon/human/H, var/alt_title)
-		if(!H)
-			return FALSE
-		H.equip_to_slot_or_del(new /obj/item/device/radio/headset/headset_med(H), slot_l_ear)
-		if(has_alt_title(H, alt_title,"Psychiatrist"))
-			H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/psych(H), slot_w_uniform)
-		else if(has_alt_title(H, alt_title,"Psychologist"))
-			H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/psych/turtleneck(H), slot_w_uniform)
-		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/laceup(H), slot_shoes)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/medical(H), slot_belt)
-		H.equip_to_slot_or_del(new /obj/item/clothing/suit/storage/toggle/labcoat(H), slot_wear_suit)
+/datum/outfit/job/psychiatrist
+	name = "Psychiatrist"
+	base_name = "Psychiatrist"
+	jobtype = /datum/job/psychiatrist
 
-		return TRUE
+	uniform = /obj/item/clothing/under/rank/psych
+	suit = /obj/item/clothing/suit/storage/toggle/labcoat/psych
+	shoes = /obj/item/clothing/shoes/psych
+	headset = /obj/item/device/radio/headset/headset_med
+	bowman = /obj/item/device/radio/headset/headset_med/alt
+	tab_pda = /obj/item/modular_computer/handheld/pda/medical/psych
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/medical/psych
+	tablet = /obj/item/modular_computer/handheld/preset/medical/psych
+	id = /obj/item/card/id/white
 
+/datum/outfit/job/psychiatrist/psycho
+	name = "Psychologist"
+	jobtype = /datum/job/psychiatrist
 
-/datum/job/paramedic
-	title = "Paramedic"
-	flag = PARAMEDIC
-	department = "Medical"
+/datum/job/med_tech
+	title = "First Responder"
+	flag = MED_TECH
+	departments = SIMPLEDEPT(DEPARTMENT_MEDICAL)
 	department_flag = MEDSCI
 	faction = "Station"
 	total_positions = 2
 	spawn_positions = 2
 	supervisors = "the chief medical officer"
-	selection_color = "#ffeef0"
+	selection_color = "#15903a"
 	economic_modifier = 4
-	access = list(access_medical, access_medical_equip, access_morgue, access_surgery, access_chemistry, access_virology, access_eva, access_maint_tunnels, access_external_airlocks, access_psychiatrist, access_paramedic)
-	minimal_access = list(access_medical, access_medical_equip, access_morgue, access_eva, access_maint_tunnels, access_external_airlocks, access_paramedic)
-	alt_titles = list("Emergency Medical Technician")
 
-	bag_type = /obj/item/weapon/storage/backpack/medic
-	satchel_type = /obj/item/weapon/storage/backpack/satchel_med
-	duffel_type = /obj/item/weapon/storage/backpack/duffel/med
-	messenger_bag_type = /obj/item/weapon/storage/backpack/messenger/med
+	minimum_character_age = 20
 
-	equip(var/mob/living/carbon/human/H, var/alt_title)
-		if(!H)
-			return FALSE
-		H.equip_to_slot_or_del(new /obj/item/device/radio/headset/headset_med(H), slot_l_ear)
-		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/jackboots(H), slot_shoes)
-		H.equip_to_slot_or_del(new /obj/item/weapon/storage/firstaid/adv(H), slot_l_hand)
-		if(has_alt_title(H, alt_title,"Emergency Medical Technician"))
-			H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/medical/paramedic(H), slot_w_uniform)
-			H.equip_to_slot_or_del(new /obj/item/clothing/suit/storage/toggle/fr_jacket(H), slot_wear_suit)
-		else if(has_alt_title(H, alt_title,"Paramedic"))
-			H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/medical/black(H), slot_w_uniform)
-			H.equip_to_slot_or_del(new /obj/item/clothing/suit/storage/toggle/fr_jacket(H), slot_wear_suit)
-		else
-			H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/medical(H), slot_w_uniform)
-		H.equip_to_slot_or_del(new /obj/item/weapon/storage/firstaid/adv(H), slot_l_hand)
-		H.equip_to_slot_or_del(new /obj/item/weapon/storage/belt/medical/emt(H), slot_belt)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/medical(H), slot_l_store)
-		return TRUE
+	access = list(access_medical, access_medical_equip, access_morgue, access_surgery, access_pharmacy, access_virology, access_eva, access_maint_tunnels, access_external_airlocks, access_psychiatrist, access_first_responder)
+	minimal_access = list(access_medical, access_medical_equip, access_morgue, access_eva, access_maint_tunnels, access_external_airlocks, access_first_responder)
+	outfit = /datum/outfit/job/med_tech
+	blacklisted_species = list(SPECIES_DIONA, SPECIES_IPC_G2)
 
-	equip_survival(var/mob/living/carbon/human/H)
-		if(!H)
-			return FALSE
-		H.species.equip_survival_gear(H,1)
-		return TRUE
+/datum/outfit/job/med_tech
+	name = "First Responder"
+	base_name = "First Responder"
+	jobtype = /datum/job/med_tech
+
+	uniform = /obj/item/clothing/under/rank/medical/first_responder
+	suit = /obj/item/clothing/suit/storage/toggle/first_responder_jacket
+	shoes = /obj/item/clothing/shoes/jackboots
+	headset = /obj/item/device/radio/headset/headset_med
+	bowman = /obj/item/device/radio/headset/headset_med/alt
+	l_hand = /obj/item/storage/firstaid/adv
+	r_hand = /obj/item/reagent_containers/hypospray
+	belt = /obj/item/storage/belt/medical/first_responder
+	tab_pda = /obj/item/modular_computer/handheld/pda/medical
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/medical
+	tablet = /obj/item/modular_computer/handheld/preset/medical
+	id = /obj/item/card/id/white
+	head = /obj/item/clothing/head/hardhat/first_responder
+
+	backpack = /obj/item/storage/backpack/medic
+	satchel = /obj/item/storage/backpack/satchel_med
+	dufflebag = /obj/item/storage/backpack/duffel/med
+	messengerbag = /obj/item/storage/backpack/messenger/med
+
+/datum/job/intern_med
+	title = "Medical Intern"
+	flag = INTERN_MED
+	departments = SIMPLEDEPT(DEPARTMENT_MEDICAL)
+	department_flag = MEDSCI
+	faction = "Station"
+	total_positions = 3
+	spawn_positions = 3
+	supervisors = "the Chief Medical Officer"
+	selection_color = "#15903a"
+	access = list(access_medical, access_surgery, access_medical_equip)
+	minimal_access = list(access_medical, access_surgery, access_medical_equip)
+	minimum_character_age = 18
+	outfit = /datum/outfit/job/intern_med
+
+/datum/outfit/job/intern_med
+	name = "Medical Intern"
+	jobtype = /datum/job/intern_med
+
+	uniform = /obj/item/clothing/under/rank/medical/intern
+	shoes = /obj/item/clothing/shoes/medical
+	headset = /obj/item/device/radio/headset/headset_med
+	bowman = /obj/item/device/radio/headset/headset_med/alt
+
+	backpack = /obj/item/storage/backpack/medic
+	satchel = /obj/item/storage/backpack/satchel_med
+	dufflebag = /obj/item/storage/backpack/duffel/med
+	messengerbag = /obj/item/storage/backpack/messenger/med
+
+	tab_pda = /obj/item/modular_computer/handheld/pda/medical
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/medical
+	tablet = /obj/item/modular_computer/handheld/preset/medical

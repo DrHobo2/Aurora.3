@@ -8,11 +8,11 @@
 ///////////////Great Worm///////////////
 ////////////////////////////////////////
 
-/obj/item/weapon/trap/sarlacc
+/obj/item/trap/sarlacc
 	name = "great worm maw"
 	desc = "Hop in, the gastrointestinal juices are just fine."
-	icon = 'icons/mob/cavern.dmi'
-	icon_state = "blank"
+	icon = 'icons/mob/npc/cavern.dmi'
+	icon_state = null
 	mouse_opacity = 0
 	throwforce = 0
 	anchored = 1
@@ -21,12 +21,12 @@
 	var/mob/living/simple_animal/hostile/greatworm/originator
 	var/mob/living/captive
 
-/obj/item/weapon/trap/sarlacc/Destroy()
+/obj/item/trap/sarlacc/Destroy()
 	if(originator)
 		originator = null
 	return ..()
 
-/obj/item/weapon/trap/sarlacc/Crossed(AM as mob|obj)
+/obj/item/trap/sarlacc/Crossed(AM as mob|obj)
 	if(originator)
 		if(deployed && isliving(AM) && !originator.eating)
 			var/mob/living/L = AM
@@ -37,11 +37,11 @@
 				)
 			attack_mob(L)
 			originator.eating = 1
-			L << "<span class='danger'>\The [src] begins digesting your upper body!</span>"
+			to_chat(L, "<span class='danger'>\The [src] begins digesting your upper body!</span>")
 			addtimer(CALLBACK(src, .proc/devour, L), 50 SECONDS)
 	..()
 
-/obj/item/weapon/trap/sarlacc/proc/devour(var/mob/living/C)
+/obj/item/trap/sarlacc/proc/devour(var/mob/living/C)
 	if(!C)
 		if(!deployed)
 			deployed = 1
@@ -58,7 +58,7 @@
 			"<span class='danger'>You feel a searing pain as \the [src] severs your lower body and sends you careening into its grotesque gullet!</span>",
 			"<b>You hear a sick crunch!</b>"
 			)
-		var/obj/item/organ/external/G = H.get_organ("groin")
+		var/obj/item/organ/external/G = H.get_organ(BP_GROIN)
 		G.droplimb(0,DROPLIMB_EDGE)
 		if(SSmob.greatasses.len)
 			var/obj/structure/greatworm/S = pick(SSmob.greatasses)
@@ -90,7 +90,7 @@
 /mob/living/simple_animal/hostile/greatworm
 	name = "great worm"
 	desc = "The gaping maw opens and closes eternally, insatiably... Rumours however tell that those who can sate it are rewarded."
-	icon = 'icons/mob/cavern.dmi'
+	icon = 'icons/mob/npc/cavern.dmi'
 	icon_state = "sarlacc"
 	see_in_dark = 8
 	health = 100
@@ -117,7 +117,7 @@
 	var/asleep = 0
 	var/tentacles = 6
 	var/list/active_tentacles = list()
-	var/obj/item/weapon/trap/sarlacc/sarlacc
+	var/obj/item/trap/sarlacc/sarlacc
 	var/loot_count
 	var/spawn_delay = 0
 	var/spawn_time = 5
@@ -128,7 +128,7 @@
 	. = ..()
 	SSmob.greatworms += src
 	loot_count = 4+(rand(0,4))
-	var/obj/item/weapon/trap/sarlacc/L = new /obj/item/weapon/trap/sarlacc(src.loc)
+	var/obj/item/trap/sarlacc/L = new /obj/item/trap/sarlacc(src.loc)
 	L.originator = src
 	sarlacc = L
 
@@ -142,7 +142,7 @@
 /mob/living/simple_animal/hostile/greatworm/Life()
 	..()
 	if(!sarlacc)
-		var/obj/item/weapon/trap/sarlacc/L = new /obj/item/weapon/trap/sarlacc(src.loc)
+		var/obj/item/trap/sarlacc/L = new /obj/item/trap/sarlacc(src.loc)
 		L.originator = src
 		sarlacc = L
 	if(sarlacc && sarlacc.loc != src.loc) //if the sarlacc is not located on us, move it back onto us.
@@ -229,12 +229,12 @@
 	if(target.loc == src.loc)
 		return 0
 	var/turf/T = get_turf(target.loc)
-	if(!istype(T,/turf/simulated/floor/asteroid))
+	if(!istype(T,/turf/unsimulated/floor/asteroid))
 		return 0
 	if(locate(/mob/living/simple_animal/hostile/lesserworm) in T)
 		return 0
 	spawn_delay = world.time + spawn_time
-	var/turf/simulated/floor/asteroid/A = T
+	var/turf/unsimulated/floor/asteroid/A = T
 	var/mob/living/simple_animal/hostile/lesserworm/L = new /mob/living/simple_animal/hostile/lesserworm(A)
 	if(A.dug < 1)
 		A.gets_dug()
@@ -254,7 +254,7 @@
 /mob/living/simple_animal/hostile/lesserworm
 	name = "lesser worm"
 	desc = "The maw on this creature is substantially smaller than the one on it's master, but it still hurts like hell."
-	icon = 'icons/mob/cavern.dmi'
+	icon = 'icons/mob/npc/cavern.dmi'
 	icon_state = "sarlacctentacle"
 	health = 25
 	maxHealth = 25
@@ -295,10 +295,10 @@
 		if(L != src)
 			L.apply_damage(15,BRUTE)
 			possible_targets += L
-			L << "<span class='danger'>\The [src] wraps around you tightly with its spiny teeth+!</span>"
+			to_chat(L, "<span class='danger'>\The [src] wraps around you tightly with its spiny teeth+!</span>")
 	if(Adjacent(originator) && possible_targets.len)
 		var/mob/living/L = pick(possible_targets)
-		L << "<span class='danger'>\The [src] flings you into \the [originator]'s maw!</span>"
+		to_chat(L, "<span class='danger'>\The [src] flings you into \the [originator]'s maw!</span>")
 		L.Move(originator.loc)
 
 /mob/living/simple_animal/hostile/lesserworm/Move()
@@ -311,7 +311,7 @@
 /mob/living/simple_animal/hostile/greatwormking
 	name = "great worm king"
 	desc = "This pulsating brain seems somehow connected to all the other orifices in this room..."
-	icon = 'icons/mob/cavern.dmi'
+	icon = 'icons/mob/npc/cavern.dmi'
 	icon_state = "sarlaccbrain"
 	see_in_dark = 8
 	see_invisible = SEE_INVISIBLE_NOLIGHTING
@@ -364,7 +364,7 @@
 	nodamage = 1
 	taser_effect = 1
 	agony = 20
-	check_armour = "energy"
+	check_armor = "energy"
 	pass_flags = PASSTABLE | PASSGLASS | PASSGRILLE
 	var/list/thoughts = list(
 		"You hear a cacophany of alien sounds.",
@@ -397,15 +397,15 @@
 	if(istype(A, /mob/living))
 		var/mob/living/L = A
 		if(L.reagents)
-			var/madhouse = pick("psilocybin","mindbreaker","impedrezene","cryptobiolin","stoxin","mutagen")
+			var/madhouse = pick(/datum/reagent/psilocybin,/datum/reagent/mindbreaker,/datum/reagent/impedrezene,/datum/reagent/cryptobiolin,/datum/reagent/soporific,/datum/reagent/mutagen)
 			var/madhouse_verbal_component = pick(thoughts)
 			L.reagents.add_reagent("[madhouse]", 3)
-			L << "<span class='alium'><b><i>[madhouse_verbal_component]</i></b></span>"
+			to_chat(L, "<span class='alium'><b><i>[madhouse_verbal_component]</i></b></span>")
 
 /obj/structure/greatworm
 	name = "great worm rectum"
 	desc = "The intestinal length of the great worm this end belongs to travels for what looks like miles."
-	icon = 'icons/mob/cavern.dmi'
+	icon = 'icons/mob/npc/cavern.dmi'
 	icon_state = "sarlaccend"
 	anchored = 1
 	density = 0

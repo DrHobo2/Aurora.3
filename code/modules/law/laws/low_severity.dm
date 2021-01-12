@@ -9,8 +9,8 @@
 	min_brig_time = 3
 	max_brig_time = 10
 
-	min_fine = 50
-	max_fine = 250
+	min_fine = 200
+	max_fine = 300
 
 /datum/law/low_severity/petty_theft
 	name = "i102 - Petty Theft"
@@ -20,19 +20,19 @@
 	min_brig_time = 3
 	max_brig_time = 10
 
-	min_fine = 50
-	max_fine = 200
+	min_fine = 150
+	max_fine = 225
 
 /datum/law/low_severity/minor_assault
 	name = "i103 - Minor Assault"
-	desc = "To use, or threaten, physical force against someone, without intent to kill or seriously injure."
+	desc = "To use, or threaten, physical force against someone, without intent to kill or seriously injure. To cause easily repairable damage to a free IPC chassis, up to and including the removal of limbs."
 	id = "i103"
 
 	min_brig_time = 4
 	max_brig_time = 10
 
-	min_fine = 50
-	max_fine = 450
+	min_fine = 400
+	max_fine = 800
 
 /datum/law/low_severity/battery
 	name = "i104 - Battery"
@@ -42,8 +42,8 @@
 	min_brig_time = 2
 	max_brig_time = 8
 
-	min_fine = 50
-	max_fine = 250
+	min_fine = 200
+	max_fine = 400
 
 /datum/law/low_severity/hooliganism
 	name = "i105 - Hooliganism"
@@ -53,19 +53,8 @@
 	min_brig_time = 5
 	max_brig_time = 8
 
-	min_fine = 50
-	max_fine = 300
-
-/datum/law/low_severity/suspicious_conduct
-	name = "i106 - Suspicious Conduct"
-	desc = " To possess a suspiciously wide skill set not indicated in employee record, wielding dangerous weapons near other staff, extensive inquiring about critical areas, or stalking other employees."
-	id = "i106"
-
-	min_brig_time = 2
-	max_brig_time = 15
-
-	min_fine = 50
-	max_fine = 250
+	min_fine = 250
+	max_fine = 375
 
 /datum/law/low_severity/radio_misuse
 	name = "i107 - Misuse of Public Radio Channels"
@@ -73,10 +62,10 @@
 	id = "i107"
 
 	min_brig_time = 3
-	max_brig_time = 10
+	max_brig_time = 3
 
-	min_fine = 50
-	max_fine = 300
+	min_fine = 150
+	max_fine = 225
 
 /datum/law/low_severity/violating_injunction
 	name = "i108 - Violation of Injunction"
@@ -86,8 +75,8 @@
 	min_brig_time = 5
 	max_brig_time = 10
 
-	min_fine = 0
-	max_fine = 200
+	min_fine = 500
+	max_fine = 750
 
 /datum/law/low_severity/slander_hos
 	name = "i109 - Slandering a Head of Staff"
@@ -97,19 +86,19 @@
 	min_brig_time = 5
 	max_brig_time = 10
 
-	min_fine = 50
-	max_fine = 300
+	min_fine = 250
+	max_fine = 375
 
 /datum/law/low_severity/slander
-	name = "i110 - Slander"
-	desc = "To spread false rumors in order to damage someone's reputation."
+	name = "i110 - Slander or Verbal Abuse"
+	desc = "To spread false rumors in order to damage someone's reputation, or to use racially offensive language."
 	id = "i110"
 
 	min_brig_time = 3
 	max_brig_time = 5
 
-	min_fine = 50
-	max_fine = 300
+	min_fine = 150
+	max_fine = 250
 
 /datum/law/low_severity/failure_execute
 	name = "i111 - Failure to Execute an Order"
@@ -119,8 +108,8 @@
 	min_brig_time = 5
 	max_brig_time = 15
 
-	min_fine = 50
-	max_fine = 550
+	min_fine = 500
+	max_fine = 750
 
 /datum/law/low_severity/sexual_harassment
 	name = "i112 - Sexual Harassment"
@@ -131,7 +120,7 @@
 	max_brig_time = 15
 
 	min_fine = 0
-	max_fine = 200
+	max_fine = 0
 
 /datum/law/low_severity/animal_cruelty
 	name = "i113 - Animal Cruelty"
@@ -142,18 +131,18 @@
 	max_brig_time = 10
 
 	min_fine = 0
-	max_fine = 200
+	max_fine = 0
 
 /datum/law/low_severity/vandalism
 	name = "i114 - Vandalism"
-	desc = " 	To deliberately damage or deface the station without malicious intent."
+	desc = "To deliberately damage or deface the station without malicious intent. To cause easily repairable damage to an owned IPC, up to and including disabling the chassis."
 	id = "i114"
 
 	min_brig_time = 3
 	max_brig_time = 10
 
-	min_fine = 50
-	max_fine = 500
+	min_fine = 450
+	max_fine = 675
 
 /datum/law/low_severity/threat_murder
 	name = "i115 - Threat of Murder or Serious Injury"
@@ -163,8 +152,8 @@
 	min_brig_time = 3
 	max_brig_time = 10
 
-	min_fine = 50
-	max_fine = 550
+	min_fine = 500
+	max_fine = 750
 
 /datum/law/low_severity/necrophilia
 	name = "i116 - Disrespect to the Dead"
@@ -174,8 +163,8 @@
 	min_brig_time = 5
 	max_brig_time = 10
 
-	min_fine = 50
-	max_fine = 450
+	min_fine = 400
+	max_fine = 600
 
 /datum/law/low_severity/excessive_detainment
 	name = "i117 - Excessive Use of Force in Detainment"
@@ -185,5 +174,27 @@
 	min_brig_time = 5
 	max_brig_time = 10
 
-	min_fine = 50
-	max_fine = 400
+	min_fine = 350
+	max_fine = 700
+
+/datum/law/low_severity/violation_privacy
+	name = "i118 - Violation of Privacy Laws"
+	desc = "To intentionally leak private aspects of employee records or financial account information to unauthorized personnel."
+	id = "i118"
+
+	min_brig_time = 3
+	max_brig_time = 10
+
+	min_fine = 500
+	max_fine = 750
+
+/datum/law/low_severity/illegal_search
+	name = "i119 - Illegal Search"
+	desc = "To preform a search of an employee or workplace without a search warrant, clearance, or probable cause."
+	id = "i119"
+
+	min_brig_time = 3
+	max_brig_time = 10
+
+	min_fine = 500
+	max_fine = 750

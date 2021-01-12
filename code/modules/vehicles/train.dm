@@ -28,6 +28,13 @@
 	for(var/obj/vehicle/train/T in orange(1, src))
 		latch(T)
 
+/obj/vehicle/train/examine(mob/user)
+	. = ..()
+	if(lead)
+		to_chat(user, SPAN_NOTICE("It is being towed by \the [lead] in the [dir2text(get_dir(src, lead))]."))
+	if(tow)
+		to_chat(user, SPAN_NOTICE("It towing \the [tow] in the [dir2text(get_dir(src, tow))]."))
+
 /obj/vehicle/train/Move()
 	var/old_loc = get_turf(src)
 	if(..())
@@ -59,7 +66,7 @@
 			M.apply_damage(22 / move_delay, BRUTE, def_zone, M.run_armor_check(def_zone, "melee"))	// and do damage according to how fast the train is going
 			if(istype(load, /mob/living/carbon/human))
 				var/mob/living/D = load
-				D << "<span class='warning'>You hit [M]!</span>"
+				to_chat(D, "<span class='warning'>You hit [M]!</span>")
 				msg_admin_attack("[D.name] ([D.ckey]) hit [M.name] ([M.ckey]) with [src]. (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[src.x];Y=[src.y];Z=[src.z]'>JMP</a>)",ckey=key_name(D),ckey_target=key_name(M))
 
 
@@ -79,7 +86,7 @@
 /obj/vehicle/train/relaymove(mob/user, direction)
 	var/turf/T = get_step_to(src, get_step(src, direction))
 	if(!T)
-		user << "You can't find a clear area to step onto."
+		to_chat(user, "You can't find a clear area to step onto.")
 		return 0
 
 	if(user != load)
@@ -90,18 +97,18 @@
 
 	unload(user, direction)
 
-	user << "<span class='notice'>You climb down from [src].</span>"
+	to_chat(user, "<span class='notice'>You climb down from [src].</span>")
 
 	return 1
 
 /obj/vehicle/train/MouseDrop_T(var/atom/movable/C, mob/user as mob)
 	if(user.buckled || user.stat || user.restrained() || !Adjacent(user) || !user.Adjacent(C) || !istype(C) || (user == C && !user.canmove))
 		return
-	if(istype(C,/obj/vehicle/train))
-		latch(C, user)
+	if(istype(C, /obj/vehicle/train))
+		attach_to(C, user)
 	else
 		if(!load(C))
-			user << "<span class='warning'>You were unable to load [C] on [src].</span>"
+			to_chat(user, "<span class='warning'>You were unable to load [C] on [src].</span>")
 
 /obj/vehicle/train/attack_hand(mob/user as mob)
 	if(user.stat || user.restrained() || !Adjacent(user))
@@ -111,10 +118,6 @@
 		user.forceMove(loc)			//for handling players stuck in src
 	else if(load)
 		unload(user)			//unload if loaded
-	else if(!load && !user.buckled)
-		load(user)				//else try climbing on board
-	else
-		return 0
 
 /obj/vehicle/train/verb/unlatch_v()
 	set name = "Unlatch"
@@ -139,22 +142,22 @@
 //Note: there is a modified version of this in code\modules\vehicles\cargo_train.dm specifically for cargo train engines
 /obj/vehicle/train/proc/attach_to(obj/vehicle/train/T, mob/user)
 	if (get_dist(src, T) > 1)
-		user << "<span class='warning'>[src] is too far away from [T] to hitch them together.</span>"
+		to_chat(user, "<span class='warning'>[src] is too far away from [T] to hitch them together.</span>")
 		return
 
 	if (lead)
-		user << "<span class='warning'>[src] is already hitched to something.</span>"
+		to_chat(user, "<span class='warning'>[src] is already hitched to something.</span>")
 		return
 
 	if (T.tow)
-		user << "<span class='warning'>[T] is already towing something.</span>"
+		to_chat(user, "<span class='warning'>[T] is already towing something.</span>")
 		return
 
 	//check for cycles.
 	var/obj/vehicle/train/next_car = T
 	while (next_car)
 		if (next_car == src)
-			user << "<span class='warning'>That seems very silly.</span>"
+			to_chat(user, "<span class='warning'>That seems very silly.</span>")
 			return
 		next_car = next_car.lead
 
@@ -164,7 +167,7 @@
 	set_dir(lead.dir)
 
 	if(user)
-		user << "<span class='notice'>You hitch [src] to [T].</span>"
+		to_chat(user, "<span class='notice'>You hitch [src] to [T].</span>")
 
 	update_stats()
 
@@ -172,13 +175,13 @@
 //detaches the train from whatever is towing it
 /obj/vehicle/train/proc/unattach(mob/user)
 	if (!lead)
-		user << "<span class='warning'>[src] is not hitched to anything.</span>"
+		to_chat(user, "<span class='warning'>[src] is not hitched to anything.</span>")
 		return
 
 	lead.tow = null
 	lead.update_stats()
 
-	user << "<span class='notice'>You unhitch [src] from [lead].</span>"
+	to_chat(user, "<span class='notice'>You unhitch [src] from [lead].</span>")
 	lead = null
 
 	update_stats()

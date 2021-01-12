@@ -7,9 +7,11 @@
 	icon_living = "carp"
 	icon_dead = "carp_dead"
 	icon_gib = "carp_gib"
+	icon_rest = "carp_rest"
 	speak_chance = 0
 	turns_per_move = 5
-	meat_type = /obj/item/weapon/reagent_containers/food/snacks/carpmeat
+	meat_type = /obj/item/reagent_containers/food/snacks/fish/carpmeat
+	organ_names = list("head", "chest", "tail", "left flipper", "right flipper")
 	response_help = "pets the"
 	response_disarm = "gently pushes aside the"
 	response_harm = "hits the"
@@ -18,6 +20,7 @@
 	health = 25
 	mob_size = 10
 
+	blood_overlay_icon = 'icons/mob/npc/blood_overlay_carp.dmi'
 	harm_intent_damage = 8
 	melee_damage_lower = 15
 	melee_damage_upper = 15
@@ -41,10 +44,16 @@
 	attack_emote = "nashes at"
 
 	flying = TRUE
+	see_in_dark = 8
+	see_invisible = SEE_INVISIBLE_NOLIGHTING
 
-/mob/living/simple_animal/hostile/carp/Initialize()
-	. = ..()
-	target_type_validator_map[/obj/effect/energy_field] = CALLBACK(src, .proc/validator_e_field)
+/mob/living/simple_animal/hostile/carp/update_icon()
+	..()
+	if(resting || stat == DEAD)
+		blood_overlay_icon = 'icons/mob/npc/blood_overlay.dmi'
+	else
+		blood_overlay_icon = initial(blood_overlay_icon)
+	handle_blood_overlay(TRUE)
 
 /mob/living/simple_animal/hostile/carp/Allow_Spacemove(var/check_drift = 0)
 	return 1	//No drifting in space for space carp!	//original comments do not steal
@@ -66,37 +75,25 @@
 	return ..()
 
 /mob/living/simple_animal/hostile/carp/AttackingTarget()
-	setClickCooldown(attack_delay)
-	if(!Adjacent(target_mob))
+	. = ..()
+	if(.)
 		return
-	if(isliving(target_mob))
-		var/mob/living/L = target_mob
-		if(prob(15))
-			L.Weaken(3)
-			L.visible_message("<span class='danger'>\the [src] knocks down \the [L]!</span>")
-		L.attack_generic(src,rand(melee_damage_lower,melee_damage_upper),attacktext)
-		return L
-	if(istype(target_mob,/obj/mecha))
-		var/obj/mecha/M = target_mob
-		M.attack_generic(src,rand(melee_damage_lower,melee_damage_upper),attacktext)
-		return M
-	if(istype(target_mob,/obj/machinery/bot))
-		var/obj/machinery/bot/B = target_mob
-		B.attack_generic(src,rand(melee_damage_lower,melee_damage_upper),attacktext)
-		return B
 	if(istype(target_mob, /obj/effect/energy_field))
 		var/obj/effect/energy_field/e = target_mob
 		e.Stress(rand(1,2))
-		visible_message("<span class='danger'>\the [src] has attacked [e]!</span>")
+		visible_message("<span class='danger'>\the [src] bites \the [e]!</span>")
 		src.do_attack_animation(e)
+		return e
 
 /mob/living/simple_animal/hostile/carp/DestroySurroundings(var/bypass_prob = FALSE)
+	if(stance != HOSTILE_STANCE_ATTACKING)
+		return 0
 	if(prob(break_stuff_probability) || bypass_prob)
 		for(var/dir in cardinal) // North, South, East, West
 			var/obj/effect/energy_field/e = locate(/obj/effect/energy_field, get_step(src, dir))
-			if(e)
+			if(e && e.strength >= 1)
 				e.Stress(rand(1,2))
-				visible_message("<span class='danger'>\the [src] has attacked [e]!</span>")
+				visible_message("<span class='danger'>\the [src] bites \the [e]!</span>")
 				src.do_attack_animation(e)
 				target_mob = e
 				stance = HOSTILE_STANCE_ATTACKING
@@ -111,14 +108,6 @@
 				return 1
 	return 0
 
-/mob/living/simple_animal/hostile/carp/proc/validator_e_field(var/obj/effect/energy_field/E, var/atom/current)
-	if(isliving(current)) // We prefer mobs over anything else
-		return FALSE
-	if(get_dist(src, E) < get_dist(src, current))
-		return TRUE
-	else
-		return FALSE
-
 /mob/living/simple_animal/hostile/carp/russian
 	name = "Ivan the carp"
 	desc = "A feared space carp, nicknamed as Ivan by the old spacemen of Tau Ceti."
@@ -131,18 +120,16 @@
 /mob/living/simple_animal/hostile/carp/russian/FindTarget()
     . = ..()
     if(.)
-        custom_emote(1,"spots a filthy capitalist!")
+        custom_emote(VISIBLE_MESSAGE,"spots a filthy capitalist!")
 
 /mob/living/simple_animal/hostile/carp/shark
 	name = "space shark"
 	desc = "The bigger, angrier cousin of the space carp."
-	icon = 'icons/mob/spaceshark.dmi'
 	icon_state = "shark"
 	icon_living = "shark"
 	icon_dead = "shark_dead"
+	icon_rest = "shark_rest"
 	meat_amount = 5
-
-	pixel_x = -16
 
 	maxHealth = 100
 	health = 100
@@ -152,3 +139,18 @@
 	harm_intent_damage = 5
 	melee_damage_lower = 20
 	melee_damage_upper = 25
+
+/mob/living/simple_animal/hostile/carp/old
+	icon_state = "carp_old"
+	icon_living = "carp_old"
+	icon_dead = "carp_old_dead"
+	icon_gib = "carp_old_gib"
+	icon_rest = "carp_old"
+
+/mob/living/simple_animal/hostile/carp/shark/old
+	icon = 'icons/mob/npc/spaceshark.dmi'
+	icon_state = "shark"
+	icon_living = "shark"
+	icon_dead = "shark_dead"
+	icon_rest = "shark"
+	pixel_x = -16

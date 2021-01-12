@@ -1,6 +1,3 @@
-//This file was auto-corrected by findeclaration.exe on 25.5.2012 20:42:32
-
-
 /*
 	Telecomms monitor tracks the overall trafficing of a telecommunications network
 	and displays a heirarchy of linked machines.
@@ -9,6 +6,7 @@
 
 /obj/machinery/computer/telecomms/monitor
 	name = "Telecommunications Monitor"
+	desc = "A monitor that tracks the overall traffic of a telecommunicaations network, and displays a hierarchy of linked machines."
 	icon_screen = "comm_monitor"
 
 	var/screen = 0				// the screen number:
@@ -109,7 +107,7 @@
 
 		if(href_list["network"])
 
-			var/newnet = input(usr, "Which network do you want to view?", "Comm Monitor", network) as null|text
+			var/newnet = sanitize(input(usr, "Which network do you want to view?", "Comm Monitor", network) as null|text)
 			if(newnet && ((usr in range(1, src) || issilicon(usr))))
 				if(length(newnet) > 15)
 					temp = "<font color = #D70B00>- FAILED: NETWORK TAG STRING TOO LENGHTLY -</font>"
@@ -123,15 +121,15 @@
 		updateUsrDialog()
 		return
 
-	attackby(var/obj/item/weapon/D as obj, var/mob/user as mob)
+	attackby(var/obj/item/D as obj, var/mob/user as mob)
 		if(D.isscrewdriver())
-			playsound(src.loc, 'sound/items/Screwdriver.ogg', 50, 1)
-			if(do_after(user, 20))
+			playsound(src.loc, D.usesound, 50, 1)
+			if(do_after(user, 20/D.toolspeed))
 				if (src.stat & BROKEN)
-					user << "<span class='notice'>The broken glass falls out.</span>"
+					to_chat(user, "<span class='notice'>The broken glass falls out.</span>")
 					var/obj/structure/computerframe/A = new /obj/structure/computerframe( src.loc )
-					new /obj/item/weapon/material/shard( src.loc )
-					var/obj/item/weapon/circuitboard/comm_monitor/M = new /obj/item/weapon/circuitboard/comm_monitor( A )
+					new /obj/item/material/shard( src.loc )
+					var/obj/item/circuitboard/comm_monitor/M = new /obj/item/circuitboard/comm_monitor( A )
 					for (var/obj/C in src)
 						C.forceMove(src.loc)
 					A.circuit = M
@@ -140,9 +138,9 @@
 					A.anchored = 1
 					qdel(src)
 				else
-					user << "<span class='notice'>You disconnect the monitor.</span>"
+					to_chat(user, "<span class='notice'>You disconnect the monitor.</span>")
 					var/obj/structure/computerframe/A = new /obj/structure/computerframe( src.loc )
-					var/obj/item/weapon/circuitboard/comm_monitor/M = new /obj/item/weapon/circuitboard/comm_monitor( A )
+					var/obj/item/circuitboard/comm_monitor/M = new /obj/item/circuitboard/comm_monitor( A )
 					for (var/obj/C in src)
 						C.forceMove(src.loc)
 					A.circuit = M
@@ -157,6 +155,6 @@
 	if(!emagged)
 		playsound(src.loc, 'sound/effects/sparks4.ogg', 75, 1)
 		emagged = 1
-		user << "<span class='notice'>You you disable the security protocols</span>"
+		to_chat(user, "<span class='notice'>You you disable the security protocols</span>")
 		src.updateUsrDialog()
 		return 1

@@ -3,8 +3,8 @@
 	desc = "Regulates the transfer of air between two tanks"
 	icon = 'icons/obj/assemblies.dmi'
 	icon_state = "valve_1"
-	var/obj/item/weapon/tank/tank_one
-	var/obj/item/weapon/tank/tank_two
+	var/obj/item/tank/tank_one
+	var/obj/item/tank/tank_two
 	var/obj/item/device/attached_device
 	var/mob/attacher = null
 	var/valve_open = 0
@@ -18,19 +18,19 @@
 
 /obj/item/device/transfer_valve/attackby(obj/item/item, mob/user)
 	var/turf/location = get_turf(src) // For admin logs
-	if(istype(item, /obj/item/weapon/tank))
+	if(istype(item, /obj/item/tank))
 		if(tank_one && tank_two)
-			user << "<span class='warning'>There are already two tanks attached, remove one first.</span>"
+			to_chat(user, "<span class='warning'>There are already two tanks attached, remove one first.</span>")
 			return
 
 		if(!tank_one)
 			tank_one = item
 			user.drop_from_inventory(item,src)
-			user << "<span class='notice'>You attach the tank to the transfer valve.</span>"
+			to_chat(user, "<span class='notice'>You attach the tank to the transfer valve.</span>")
 		else if(!tank_two)
 			tank_two = item
 			user.drop_from_inventory(item,src)
-			user << "<span class='notice'>You attach the tank to the transfer valve.</span>"
+			to_chat(user, "<span class='notice'>You attach the tank to the transfer valve.</span>")
 			message_admins("[key_name_admin(user)] attached both tanks to a transfer valve. (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[location.x];Y=[location.y];Z=[location.z]'>JMP</a>)")
 			log_game("[key_name_admin(user)] attached both tanks to a transfer valve.",ckey=key_name(user))
 
@@ -40,15 +40,15 @@
 	else if(isassembly(item))
 		var/obj/item/device/assembly/A = item
 		if(A.secured)
-			user << "<span class='notice'>The device is secured.</span>"
+			to_chat(user, "<span class='notice'>The device is secured.</span>")
 			return
 		if(attached_device)
-			user << "<span class='warning'>There is already an device attached to the valve, remove it first.</span>"
+			to_chat(user, "<span class='warning'>There is already an device attached to the valve, remove it first.</span>")
 			return
 		user.remove_from_mob(item)
 		attached_device = A
 		A.forceMove(src)
-		user << "<span class='notice'>You attach the [item] to the valve controls and secure it.</span>"
+		to_chat(user, "<span class='notice'>You attach the [item] to the valve controls and secure it.</span>")
 		A.holder = src
 		A.toggle_secure()	//this calls update_icon(), which calls update_icon() on the holder (i.e. the bomb).
 
@@ -139,7 +139,7 @@
 	if(attached_device)
 		add_overlay("device")
 
-/obj/item/device/transfer_valve/proc/remove_tank(obj/item/weapon/tank/T)
+/obj/item/device/transfer_valve/proc/remove_tank(obj/item/tank/T)
 	if(tank_one == T)
 		split_gases()
 		tank_one = null

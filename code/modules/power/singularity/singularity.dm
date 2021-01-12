@@ -30,9 +30,10 @@
 
 	var/chained = 0//Adminbus chain-grab
 
-/obj/singularity/New(loc, var/starting_energy = 50, var/temp = 0)
+/obj/singularity/New(loc, var/starting_energy = 50, var/temp = 0, var/alert = TRUE)
 	//CARN: admin-alert for chuckle-fuckery.
-	admin_investigate_setup()
+	if(alert)
+		admin_investigate_setup()
 	energy = starting_energy
 
 	if (temp)
@@ -105,10 +106,13 @@
 	last_warning = world.time
 	var/count = locate(/obj/machinery/containment_field) in orange(30, src)
 
+	var/msg = "A singulo has been created."
 	if (!count)
-		message_admins("A singulo has been created without containment fields active ([x], [y], [z] - <A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[x];Y=[y];Z=[z]'>JMP</a>).")
+		msg += " No containment field active!"
 
-	investigate_log("was created. [count ? "" : "<font color='red'>No containment fields were active.</font>"]", I_SINGULO)
+	log_and_message_admins("A singulo has been created without containment fields active.", location = get_turf(src))
+
+	investigate_log("was created.[count ? "" : " <span class='warning'>No containment fields were active.</span>"]. usr=[usr ? key_name(usr) : "null"]", I_SINGULO)
 
 /obj/singularity/proc/dissipate()
 	if (!dissipate)
@@ -244,7 +248,7 @@
 			visible_message("<span class='danger'><font size='3'>You witness the creation of a destructive force that cannot possibly be stopped by human hands.</font></span>")
 
 	if (current_size == allowed_size)
-		investigate_log("<font color='red'>grew to size [current_size].</font>", I_SINGULO)
+		investigate_log("<span class='warning'>grew to size [current_size].</span>", I_SINGULO)
 		return 1
 	else if (current_size < (--temp_allowed_size) && current_size != STAGE_SUPER)
 		expand(temp_allowed_size)
@@ -406,7 +410,7 @@
 	else if (locate(/obj/machinery/shieldwallgen) in T)
 		var/obj/machinery/shieldwallgen/S = locate(/obj/machinery/shieldwallgen) in T
 
-		if (S && S.active)
+		if (S?.power_state)
 			return 0
 	return 1
 
@@ -454,12 +458,12 @@
 		if(M.stat == CONSCIOUS)
 			if (istype(M,/mob/living/carbon/human))
 				var/mob/living/carbon/human/H = M
-				if(istype(H.glasses,/obj/item/clothing/glasses/meson) && current_size != 11)
-					H << "<span class=\"notice\">You look directly into The [src.name], good thing you had your protective eyewear on!</span>"
+				if(istype(H.glasses,/obj/item/clothing/glasses/safety) && current_size != 11)
+					to_chat(H, "<span class=\"notice\">You look directly into The [src.name], good thing you had your protective eyewear on!</span>")
 					return
 				else
-					H << "<span class=\"warning\">You look directly into The [src.name], but your eyewear does absolutely nothing to protect you from it!</span>"
-		M << "<span class='danger'>You look directly into The [src.name] and feel [current_size == 11 ? "helpless" : "weak"].</span>"
+					to_chat(H, "<span class=\"warning\">You look directly into The [src.name], but your eyewear does absolutely nothing to protect you from it!</span>")
+		to_chat(M, "<span class='danger'>You look directly into The [src.name] and feel [current_size == 11 ? "helpless" : "weak"].</span>")
 		M.apply_effect(3, STUN)
 		for(var/mob/O in viewers(M, null))
 			O.show_message(text("<span class='danger'>[] stares blankly at The []!</span>", M, src), 1)
@@ -474,11 +478,11 @@
 	for(var/mob/living/M in view(10, src.loc))
 		if(prob(67))
 			M.apply_effect(rand(energy), IRRADIATE, blocked = M.getarmor(null, "rad"))
-			M << "<span class=\"warning\">You hear an uneartly ringing, then what sounds like a shrilling kettle as you are washed with a wave of heat.</span>"
-			M << "<span class=\"notice\">Miraculously, it fails to kill you.</span>"
+			to_chat(M, "<span class=\"warning\">You hear an uneartly ringing, then what sounds like a shrilling kettle as you are washed with a wave of heat.</span>")
+			to_chat(M, "<span class=\"notice\">Miraculously, it fails to kill you.</span>")
 		else
-			M << "<span class=\"danger\">You hear an uneartly ringing, then what sounds like a shrilling kettle as you are washed with a wave of heat.</span>"
-			M << "<span class=\"danger\">You don't even have a moment to react as you are reduced to ashes by the intense radiation.</span>"
+			to_chat(M, "<span class=\"danger\">You hear an uneartly ringing, then what sounds like a shrilling kettle as you are washed with a wave of heat.</span>")
+			to_chat(M, "<span class=\"danger\">You don't even have a moment to react as you are reduced to ashes by the intense radiation.</span>")
 			M.dust()
 	return
 

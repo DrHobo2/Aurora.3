@@ -1,78 +1,85 @@
 //cyborgs presets, mostly used for events/admin bus
-
 /mob/living/silicon/robot/combat
-	modtype = "Combat"
-	spawn_module = /obj/item/weapon/robot_module/combat
-	cell_type = /obj/item/weapon/cell/super
+	mod_type = "Combat"
+	spawn_module = /obj/item/robot_module/combat
+	cell_type = /obj/item/cell/super
 
 /mob/living/silicon/robot/combat/ert
-	scrambledcodes = 1
-	lawupdate = 0
-	lawpreset = /datum/ai_laws/nanotrasen_aggressive
-	idcard_type = /obj/item/weapon/card/id/ert
+	scrambled_codes = TRUE
+	law_update = FALSE
+	law_preset = /datum/ai_laws/nanotrasen_aggressive
+	id_card_type = /obj/item/card/id/ert
 	key_type = /obj/item/device/encryptionkey/ert
-
-/mob/living/silicon/robot/combat/ert/init()
-	..()
-	if(!jetpack)
-		jetpack = new /obj/item/weapon/tank/jetpack/carbondioxide/synthetic(src)
+	has_jetpack = TRUE
 
 /mob/living/silicon/robot/scrambled //should not stand linked to the station or the ai
-	scrambledcodes = 1
-	lawupdate = 0
+	scrambled_codes = TRUE
+	law_update = FALSE
 
-/mob/living/silicon/robot/hunter_seeker //added for events, at the request of the lore people
-	maxHealth = 300
-	health = 300
-	scrambledcodes = 1
-	lawupdate = 0
-	cell_type = /obj/item/weapon/cell/super
-	overclocked = 1
-	speed = -3
-	req_access = list(access_syndicate)
-	idcard_type = /obj/item/weapon/card/id/syndicate
-	key_type = /obj/item/device/encryptionkey/syndicate
-	spawn_module = /obj/item/weapon/robot_module/hunter_seeker
-	no_pda = TRUE
-	light_color = LIGHT_COLOR_EMERGENCY
-	light_power = 15
-	light_range  = 15
-	integrated_light_power = 15
-	light_wedge = 10
+/mob/living/silicon/robot/bluespace
+	mod_type = "Bluespace"
+	spawn_module = /obj/item/robot_module/bluespace
+	cell_type = /obj/item/cell/infinite
+	overclocked = TRUE
+	law_update = FALSE
+	scrambled_codes = TRUE
+	status_flags = GODMODE|NOFALL
 
-/mob/living/silicon/robot/hunter_seeker/init()
-	..()
-	if(!jetpack)
-		jetpack = new /obj/item/weapon/tank/jetpack/carbondioxide/synthetic(src)
+/mob/living/silicon/robot/bluespace/verb/antigrav()
+	set name = "Toggle Gravity"
+	set desc = "Use bluespace technology to ignore gravity."
+	set category = "BST"
 
-	var/obj/item/robot_parts/robot_component/surge/S = new(src)
-	for(var/V in components)
-		var/datum/robot_component/C = components[V]
-		if(!C.installed && istype(S, C.external_type))
-			C.wrapped = S
-			C.install()
-			S.loc = null
+	status_flags ^= NOFALL
+	to_chat(src, SPAN_NOTICE("You will [status_flags & NOFALL ? "no longer fall" : "now fall normally"]."))
 
-/mob/living/silicon/robot/hunter_seeker/updateicon() //because this was the only way I found out how to make their eyes and etc works
-	cut_overlays()
-	if(stat == 0)
-		add_overlay("eyes-[icon_state]")
+/mob/living/silicon/robot/bluespace/verb/bstwalk()
+	set name = "Toggle Incorporeal Movement"
+	set desc = "Use bluespace technology to phase through solid matter and move quickly."
+	set category = "BST"
+	set popup_menu = 0
 
-	if(opened)
-		var/panelprefix = custom_sprite ? src.ckey : "ov"
-		if(wiresexposed)
-			add_overlay("[panelprefix]-openpanel +w")
-		else if(cell)
-			add_overlay("[panelprefix]-openpanel +c")
+	if(!src.incorporeal_move)
+		src.incorporeal_move = INCORPOREAL_BSTECH
+		to_chat(src, SPAN_NOTICE("You will now phase through solid matter."))
+	else
+		src.incorporeal_move = INCORPOREAL_DISABLE
+		to_chat(src, SPAN_NOTICE("You will no-longer phase through solid matter."))
+	return
+
+/mob/living/silicon/robot/bluespace/verb/bstrecover()
+	set name = "Restore Health"
+	set desc = "Use bluespace to teleport in a fresh, healthy body."
+	set category = "BST"
+	set popup_menu = 0
+
+	src.revive()
+
+/mob/living/silicon/robot/bluespace/verb/bstquit()
+	set name = "Teleport out"
+	set desc = "Jump into bluespace and continue wherever you left off. Deletes the BSTech and returns to your original mob if you have one."
+	set category = "BST"
+
+	src.custom_emote(VISIBLE_MESSAGE, "politely beeps as its lights start to flash.")
+	spark(src, 5, alldirs)
+	addtimer(CALLBACK(GLOBAL_PROC, .proc/qdel, src), 10, TIMER_CLIENT_TIME)
+	animate(src, alpha = 0, time = 9, easing = QUAD_EASING)
+
+	if(key)
+		if(client.holder && client.holder.original_mob)
+			client.holder.original_mob.key = key
 		else
-			add_overlay("[panelprefix]-openpanel -c")
+			var/mob/abstract/observer/ghost = new(src)	//Transfer safety to observer spawning proc.
+			ghost.key = key
+			ghost.mind.name = "[ghost.key] BSTech"
+			ghost.name = "[ghost.key] BSTech"
+			ghost.real_name = "[ghost.key] BSTech"
+			ghost.voice_name = "[ghost.key] BSTech"
 
-	if(module_active && istype(module_active,/obj/item/borg/combat/shield))
-		add_overlay("[icon_state]-shield")
+/mob/living/silicon/robot/bluespace/verb/tgm()
+	set name = "Toggle Godmode"
+	set desc = "For when you want to be vulnerable."
+	set category = "BST"
 
-	if(modtype == "Combat")
-		if(module_active && istype(module_active,/obj/item/borg/combat/mobility))
-			icon_state = "[icon_state]-roll"
-		else
-			icon_state = module_sprites[icontype]
-
+	status_flags ^= GODMODE
+	to_chat(src, SPAN_NOTICE("God mode is now [status_flags & GODMODE ? "enabled" : "disabled"]"))

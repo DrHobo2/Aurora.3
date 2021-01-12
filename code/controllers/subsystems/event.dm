@@ -62,7 +62,7 @@ var/datum/controller/subsystem/events/SSevents
 			return
 
 	while (pos <= EVENT_LEVEL_MAJOR)
-		var/list/datum/event_container/EC = event_containers[pos]
+		var/datum/event_container/EC = event_containers[pos]
 		EC.process()
 		pos++
 
@@ -88,12 +88,12 @@ var/datum/controller/subsystem/events/SSevents
 	log_debug("SSevents: Event '[EM.name]' has completed at [worldtime2text()].")
 
 /datum/controller/subsystem/events/proc/delay_events(severity, delay)
-	var/list/datum/event_container/EC = event_containers[severity]
+	var/datum/event_container/EC = event_containers[severity]
 	EC.next_event_time += delay
 
 /datum/controller/subsystem/events/proc/Interact(mob/living/user)
 	if (!initialized)
-		user << "<span class='alert'>The [src] subsystem has not initialized yet. Please wait until server init completes before trying to use the Event Manager panel.</span>"
+		to_chat(user, "<span class='alert'>The [src] subsystem has not initialized yet. Please wait until server init completes before trying to use the Event Manager panel.</span>")
 		return
 
 	var/html = GetInteractWindow()
@@ -272,6 +272,7 @@ var/datum/controller/subsystem/events/SSevents
 		var/datum/event/E = locate(href_list["stop"])
 		var/datum/event_meta/EM = E.event_meta
 		log_and_message_admins("has stopped the [severity_to_string[EM.severity]] event '[EM.name]'.")
+		E.end()
 		E.kill()
 	else if(href_list["view_events"])
 		selected_event_container = locate(href_list["view_events"])

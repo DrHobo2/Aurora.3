@@ -9,7 +9,7 @@
 
 /datum/martial_art/wrestling/harm_act(var/mob/living/carbon/human/A, var/mob/living/carbon/human/D)
 	D.grabbedby(A,1)
-	var/obj/item/weapon/grab/G = A.get_active_hand()
+	var/obj/item/grab/G = A.get_active_hand()
 	if(G && prob(50))
 		G.state = GRAB_AGGRESSIVE
 		D.visible_message("<span class='danger'>[A] has [D] in a clinch!</span>")
@@ -36,8 +36,8 @@
 	return
 
 /datum/martial_art/wrestling/disarm_act(var/mob/living/carbon/human/A, var/mob/living/carbon/human/D)
-	if(istype(A.get_inactive_hand(),/obj/item/weapon/grab))
-		var/obj/item/weapon/grab/G = A.get_inactive_hand()
+	if(istype(A.get_inactive_hand(),/obj/item/grab))
+		var/obj/item/grab/G = A.get_inactive_hand()
 		if(G.affecting == D)
 			Suplex(A,D)
 			return 1
@@ -49,30 +49,20 @@
 	D.visible_message("<span class='danger'>[A] holds [D] down!</span>")
 	var/obj/item/organ/external/affecting = D.get_organ(ran_zone(A.zone_sel.selecting))
 	var/armor_block = D.run_armor_check(affecting, "melee")
-	D.apply_damage(40, HALLOSS, affecting, armor_block)
+	D.apply_damage(40, PAIN, affecting, armor_block)
 	return 1
 
 /datum/martial_art/wrestling/proc/wrestling_help()
-	set name = "Recall Teachings"
+	set name = "Recall Wrestling"
 	set desc = "Remember how to wrestle."
-	set category = "Wrestling"
+	set category = "Abilities"
 
 	to_chat(usr, "<b><i>You flex your muscles and have a revelation...</i></b>")
 	to_chat(usr, "<span class='notice'>Clinch</span>: Grab. Passively gives you a chance to immediately aggressively grab someone. Not always successful.")
 	to_chat(usr, "<span class='notice'>Suplex</span>: Disarm someone you are grabbing. Suplexes your target to the floor. Greatly injures them and leaves both you and your target on the floor.")
 	to_chat(usr, "<span class='notice'>Advanced grab</span>: Grab. Passively causes pain when grabbing someone.")
 
-/obj/item/wrestling_manual
+/obj/item/martial_manual/wrestling
 	name = "wrestling manual"
 	desc = "A manual designated to teach the user about the art of wrestling."
-	icon = 'icons/obj/library.dmi'
-	icon_state ="cqcmanual"
-
-/obj/item/wrestling_manual/attack_self(mob/user as mob)
-	if(!ishuman(user))
-		return
-	var/mob/living/carbon/human/H = user
-	var/datum/martial_art/wrestling/F = new/datum/martial_art/wrestling(null)
-	F.teach(H)
-	to_chat(H, "<span class='notice'>You have learned the martial art of wrestling.</span>")
-	qdel(src)
+	martial_art = /datum/martial_art/wrestling

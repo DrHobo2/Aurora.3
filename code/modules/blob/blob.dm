@@ -1,7 +1,7 @@
 //I will need to recode parts of this but I am way too tired atm
 /obj/effect/blob
 	name = "blob"
-	icon = 'icons/mob/blob.dmi'
+	icon = 'icons/mob/npc/blob.dmi'
 	icon_state = "blob"
 	light_range = 3
 	light_color = "#b5ff5b"
@@ -16,12 +16,11 @@
 	var/health
 	var/regen_rate = 4
 	var/brute_resist = 4
-	var/laser_resist = 4 // Special resist for laser based weapons - Emitters or handheld energy weaponry. Damage is divided by this and THEN by fire_resist.
-	var/fire_resist = 1
+	var/fire_resist = 1.75
 	var/secondary_core_growth_chance = 10.0 //% chance to grow a secondary blob core instead of whatever was suposed to grown. Secondary cores are considerably weaker, but still nasty.
 	var/expandType = /obj/effect/blob
 	var/obj/effect/blob/core/parent_core = null
-	var/blob_may_process = 1
+	var/blob_may_process = 0
 	var/hangry = 0 //if the blob will attack or not.
 	var/blob_cost = 1 //point cost of the blob tile
 
@@ -115,15 +114,11 @@
 		else
 			src.take_damage(rand(1, 10) / fire_resist)
 
-	for(var/obj/mecha/M in range(src,"3x3"))
-		M.visible_message("<span class='danger'>The blob attacks \the [M]!</span>")
-		M.take_damage(rand(20,40))
-
 	hangry -= 1
 	if(hangry < 0)
 		hangry = 0
 
-/obj/effect/blob/CanPass(var/atom/movable/mover, vra/turf/target, var/height = 0, var/air_group = 0)
+/obj/effect/blob/CanPass(var/atom/movable/mover, var/turf/target, var/height = 0, var/air_group = 0)
 	if(air_group || height == 0)
 		return 1
 	return 0
@@ -156,12 +151,21 @@
 	update_icon()
 
 /obj/effect/blob/proc/expand(var/turf/T)
-	if(istype(T, /turf/unsimulated/) || (istype(T, /turf/simulated/mineral) && T.density))
+	//Dont epxand over unsimulated unless its astroid trufs
+	if(istype(T, /turf/unsimulated/) && !istype(T, /turf/unsimulated/floor/asteroid/))
 		return
 
+	//Dont expand over space or holes, unless there´s a lattice
 	if((istype(T, /turf/simulated/open) || istype(T, /turf/space)) && !(locate(/obj/structure/lattice) in T))
 		return
 
+	//If its rock, mine it
+	if(istype(T,/turf/simulated/mineral))
+		var/turf/simulated/mineral/M = T
+		M.kinetic_hit(8,get_dir(src,M)) //8 so its destroyed in 2 or 3 hits (mineral health is randomized between 10 and 20)
+		return
+
+	//If its a wall, destroy it
 	if(istype(T, /turf/simulated/wall))
 		var/turf/simulated/wall/SW = T
 		SW.ex_act(2)
@@ -189,6 +193,10 @@
 				health += rand(1,10)
 				if(health > maxHealth)
 					health = maxHealth
+		return
+
+	//If its a astroid turf, ignore it with a 50% chance (so the expansion mostly focuses on the station)
+	if(istype(T,/turf/unsimulated/floor/asteroid/) && prob(50))
 		return
 
 	if(parent_core)
@@ -223,10 +231,10 @@
 		if(BRUTE)
 			take_damage(Proj.damage / brute_resist)
 		if(BURN)
-			take_damage((Proj.damage / laser_resist) / fire_resist)
+			take_damage(Proj.damage / fire_resist)
 	return 0
 
-/obj/effect/blob/attackby(var/obj/item/weapon/W, var/mob/user)
+/obj/effect/blob/attackby(var/obj/item/W, var/mob/user)
 	user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 	user.do_attack_animation(src)
 	playsound(loc, 'sound/effects/attackblob.ogg', 50, 1)
@@ -236,7 +244,7 @@
 		if("fire")
 			damage = (W.force / fire_resist)
 			if(W.iswelder())
-				playsound(loc, 'sound/items/Welder.ogg', 100, 1)
+				playsound(loc, 'sound/items/welder.ogg', 100, 1)
 		if("brute")
 			if(prob(30) && !issilicon(user))
 				visible_message("<span class='danger'>\The [W] gets caught in the gelatinous folds of \the [src]</span>")
@@ -249,14 +257,12 @@
 
 /obj/effect/blob/core
 	name = "blob core"
-	icon = 'icons/mob/blob.dmi'
 	icon_state = "blob_core"
 	light_range = 1
 	light_power = 2
 	light_color = "#F3D203"
 	maxHealth = 200
 	brute_resist = 2
-	laser_resist = 7
 	regen_rate = 2
 	fire_resist = 2
 	var/core_count //amount of secondary cores
@@ -285,25 +291,21 @@
 /obj/effect/blob/core/process()
 	set waitfor = 0
 	..()
-	if(!blob_may_process)
+	if(world.time < blob_may_process)
 		return
-	blob_may_process = 0
+	blob_may_process = world.time + 8 SECONDS
 	sleep(0)
 	pulse(20, list(NORTH, EAST))
 	pulse(20, list(NORTH, WEST))
 	pulse(20, list(SOUTH, EAST))
 	pulse(20, list(SOUTH, WEST))
-	blob_may_process = 1
 
-// Half the stats of a normal core. Blob has a very small probability of growing these when spreading. These will spread the blob further.
 /obj/effect/blob/core/secondary
 	name = "small blob core"
-	icon = 'icons/mob/blob.dmi'
 	icon_state = "blob_core"
 	maxHealth = 100
 	brute_resist = 1
-	fire_resist = 1
-	laser_resist = 4
+	fire_resist = 1.75
 	regen_rate = 1
 	expandType = /obj/effect/blob
 
@@ -319,12 +321,10 @@
 
 /obj/effect/blob/shield
 	name = "strong blob"
-	icon = 'icons/mob/blob.dmi'
 	icon_state = "blob_idle"
 	maxHealth = 60
 	brute_resist = 1
-	fire_resist = 2
-	laser_resist = 4
+	fire_resist = 2.5
 	blob_cost = 0 //so that the core can regrow its shields when they break
 
 /obj/effect/blob/shield/New()

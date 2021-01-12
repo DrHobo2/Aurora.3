@@ -4,35 +4,32 @@
 	set category = "OOC"
 
 	if(say_disabled)	//This is here to try to identify lag problems
-		usr << "<span class='warning'>Speech is currently admin-disabled.</span>"
+		to_chat(usr, "<span class='warning'>Speech is currently admin-disabled.</span>")
 		return
 
 	if(!mob)	return
 	if(IsGuestKey(key))
-		src << "Guests may not use OOC."
+		to_chat(src, "Guests may not use OOC.")
 		return
 
 	msg = sanitize(msg)
 	if(!msg)	return
 
 	if(!(prefs.toggles & CHAT_OOC))
-		src << "<span class='warning'>You have OOC muted.</span>"
+		to_chat(src, "<span class='warning'>You have OOC muted.</span>")
 		return
 
 	if(!holder)
 		if(!config.ooc_allowed)
-			src << "<span class='danger'>OOC is globally muted.</span>"
+			to_chat(src, "<span class='danger'>OOC is globally muted.</span>")
 			return
 		if(!config.dooc_allowed && (mob.stat == DEAD))
-			usr << "<span class='danger'>OOC for dead mobs has been turned off.</span>"
-			return
-		if(prefs.muted & MUTE_OOC)
-			src << "<span class='danger'>You cannot use OOC (muted).</span>"
+			to_chat(usr, "<span class='danger'>OOC for dead mobs has been turned off.</span>")
 			return
 		if(handle_spam_prevention(msg,MUTE_OOC))
 			return
 		if(findtext(msg, "byond://"))
-			src << "<B>Advertising other servers is not allowed.</B>"
+			to_chat(src, "<B>Advertising other servers is not allowed.</B>")
 			log_admin("[key_name(src)] has attempted to advertise in OOC: [msg]",ckey=key_name(src))
 			message_admins("[key_name_admin(src)] has attempted to advertise in OOC: [msg]")
 			return
@@ -61,9 +58,9 @@
 					else
 						display_name = holder.fakekey
 			if(holder && !holder.fakekey && (holder.rights & R_ADMIN) && config.allow_admin_ooccolor && (src.prefs.ooccolor != initial(src.prefs.ooccolor))) // keeping this for the badmins
-				target << "<font color='[src.prefs.ooccolor]'><span class='ooc'>" + create_text_tag("ooc", "OOC:", target) + " <EM>[display_name]:</EM> <span class='message'>[msg]</span></span></font>"
+				to_chat(target, "<font color='[src.prefs.ooccolor]'><span class='ooc'>" + create_text_tag("OOC", target) + " <EM>[display_name]:</EM> <span class='message linkify'>[msg]</span></span></font>")
 			else
-				target << "<span class='ooc'><span class='[ooc_style]'>" + create_text_tag("ooc", "OOC:", target) + " <EM>[display_name]:</EM> <span class='message'>[msg]</span></span></span>"
+				to_chat(target, "<span class='ooc'><span class='[ooc_style]'>" + create_text_tag("OOC", target) + " <EM>[display_name]:</EM> <span class='message linkify'>[msg]</span></span></span>")
 
 /client/verb/looc(msg as text)
 	set name = "LOOC"
@@ -71,14 +68,14 @@
 	set category = "OOC"
 
 	if(say_disabled)	//This is here to try to identify lag problems
-		usr << "<span class='danger'>Speech is currently admin-disabled.</span>"
+		to_chat(usr, "<span class='danger'>Speech is currently admin-disabled.</span>")
 		return
 
 	if(!mob)
 		return
 
 	if(IsGuestKey(key))
-		src << "Guests may not use OOC."
+		to_chat(src, "Guests may not use OOC.")
 		return
 
 	msg = sanitize(msg)
@@ -87,23 +84,20 @@
 		return
 
 	if(!(prefs.toggles & CHAT_LOOC))
-		src << "<span class='danger'>You have LOOC muted.</span>"
+		to_chat(src, "<span class='danger'>You have LOOC muted.</span>")
 		return
 
 	if(!holder)
 		if(!config.looc_allowed)
-			src << "<span class='danger'>LOOC is globally muted.</span>"
+			to_chat(src, "<span class='danger'>LOOC is globally muted.</span>")
 			return
-		if(!config.dooc_allowed && (mob.stat == DEAD))
-			usr << "<span class='danger'>OOC for dead mobs has been turned off.</span>"
-			return
-		if(prefs.muted & MUTE_OOC)
-			src << "<span class='danger'>You cannot use OOC (muted).</span>"
+		if(!config.dead_looc_allowed && (mob.stat == DEAD))
+			to_chat(usr, "<span class='danger'>LOOC for dead mobs has been turned off.</span>")
 			return
 		if(handle_spam_prevention(msg, MUTE_OOC))
 			return
 		if(findtext(msg, "byond://"))
-			src << "<B>Advertising other servers is not allowed.</B>"
+			to_chat(src, "<B>Advertising other servers is not allowed.</B>")
 			log_admin("[key_name(src)] has attempted to advertise in OOC: [msg]",ckey=key_name(src))
 			message_admins("[key_name_admin(src)] has attempted to advertise in OOC: [msg]")
 			return
@@ -111,15 +105,24 @@
 	log_ooc("(LOCAL) [mob.name]/[key] : [msg]",ckey=key_name(mob))
 
 	var/mob/source = src.mob
-	var/list/messageturfs = list()//List of turfs we broadcast to.
-	var/list/messagemobs = list()//List of living mobs nearby who can hear it
+	var/list/messageturfs = list() //List of turfs we broadcast to.
+	var/list/messagemobs = list() //List of living mobs nearby who can hear it
 
-	for (var/turf in range(world.view, get_turf(source)))
+	for(var/turf in range(world.view, get_turf(source)))
 		messageturfs += turf
+	if(isAI(source))
+		var/mob/living/silicon/ai/AI = source
+		for(var/turf in range(world.view, get_turf(AI.eyeobj)))
+			messageturfs += turf
 
 	for(var/mob/M in player_list)
-		if (!M.client || istype(M, /mob/abstract/new_player))
+		if(!M.client || istype(M, /mob/abstract/new_player))
 			continue
+		if(isAI(M))
+			var/mob/living/silicon/ai/AI = M
+			if(get_turf(AI.eyeobj) in messageturfs)
+				messagemobs += M
+				continue
 		if(get_turf(M) in messageturfs)
 			messagemobs += M
 
@@ -147,7 +150,7 @@
 			if(target.mob in messagemobs)
 				prefix = ""
 			if((target.mob in messagemobs) || display_remote)
-				target << "<span class='ooc'><span class='looc'>" + create_text_tag("looc", "LOOC:", target) + " <span class='prefix'>[prefix]</span><EM>[display_name][admin_stuff]:</EM> <span class='message'>[msg]</span></span></span>"
+				to_chat(target, "<span class='ooc'><span class='looc'>" + create_text_tag("LOOC", target) + " <span class='prefix'>[prefix]</span><EM>[display_name][admin_stuff]:</EM> <span class='message linkify'>[msg]</span></span></span>")
 
 /client/verb/stop_all_sounds()
 	set name = "Stop all sounds"
@@ -157,4 +160,60 @@
 	if(!mob)
 		return
 
-	mob << sound(null) 
+	mob << sound(null)
+
+/client/verb/rolldice()
+	set name = "Roll the Dice!"
+	set desc = "Rolls the Dice of your choice!"
+	set category = "OOC"
+
+	var/list/choice = list(2, 4, 6, 8, 10, 12, 20, 50, 100)
+	var/input = input("Select the Dice you want!", "Dice", null, null) in choice
+
+	to_chat(usr, "<span class='notice'>You roll [rand(1,input)] out of [input]!</span>")
+
+/client/verb/fit_viewport()
+	set name = "Fit Viewport"
+	set category = "OOC"
+	set desc = "Fit the width of the map window to match the viewport"
+
+	// Fetch aspect ratio
+	var/view_size = getviewsize(view)
+	var/aspect_ratio = view_size[1] / view_size[2]
+
+	// Calculate desired pixel width using window size and aspect ratio
+	var/sizes = params2list(winget(src, "mainwindow.mainvsplit;mapwindow", "size"))
+	var/map_size = splittext(sizes["mapwindow.size"], "x")
+	var/height = text2num(map_size[2])
+	var/desired_width = round(height * aspect_ratio)
+	if (text2num(map_size[1]) == desired_width)
+		// Nothing to do
+		return
+
+	var/split_size = splittext(sizes["mainwindow.mainvsplit.size"], "x")
+	var/split_width = text2num(split_size[1])
+
+	// Calculate and apply a best estimate
+	// +4 pixels are for the width of the splitter's handle
+	var/pct = 100 * (desired_width + 4) / split_width
+	winset(src, "mainwindow.mainvsplit", "splitter=[pct]")
+
+	// Apply an ever-lowering offset until we finish or fail
+	var/delta
+	for(var/safety in 1 to 10)
+		var/after_size = winget(src, "mapwindow", "size")
+		map_size = splittext(after_size, "x")
+		var/got_width = text2num(map_size[1])
+
+		if (got_width == desired_width)
+			// success
+			return
+		else if (isnull(delta))
+			// calculate a probable delta value based on the difference
+			delta = 100 * (desired_width - got_width) / split_width
+		else if ((delta > 0 && got_width > desired_width) || (delta < 0 && got_width < desired_width))
+			// if we overshot, halve the delta and reverse direction
+			delta = -delta/2
+
+		pct += delta
+		winset(src, "mainwindow.mainvsplit", "splitter=[pct]")

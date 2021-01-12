@@ -21,12 +21,12 @@
 
 
 		// Handle power damage (oxy)
-		if(aiRestorePowerRoutine != 0 && !APU_power)
+		if(ai_restore_power_routine != 0 && !APU_power)
 			// Lose power
 			adjustOxyLoss(1)
 		else
 			// Gain Power
-			aiRestorePowerRoutine = 0 // Necessary if AI activated it's APU AFTER losing primary power.
+			ai_restore_power_routine = 0 // Necessary if AI activated it's APU AFTER losing primary power.
 			adjustOxyLoss(-1)
 
 		handle_stunned()	// Handle EMP-stun
@@ -35,55 +35,55 @@
 		malf_process()
 
 		if(APU_power && (hardware_integrity() < 50))
-			src << "<span class='notice'><b>APU GENERATOR FAILURE! (System Damaged)</b></span>"
+			to_chat(src, "<span class='notice'><b>APU GENERATOR FAILURE! (System Damaged)</b></span>")
 			stop_apu(1)
 
 		if (!is_blinded())
-			if (aiRestorePowerRoutine==2)
-				src << "Alert cancelled. Power has been restored without our assistance."
-				aiRestorePowerRoutine = 0
-				src.blind.invisibility = 101
-				updateicon()
+			if (ai_restore_power_routine==2)
+				to_chat(src, "Alert cancelled. Power has been restored without our assistance.")
+				ai_restore_power_routine = 0
+				clear_fullscreen("blind")
+				update_icon()
 				return
-			else if (aiRestorePowerRoutine==3)
-				src << "Alert cancelled. Power has been restored."
-				aiRestorePowerRoutine = 0
-				src.blind.invisibility = 101
-				updateicon()
+			else if (ai_restore_power_routine==3)
+				to_chat(src, "Alert cancelled. Power has been restored.")
+				ai_restore_power_routine = 0
+				clear_fullscreen("blind")
+				update_icon()
 				return
 			else if (APU_power)
-				aiRestorePowerRoutine = 0
-				src.blind.invisibility = 101
-				updateicon()
+				ai_restore_power_routine = 0
+				clear_fullscreen("blind")
+				update_icon()
 				return
 		else
 			var/area/current_area = get_area(src)
 
 			if (lacks_power())
-				if (aiRestorePowerRoutine==0)
-					aiRestorePowerRoutine = 1
+				if (ai_restore_power_routine==0)
+					ai_restore_power_routine = 1
 
 					//Now to tell the AI why they're blind and dying slowly.
-					src << "You've lost power!"
+					to_chat(src, "You've lost power!")
 
 					spawn(20)
-						src << "Backup battery online. Scanners, camera, and radio interface offline. Beginning fault-detection."
+						to_chat(src, "Backup battery online. Scanners, camera, and radio interface offline. Beginning fault-detection.")
 						sleep(50)
 						if (current_area.power_equip)
 							if (!istype(T, /turf/space))
-								src << "Alert cancelled. Power has been restored without our assistance."
-								aiRestorePowerRoutine = 0
-								src.blind.invisibility = 101
+								to_chat(src, "Alert cancelled. Power has been restored without our assistance.")
+								ai_restore_power_routine = 0
+								clear_fullscreen("blind")
 								return
-						src << "Fault confirmed: missing external power. Shutting down main control system to save power."
+						to_chat(src, "Fault confirmed: missing external power. Shutting down main control system to save power.")
 						sleep(20)
-						src << "Emergency control system online. Verifying connection to power network."
+						to_chat(src, "Emergency control system online. Verifying connection to power network.")
 						sleep(50)
 						if (istype(T, /turf/space))
-							src << "Unable to verify! No power connection detected!"
-							aiRestorePowerRoutine = 2
+							to_chat(src, "Unable to verify! No power connection detected!")
+							ai_restore_power_routine = 2
 							return
-						src << "Connection verified. Searching for APC in power network."
+						to_chat(src, "Connection verified. Searching for APC in power network.")
 						sleep(50)
 						var/obj/machinery/power/apc/theAPC = null
 
@@ -95,32 +95,32 @@
 									break
 							if (!theAPC)
 								switch(PRP)
-									if (1) src << "Unable to locate APC!"
-									else src << "Lost connection with the APC!"
-								src:aiRestorePowerRoutine = 2
+									if (1) to_chat(src, "Unable to locate APC!")
+									else to_chat(src, "Lost connection with the APC!")
+								src:ai_restore_power_routine = 2
 								return
 							if (current_area.power_equip)
 								if (!istype(T, /turf/space))
-									src << "Alert cancelled. Power has been restored without our assistance."
-									aiRestorePowerRoutine = 0
-									src.blind.invisibility = 101 //This, too, is a fix to issue 603
+									to_chat(src, "Alert cancelled. Power has been restored without our assistance.")
+									ai_restore_power_routine = 0
+									clear_fullscreen("blind")
 									return
 							switch(PRP)
-								if (1) src << "APC located. Optimizing route to APC to avoid needless power waste."
-								if (2) src << "Best route identified. Hacking offline APC power port."
-								if (3) src << "Power port upload access confirmed. Loading control program into APC power port software."
+								if (1) to_chat(src, "APC located. Optimizing route to APC to avoid needless power waste.")
+								if (2) to_chat(src, "Best route identified. Hacking offline APC power port.")
+								if (3) to_chat(src, "Power port upload access confirmed. Loading control program into APC power port software.")
 								if (4)
-									src << "Transfer complete. Forcing APC to execute program."
+									to_chat(src, "Transfer complete. Forcing APC to execute program.")
 									sleep(50)
-									src << "Receiving control information from APC."
+									to_chat(src, "Receiving control information from APC.")
 									sleep(2)
 									theAPC.operating = 1
 									theAPC.equipment = 3
 									theAPC.update()
-									aiRestorePowerRoutine = 3
-									src << "Here are your current laws:"
+									ai_restore_power_routine = 3
+									to_chat(src, "Here are your current laws:")
 									show_laws()
-									updateicon()
+									update_icon()
 							sleep(50)
 							theAPC = null
 
@@ -139,24 +139,14 @@
 	var/area/A = get_area(src)
 	return ((!A.power_equip) && A.requires_power == 1 || istype(T, /turf/space)) && !istype(src.loc,/obj/item)
 
-/mob/living/silicon/ai/updatehealth()
-	if(status_flags & GODMODE)
-		health = 100
-		stat = CONSCIOUS
-		setOxyLoss(0)
-	else
-		health = 100 - getFireLoss() - getBruteLoss() // Oxyloss is not part of health as it represents AIs backup power. AI is immune against ToxLoss as it is machine.
-
 /mob/living/silicon/ai/rejuvenate()
 	..()
 	add_ai_verbs(src)
 
 /mob/living/silicon/ai/update_sight()
 	if(is_blinded())
-		updateicon()
-		src.blind.screen_loc = ui_entire_screen
-		if (src.blind.invisibility != 0)
-			src.blind.invisibility = 0
+		update_icon()
+		overlay_fullscreen("blind", /obj/screen/fullscreen/blind)
 		sight &= ~(SEE_TURFS | SEE_MOBS | SEE_OBJS)
 		see_in_dark = 0
 		see_invisible = SEE_INVISIBLE_LIVING

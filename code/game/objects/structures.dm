@@ -1,11 +1,18 @@
 /obj/structure
 	icon = 'icons/obj/structures.dmi'
-	w_class = 10
+	w_class = ITEMSIZE_IMMENSE
+	layer = OBJ_LAYER - 0.01
 
 	var/climbable
 	var/breakable
 	var/parts
 	var/list/climbers
+	var/list/footstep_sound	//footstep sounds when stepped on
+
+	var/material/material
+	var/build_amt = 2 // used by some structures to determine into how many pieces they should disassemble into or be made with
+
+	var/slowdown = 0 //amount that pulling mobs have their movement delayed by
 
 /obj/structure/Destroy()
 	if(parts)
@@ -31,9 +38,6 @@
 
 	return ..()
 
-/obj/structure/attack_tk()
-	return
-
 /obj/structure/ex_act(severity)
 	switch(severity)
 		if(1.0)
@@ -45,6 +49,16 @@
 				return
 		if(3.0)
 			return
+
+/obj/structure/proc/dismantle()
+	var/material/dismantle_material
+	if(!get_material())
+		dismantle_material = SSmaterials.get_material_by_name(DEFAULT_WALL_MATERIAL) //if there is no defined material, it will use steel
+	else
+		dismantle_material = get_material()
+	for(var/i = 1 to build_amt)
+		dismantle_material.place_sheet(loc)
+	qdel(src)
 
 /obj/structure/Initialize(mapload)
 	. = ..()
@@ -78,24 +92,27 @@
 		return 0
 
 	if (!user.Adjacent(src))
-		user << "<span class='danger'>You can't climb there, the way is blocked.</span>"
+		to_chat(user, "<span class='danger'>You can't climb there, the way is blocked.</span>")
 		return 0
 
 	var/obj/occupied = turf_is_crowded()
 	if(occupied)
-		user << "<span class='danger'>There's \a [occupied] in the way.</span>"
+		to_chat(user, "<span class='danger'>There's \a [occupied] in the way.</span>")
 		return 0
 	return 1
 
-/obj/structure/proc/turf_is_crowded()
+/obj/structure/proc/turf_is_crowded(var/exclude_self = FALSE)
 	var/turf/T = get_turf(src)
 	if(!T || !istype(T))
 		return 0
 	for(var/obj/O in T.contents)
 		if(istype(O,/obj/structure))
 			var/obj/structure/S = O
-			if(S.climbable) continue
+			if(S.climbable)
+				continue
 		if(O && O.density && !(O.flags & ON_BORDER)) //ON_BORDER structures are handled by the Adjacent() check.
+			if(exclude_self && O == src)
+				continue
 			return O
 	return 0
 
@@ -123,45 +140,45 @@
 /obj/structure/proc/structure_shaken()
 	for(var/mob/living/M in climbers)
 		M.Weaken(1)
-		M << "<span class='danger'>You topple as you are shaken off \the [src]!</span>"
+		to_chat(M, "<span class='danger'>You topple as you are shaken off \the [src]!</span>")
 		LAZYREMOVE(climbers, M)
 
 	for(var/mob/living/M in get_turf(src))
 		if(M.lying) return //No spamming this on people.
 
 		M.Weaken(3)
-		M << "<span class='danger'>You topple as \the [src] moves under you!</span>"
+		to_chat(M, "<span class='danger'>You topple as \the [src] moves under you!</span>")
 
 		if(prob(25))
 
 			var/damage = rand(15,30)
 			var/mob/living/carbon/human/H = M
 			if(!istype(H))
-				H << "<span class='danger'>You land heavily!</span>"
+				to_chat(H, "<span class='danger'>You land heavily!</span>")
 				M.adjustBruteLoss(damage)
 				return
 
 			var/obj/item/organ/external/affecting
 
-			switch(pick(list("ankle","wrist","head","knee","elbow")))
+			switch(pick(list("ankle","wrist",BP_HEAD,"knee","elbow")))
 				if("ankle")
-					affecting = H.get_organ(pick("l_foot", "r_foot"))
+					affecting = H.get_organ(pick(BP_L_FOOT, BP_R_FOOT))
 				if("knee")
-					affecting = H.get_organ(pick("l_leg", "r_leg"))
+					affecting = H.get_organ(pick(BP_L_LEG, BP_R_LEG))
 				if("wrist")
-					affecting = H.get_organ(pick("l_hand", "r_hand"))
+					affecting = H.get_organ(pick(BP_L_HAND, BP_R_HAND))
 				if("elbow")
-					affecting = H.get_organ(pick("l_arm", "r_arm"))
-				if("head")
-					affecting = H.get_organ("head")
+					affecting = H.get_organ(pick(BP_L_ARM, BP_R_ARM))
+				if(BP_HEAD)
+					affecting = H.get_organ(BP_HEAD)
 
 			if(affecting)
-				M << "<span class='danger'>You land heavily on your [affecting.name]!</span>"
+				to_chat(M, "<span class='danger'>You land heavily on your [affecting.name]!</span>")
 				affecting.take_damage(damage, 0)
 				if(affecting.parent)
 					affecting.parent.add_autopsy_data("Misadventure", damage)
 			else
-				H << "<span class='danger'>You land heavily!</span>"
+				to_chat(H, "<span class='danger'>You land heavily!</span>")
 				H.adjustBruteLoss(damage)
 
 			H.UpdateDamageIcon()
@@ -174,12 +191,12 @@
 	if(!Adjacent(user))
 		return 0
 	if (user.restrained() || user.buckled)
-		user << "<span class='notice'>You need your hands and legs free for this.</span>"
+		to_chat(user, "<span class='notice'>You need your hands and legs free for this.</span>")
 		return 0
 	if (user.stat || user.paralysis || user.sleeping || user.lying || user.weakened)
 		return 0
 	if (issilicon(user))
-		user << "<span class='notice'>You need hands for this.</span>"
+		to_chat(user, "<span class='notice'>You need hands for this.</span>")
 		return 0
 	return 1
 
@@ -188,5 +205,9 @@
 		return 0
 	visible_message("<span class='danger'>[user] [attack_verb] the [src] apart!</span>")
 	user.do_attack_animation(src)
-	spawn(1) qdel(src)
+	spawn(1)
+		qdel(src)
 	return 1
+
+/obj/structure/get_material()
+	return material

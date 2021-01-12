@@ -8,9 +8,13 @@
 	idle_power_usage = 5
 	active_power_usage = 90000	//90 kW. (this the power drawn when charging)
 	power_channel = EQUIP
-	var/charging_efficiency = 0.92
-	var/obj/item/weapon/cell/charging = null
+	var/charging_efficiency = 1.38
+	var/obj/item/cell/charging = null
 	var/chargelevel = -1
+
+/obj/machinery/cell_charger/Initialize(mapload)
+	. = ..()
+	update_icon()
 
 /obj/machinery/cell_charger/update_icon()
 	icon_state = "ccharger[charging ? 1 : 0]"
@@ -32,24 +36,24 @@
 	if(!..(user, 5))
 		return
 
-	user << "There's [charging ? "a" : "no"] cell in the charger."
+	to_chat(user, "There's [charging ? "a" : "no"] cell in the charger.")
 	if(charging)
-		user << "Current charge: [charging.charge]"
+		to_chat(user, "Current charge: [charging.charge]")
 
-/obj/machinery/cell_charger/attackby(obj/item/weapon/W, mob/user)
+/obj/machinery/cell_charger/attackby(obj/item/W, mob/user)
 	if(stat & BROKEN)
 		return
 
-	if(istype(W, /obj/item/weapon/cell) && anchored)
+	if(istype(W, /obj/item/cell) && anchored)
 		if(charging)
-			user << "<span class='warning'>There is already a cell in the charger.</span>"
+			to_chat(user, "<span class='warning'>There is already a cell in the charger.</span>")
 			return
 		else
 			var/area/a = loc.loc // Gets our locations location, like a dream within a dream
 			if(!isarea(a))
 				return
 			if(a.power_equip == 0) // There's no APC in this area, don't try to cheat power!
-				user << "<span class='warning'>The [name] blinks red as you try to insert the cell!</span>"
+				to_chat(user, "<span class='warning'>The [name] blinks red as you try to insert the cell!</span>")
 				return
 
 			user.drop_from_inventory(W,src)
@@ -59,12 +63,12 @@
 		update_icon()
 	else if(W.iswrench())
 		if(charging)
-			user << "<span class='warning'>Remove the cell first!</span>"
+			to_chat(user, "<span class='warning'>Remove the cell first!</span>")
 			return
 
 		anchored = !anchored
-		user << "You [anchored ? "attach" : "detach"] the cell charger [anchored ? "to" : "from"] the ground"
-		playsound(src.loc, 'sound/items/Ratchet.ogg', 75, 1)
+		to_chat(user, "You [anchored ? "attach" : "detach"] the cell charger [anchored ? "to" : "from"] the ground")
+		playsound(src.loc, W.usesound, 75, 1)
 
 /obj/machinery/cell_charger/attack_hand(mob/user)
 	if(charging)

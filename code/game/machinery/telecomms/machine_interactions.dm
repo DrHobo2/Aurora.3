@@ -25,35 +25,35 @@
 		if (integrity < 100)               								//Damaged, let's repair!
 			if (T.use(1))
 				integrity = between(0, integrity + rand(10,20), 100)
-				usr << "You apply the Nanopaste to [src], repairing some of the damage."
+				to_chat(usr, "You apply the Nanopaste to [src], repairing some of the damage.")
 		else
-			usr << "This machine is already in perfect condition."
+			to_chat(usr, "This machine is already in perfect condition.")
 		return
 
 
 	switch(construct_op)
 		if(0)
 			if(P.isscrewdriver())
-				user << "You unfasten the bolts."
-				playsound(src.loc, 'sound/items/Screwdriver.ogg', 50, 1)
+				to_chat(user, "You unfasten the bolts.")
+				playsound(src.loc, P.usesound, 50, 1)
 				construct_op ++
 		if(1)
 			if(P.isscrewdriver())
-				user << "You fasten the bolts."
-				playsound(src.loc, 'sound/items/Screwdriver.ogg', 50, 1)
+				to_chat(user, "You fasten the bolts.")
+				playsound(src.loc, P.usesound, 50, 1)
 				construct_op --
 			if(P.iswrench())
-				user << "You dislodge the external plating."
-				playsound(src.loc, 'sound/items/Ratchet.ogg', 75, 1)
+				to_chat(user, "You dislodge the external plating.")
+				playsound(src.loc, P.usesound, 75, 1)
 				construct_op ++
 		if(2)
 			if(P.iswrench())
-				user << "You secure the external plating."
-				playsound(src.loc, 'sound/items/Ratchet.ogg', 75, 1)
+				to_chat(user, "You secure the external plating.")
+				playsound(src.loc, P.usesound, 75, 1)
 				construct_op --
 			if(P.iswirecutter())
-				playsound(src.loc, 'sound/items/Wirecutter.ogg', 50, 1)
-				user << "You remove the cables."
+				playsound(src.loc, P.usesound, 50, 1)
+				to_chat(user, "You remove the cables.")
 				construct_op ++
 				var/obj/item/stack/cable_coil/A = new /obj/item/stack/cable_coil( user.loc )
 				A.amount = 5
@@ -62,16 +62,16 @@
 			if(P.iscoil())
 				var/obj/item/stack/cable_coil/A = P
 				if (A.use(5))
-					user << "<span class='notice'>You insert the cables.</span>"
+					to_chat(user, "<span class='notice'>You insert the cables.</span>")
 					construct_op--
 					stat &= ~BROKEN // the machine's not borked anymore!
 				else
-					user << "<span class='warning'>You need five coils of wire for this.</span>"
+					to_chat(user, "<span class='warning'>You need five coils of wire for this.</span>")
 			if(P.iscrowbar())
-				user << "You begin prying out the circuit board other components..."
-				playsound(src.loc, 'sound/items/Crowbar.ogg', 50, 1)
-				if(do_after(user,60))
-					user << "You finish prying out the components."
+				to_chat(user, "You begin prying out the circuit board other components...")
+				playsound(src.loc, P.usesound, 50, 1)
+				if(do_after(user,60/P.toolspeed))
+					to_chat(user, "You finish prying out the components.")
 
 					// Drop all the component stuff
 					if(contents.len > 0)
@@ -82,7 +82,7 @@
 						// If the machine wasn't made during runtime, probably doesn't have components:
 						// manually find the components and drop them!
 						var/newpath = text2path(circuitboard)
-						var/obj/item/weapon/circuitboard/C = new newpath
+						var/obj/item/circuitboard/C = new newpath
 						for(var/I in C.req_components)
 							for(var/i = 1, i <= C.req_components[I], i++)
 								newpath = text2path(I)
@@ -103,20 +103,19 @@
 	update_icon()
 
 /obj/machinery/telecomms/attack_ai(var/mob/user as mob)
+	if(!ai_can_interact(user))
+		return
 	attack_hand(user)
 
 /obj/machinery/telecomms/attack_hand(var/mob/user as mob)
 
-	// You need a multitool to use this, or be silicon
-	if(!issilicon(user))
-		// istype returns false if the value is null
-		if(!istype(user.get_active_hand(), /obj/item/device/multitool))
-			return
-
 	if(stat & (BROKEN|NOPOWER))
 		return
 
-	var/obj/item/device/multitool/P = get_multitool(user)
+	var/obj/item/device/multitool/P = user.get_multitool()
+
+	if(!P)
+		return
 
 	user.set_machine(src)
 	var/dat
@@ -172,22 +171,6 @@
 	temp = ""
 	user << browse(dat, "window=tcommachine;size=520x500;can_resize=0")
 	onclose(user, "dormitory")
-
-// Returns a multitool from a user depending on their mobtype.
-
-/obj/machinery/telecomms/proc/get_multitool(mob/user as mob)
-
-	var/obj/item/device/multitool/P = null
-	// Let's double check
-	if(!issilicon(user) && istype(user.get_active_hand(), /obj/item/device/multitool))
-		P = user.get_active_hand()
-	else if(isAI(user))
-		var/mob/living/silicon/ai/U = user
-		P = U.aiMulti
-	else if(isrobot(user) && in_range(user, src))
-		if(istype(user.get_active_hand(), /obj/item/device/multitool))
-			P = user.get_active_hand()
-	return P
 
 // Additional Options for certain machines. Use this when you want to add an option to a specific machine.
 // Example of how to use below.
@@ -255,14 +238,13 @@
 
 /obj/machinery/telecomms/Topic(href, href_list)
 
-	if(!issilicon(usr))
-		if(!istype(usr.get_active_hand(), /obj/item/device/multitool))
-			return
+	if(!isliving(usr))
+		return
 
 	if(stat & (BROKEN|NOPOWER))
 		return
 
-	var/obj/item/device/multitool/P = get_multitool(usr)
+	var/obj/item/device/multitool/P = usr.get_multitool()
 
 	if(href_list["input"])
 		switch(href_list["input"])
@@ -286,7 +268,7 @@
 					temp = "<font color = #666633>-% New ID assigned: \"[id]\" %-</font>"
 
 			if("network")
-				var/newnet = input(usr, "Specify the new network for this machine. This will break all current links.", src, network) as null|text
+				var/newnet = sanitize(input(usr, "Specify the new network for this machine. This will break all current links.", src, network) as null|text)
 				if(newnet && canAccess(usr))
 
 					if(length(newnet) > 15)

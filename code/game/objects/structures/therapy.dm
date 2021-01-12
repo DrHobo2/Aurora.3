@@ -27,10 +27,10 @@
 
 	. = ..()
 
-/obj/structure/bed/chair/e_chair/attackby(obj/item/weapon/W as obj, mob/user as mob)
+/obj/structure/bed/chair/e_chair/attackby(obj/item/W as obj, mob/user as mob)
 	if(W.iswrench())
 		var/obj/structure/bed/chair/C = new /obj/structure/bed/chair(loc)
-		playsound(loc, 'sound/items/Ratchet.ogg', 50, 1)
+		playsound(loc, W.usesound, 50, 1)
 		C.set_dir(dir)
 		part.forceMove(get_turf(src))
 		part.master = null
@@ -52,7 +52,7 @@
 		on = 1
 		shock()
 		icon_state = "echair1"
-	usr << "<span class='notice'>You switch [on ? "on" : "off"] [src].</span>"
+	to_chat(usr, "<span class='notice'>You switch [on ? "on" : "off"] [src].</span>")
 
 /obj/structure/bed/chair/e_chair/proc/shock()
 	if(!on)
@@ -63,31 +63,95 @@
 	flick("echair1", src)
 	spark(src, 12, alldirs)
 	if(buckled_mob && istype(C))
-		if(electrocute_mob(buckled_mob, C, src, 1.25, "head"))
-			buckled_mob << "<span class='danger'>You feel a deep shock course through your body!</span>"
+		if(electrocute_mob(buckled_mob, C, src, 1.25, BP_HEAD))
+			to_chat(buckled_mob, "<span class='danger'>You feel a deep shock course through your body!</span>")
 			sleep(1)
-			if(electrocute_mob(buckled_mob, C, src, 1.25, "head"))
+			if(electrocute_mob(buckled_mob, C, src, 1.25, BP_HEAD))
 				buckled_mob.Stun(PN.get_electrocute_damage()*10)
 	visible_message("<span class='danger'>The electric chair goes off!</span>", "<span class='danger'>You hear an electrical discharge!</span>")
 
 	return
 
-/obj/item/weapon/mesmetron
-	name = "mesmetron pocketwatch"
-	desc = "An elaborate pocketwatch, with captivating gold etching and an enchanting face. . ."
+/obj/item/pocketwatch
+	name = "pocketwatch"
+	desc = "A watch that goes in your pocket."
+	desc_fluff = "Because your wrists have better things to do."
 	icon = 'icons/obj/items.dmi'
 	icon_state = "pocketwatch"
-	matter = list("glass" = 150, "gold" = 50)
-	w_class = 1
+	drop_sound = 'sound/items/drop/accessory.ogg'
+	pickup_sound = 'sound/items/pickup/accessory.ogg'
+	matter = list(MATERIAL_GLASS = 150, MATERIAL_GOLD = 50)
+	recyclable = TRUE
+	w_class = ITEMSIZE_TINY
+	var/closed = FALSE
+
+/obj/item/pocketwatch/AltClick(mob/user)
+	if(!closed)
+		icon_state = "[initial(icon_state)]_closed"
+		to_chat(user, "You clasp the [name] shut.")
+		playsound(src.loc, 'sound/weapons/blade_close.ogg', 50, 1)
+	else
+		icon_state = "[initial(icon_state)]"
+		to_chat(user, "You flip the [name] open.")
+		playsound(src.loc, 'sound/weapons/blade_open.ogg', 50, 1)
+	closed = !closed
+
+/obj/item/pocketwatch/examine(mob/user)
+	..()
+	if (get_dist(src, user) <= 1)
+		checktime()
+
+/obj/item/pocketwatch/verb/checktime(mob/user)
+	set category = "Object"
+	set name = "Check Time"
+	set src in usr
+
+	if(closed)
+		to_chat(usr, "You check your watch, realising it's closed.")
+	else
+		to_chat(usr, "You check your watch, glancing over at the watch face, reading the time to be '[worldtime2text()]'. Today's date is '[time2text(world.time, "Month DD")]. [game_year]'.")
+
+/obj/item/pocketwatch/verb/pointatwatch()
+	set category = "Object"
+	set name = "Point at watch"
+	set src in usr
+
+	if(closed)
+		usr.visible_message (SPAN_NOTICE("[usr] taps their foot on the floor, arrogantly pointing at the [src] in their hand with a look of derision in their eyes, not noticing it's closed."), SPAN_NOTICE("You point down at the [src], an arrogant look about your eyes."))
+	else
+		usr.visible_message (SPAN_NOTICE("[usr] taps their foot on the floor, arrogantly pointing at the [src] in their hand with a look of derision in their eyes."), SPAN_NOTICE("You point down at the [src], an arrogant look about your eyes."))
+
+/obj/item/mesmetron
+	name = "mesmetron pocketwatch"
+	desc = "An elaborate pocketwatch, with a captivating gold etching and an enchanting face. . ."
+	icon = 'icons/obj/items.dmi'
+	icon_state = "pocketwatch"
+	drop_sound = 'sound/items/drop/accessory.ogg'
+	pickup_sound = 'sound/items/pickup/accessory.ogg'
+	matter = list(MATERIAL_GLASS = 150, MATERIAL_GOLD = 50)
+	recyclable = TRUE
+	w_class = ITEMSIZE_TINY
 	var/datum/weakref/thrall = null
 	var/time_counter = 0
+	var/closed = FALSE
 
-/obj/item/weapon/mesmetron/Destroy()
+/obj/item/mesmetron/AltClick(mob/user)
+	if(!closed)
+		icon_state = "[initial(icon_state)]_closed"
+		to_chat(user, "You clasp the [name] shut.")
+		playsound(src.loc, 'sound/weapons/blade_close.ogg', 50, 1)
+	else
+		icon_state = "[initial(icon_state)]"
+		to_chat(user, "You flip the [name] open.")
+		playsound(src.loc, 'sound/weapons/blade_open.ogg', 50, 1)
+	closed = !closed
+
+/obj/item/mesmetron/Destroy()
 	STOP_PROCESSING(SSfast_process, src)
 	thrall = null
 	. = ..()
 
-/obj/item/weapon/mesmetron/process()
+/obj/item/mesmetron/process()
 	if (!thrall)
 		STOP_PROCESSING(SSfast_process, src)
 		return
@@ -112,10 +176,12 @@
 	else
 		STOP_PROCESSING(SSfast_process, src)
 
-/obj/item/weapon/mesmetron/attack_self(mob/user as mob)
+/obj/item/mesmetron/attack_self(mob/user as mob)
+	if(closed)
+		return
 	if(!thrall || !thrall.resolve())
 		thrall = null
-		user << "You decipher the watch's mesmerizing face, discerning the time to be: '[worldtime2text()]'. Today's date is '[time2text(world.time, "Month DD")]. [game_year]'."
+		to_chat(user, "You decipher the watch's mesmerizing face, discerning the time to be: '[worldtime2text()]'. Today's date is '[time2text(world.time, "Month DD")]. [game_year]'.")
 		return
 
 	var/mob/living/carbon/human/H = thrall.resolve()
@@ -127,7 +193,7 @@
 		STOP_PROCESSING(SSfast_process, src)
 	else
 		if(get_dist(user, H) > 1)
-			user << "You must stand in whisper range of [H]."
+			to_chat(user, "You must stand in whisper range of [H].")
 			return
 
 		text = input("What would you like to suggest?", "Hypnotic suggestion", null, null)
@@ -137,12 +203,15 @@
 
 		var/thrall_response = alert(H, "Do you believe in hypnosis?", "Willpower", "Yes", "No")
 		if(thrall_response == "Yes")
-			H << "<span class='notice'><i>... [text] ...</i></span>"
+			to_chat(H, "<span class='notice'><i>... [text] ...</i></span>")
 			H.cure_all_traumas(cure_type = CURE_HYPNOSIS)
 		else
 			thrall = null
 
-/obj/item/weapon/mesmetron/afterattack(mob/living/carbon/human/H, mob/user, proximity)
+/obj/item/mesmetron/afterattack(mob/living/carbon/human/H, mob/user, proximity)
+	if(closed)
+		return
+
 	if(!proximity)
 		return
 
@@ -185,16 +254,16 @@
 	. = ..()
 	START_PROCESSING(SSfast_process, src)
 
-/obj/structure/metronome/attackby(obj/item/weapon/W as obj, mob/user as mob)
+/obj/structure/metronome/attackby(obj/item/W as obj, mob/user as mob)
 	if(W.iswrench())
-		playsound(src.loc, 'sound/items/Ratchet.ogg', 50, 1)
+		playsound(src.loc, W.usesound, 50, 1)
 		if(anchored)
-			user << "<span class='notice'>You unanchor \the [src] and it destabilizes.</span>"
+			to_chat(user, "<span class='notice'>You unanchor \the [src] and it destabilizes.</span>")
 			STOP_PROCESSING(SSfast_process, src)
 			icon_state = "metronome0"
 			anchored = 0
 		else
-			user << "<span class='notice'>You anchor \the [src] and it restabilizes.</span>"
+			to_chat(user, "<span class='notice'>You anchor \the [src] and it restabilizes.</span>")
 			START_PROCESSING(SSfast_process, src)
 			icon_state = "metronome1"
 			anchored = 1
@@ -218,16 +287,16 @@
 			ticktock = "Tock"
 		else
 			ticktock = "Tick"
-		H << "<span class='notice'><i>[ticktock]. . .</i></span>"
-		H << 'sound/effects/singlebeat.ogg'
+		to_chat(H, "<span class='notice'><i>[ticktock]. . .</i></span>")
+		sound_to(H, 'sound/effects/singlebeat.ogg')
 		if(prob(1))
 			H.cure_all_traumas(cure_type = CURE_SOLITUDE)
 
 /obj/machinery/chakrapod
 	name = "Crystal Therapy Pod"
 	desc = "A state-of-the-art crystal therapy pod. Designed to utilize phoron enhanced quartz crystals to remove mental trauma from the body. Proven to be 100% effective 30% of the time!"
-	icon = 'icons/obj/Cryogenic2.dmi'
-	icon_state = "syndipod_0"
+	icon = 'icons/obj/sleeper.dmi'
+	icon_state = "sleeper_s"
 	density = 1
 	anchored = 1
 
@@ -238,6 +307,12 @@
 	var/datum/weakref/occupant = null
 	var/locked
 	var/obj/machinery/chakraconsole/connected
+
+	component_types = list(
+			/obj/item/circuitboard/crystelpod,
+			/obj/item/stock_parts/capacitor = 2,
+			/obj/item/stock_parts/scanning_module = 2
+		)
 
 /obj/machinery/chakrapod/Destroy()
 	if (connected)
@@ -253,6 +328,13 @@
 		return
 	src.go_out()
 	return
+
+/obj/machinery/chakrapod/update_icon()
+	if(occupant)
+		icon_state = "[initial(icon_state)]-closed"
+		return
+	else
+		icon_state = initial(icon_state)
 
 /obj/machinery/chakrapod/verb/eject()
 	set src in oview(1)
@@ -273,16 +355,16 @@
 	if (usr.stat != 0 || locked)
 		return
 	if (occupant.resolve())
-		usr << "<span class='warning'>The pod is already occupied!</span>"
+		to_chat(usr, "<span class='warning'>The pod is already occupied!</span>")
 		return
 	if (usr.abiotic())
-		usr << "<span class='warning'>The subject cannot have abiotic items on.</span>"
+		to_chat(usr, "<span class='warning'>The subject cannot have abiotic items on.</span>")
 		return
 	if(locked)
-		usr << "<span class='warning'>The pod is currently locked!</span>"
+		to_chat(usr, "<span class='warning'>The pod is currently locked!</span>")
 		return
 	if(!ishuman(usr))
-		usr << "<span class='warning'>The subject does not fit!</span>"
+		to_chat(usr, "<span class='warning'>The subject does not fit!</span>")
 		return
 	usr.pulling = null
 	usr.client.perspective = EYE_PERSPECTIVE
@@ -290,9 +372,8 @@
 	usr.forceMove(src)
 	src.occupant = WEAKREF(usr)
 	update_use_power(2)
-	src.icon_state = "syndipod_1"
-	for(var/obj/O in src)
-		O.forceMove(get_turf(src))
+	flick("[initial(icon_state)]-anim", src)
+	update_icon()
 	src.add_fingerprint(usr)
 	return
 
@@ -304,32 +385,31 @@
 	var/mob/living/carbon/human/H = occupant.resolve()
 
 	if(locked)
-		H << "<span class='notice'>You push against the pod door and attempt to escape. This process will take roughly two minutes.</span>"
+		to_chat(H, "<span class='notice'>You push against the pod door and attempt to escape. This process will take roughly two minutes.</span>")
 		if(!do_after(H, 1200))
 			return
 
-	for(var/obj/O in src)
-		O.forceMove(get_turf(src))
 	if (H.client)
 		H.client.eye = H.client.mob
 		H.client.perspective = MOB_PERSPECTIVE
 	H.forceMove(get_turf(src))
 	occupant = null
 	update_use_power(1)
-	src.icon_state = "syndipod_0"
+	flick("[initial(icon_state)]-anim", src)
+	update_icon()
 	return
 
-/obj/machinery/chakrapod/attackby(obj/item/weapon/grab/G, mob/user)
+/obj/machinery/chakrapod/attackby(obj/item/grab/G, mob/user)
 	if (!istype(G) || !ishuman(G.affecting))
 		return
 	if (occupant)
-		user << "<span class='warning'>The pod is already occupied!</span>"
+		to_chat(user, "<span class='warning'>The pod is already occupied!</span>")
 		return
 	if (G.affecting.abiotic())
-		user << "<span class='warning'>Subject cannot have abiotic items on.</span>"
+		to_chat(user, "<span class='warning'>Subject cannot have abiotic items on.</span>")
 		return
 	if(locked)
-		user << "<span class='warning'>The pod is locked.</span>"
+		to_chat(user, "<span class='warning'>The pod is locked.</span>")
 		return
 
 
@@ -351,9 +431,8 @@
 		occupant = WEAKREF(L)
 
 		update_use_power(2)
-		icon_state = "syndipod_1"
-		for(var/obj/O in src)
-			O.forceMove(get_turf(src))
+		flick("[initial(icon_state)]-anim", src)
+		update_icon()
 
 	src.add_fingerprint(user)
 	qdel(G)
@@ -363,13 +442,13 @@
 	if(!istype(user) || !istype(H))
 		return
 	if (occupant)
-		user << "<span class='notice'><B>The pod is already occupied!</B></span>"
+		to_chat(user, "<span class='notice'><B>The pod is already occupied!</B></span>")
 		return
 	if (H.abiotic())
-		user << "<span class='notice'><B>Subject cannot have abiotic items on.</B></span>"
+		to_chat(user, "<span class='notice'><B>Subject cannot have abiotic items on.</B></span>")
 		return
 	if(locked)
-		user << "<span class='warning'>The pod is locked.</span>"
+		to_chat(user, "<span class='warning'>The pod is locked.</span>")
 		return
 
 	var/bucklestatus = H.bucklecheck(user)
@@ -392,22 +471,26 @@
 		H.forceMove(src)
 		occupant = WEAKREF(H)
 		update_use_power(2)
-		src.icon_state = "syndipod_1"
-		for(var/obj/Obj in src)
-			Obj.forceMove(get_turf(src))
+		flick("[initial(icon_state)]-anim", src)
+		update_icon()
 	src.add_fingerprint(user)
 	return
 
 /obj/machinery/chakraconsole
 	name = "Therapy Pod Console"
-	desc = "A control panel for some kind of medical device."
-	icon = 'icons/obj/Cryogenic2.dmi'
-	icon_state = "syndipod_scannerconsole"
+	desc = "An advanced control panel that can be used to interface with a connected therapy pod."
+	icon = 'icons/obj/sleeper.dmi'
+	icon_state = "sleeper_s_scannerconsole"
 	density = 0
 	anchored = 1
 	var/obj/machinery/chakrapod/connected
 	var/crystal = 0
 	var/working = 0
+	component_types = list(
+			/obj/item/circuitboard/crystelpodconsole,
+			/obj/item/stock_parts/capacitor = 1,
+			/obj/item/stock_parts/scanning_module = 2
+		)
 
 /obj/machinery/chakraconsole/ex_act(severity)
 
@@ -431,10 +514,16 @@
 
 /obj/machinery/chakraconsole/power_change()
 	..()
+	update_icon()
+
+/obj/machinery/chakraconsole/update_icon()
+	cut_overlays()
 	if((stat & BROKEN) || (stat & NOPOWER))
-		icon_state = "syndipod_scannerconsole-p"
+		return
 	else
-		icon_state = initial(icon_state)
+		var/mutable_appearance/screen_overlay = mutable_appearance(icon, "sleeper_s_scannerconsole-screen", EFFECTS_ABOVE_LIGHTING_LAYER)
+		add_overlay(screen_overlay)
+		set_light(1.4, 1, COLOR_RED)
 
 /obj/machinery/chakraconsole/Initialize()
 	. = ..()
@@ -443,6 +532,7 @@
 		break
 	if(connected)
 		connected.connected = src
+	update_icon()
 
 /obj/machinery/chakraconsole/Destroy()
 	if (connected)
@@ -452,6 +542,8 @@
 	. = ..()
 
 /obj/machinery/chakraconsole/attack_ai(user as mob)
+	if(!ai_can_interact(user))
+		return
 	return src.attack_hand(user)
 
 /obj/machinery/chakraconsole/attack_hand(user as mob)
@@ -462,7 +554,7 @@
 
 /obj/machinery/chakraconsole/emag_act(var/remaining_charges, var/mob/user)
 	if(!emagged)
-		user << "<span class='warning'>You short out [src]'s safety measurements.</span>"
+		to_chat(user, "<span class='warning'>You short out [src]'s safety measurements.</span>")
 		visible_message("[src] hums oddly...")
 		emagged = 1
 		return 1
@@ -470,7 +562,7 @@
 /obj/machinery/chakraconsole/proc/button_prompt(user as mob)
 	var/mob/living/carbon/human/H = connected && connected.occupant ? connected.occupant.resolve() : null
 	if(!H)
-		user << "<span class='notice'>The pod is currently unoccupied.</span>"
+		to_chat(user, "<span class='notice'>The pod is currently unoccupied.</span>")
 	else
 		var/list/choices1 = list("Therapy Pod", "Toggle Locking Mechanism", "Initiate Neural Scan", "Initiate Crystal Therapy", "Recycle Crystal", "Cancel")
 		if(emagged)
@@ -485,42 +577,42 @@
 			if("Initiate Neural Scan")
 				visible_message("<span class='warning'>[connected] begins humming with an electrical tone.</span>", "<span class='warning'>You hear an electrical humming.</span>")
 				if(H && connected.occupant.resolve() == H)
-					var/obj/item/organ/brain/sponge = H.internal_organs_by_name["brain"]
-					var/retardation = H.getBrainLoss()
+					var/obj/item/organ/internal/brain/sponge = H.internal_organs_by_name[BP_BRAIN]
+					var/braindamage = H.getBrainLoss()
 					if(sponge && istype(sponge))
 						if(!sponge.lobotomized)
-							user << "<span class='notice'>Scans indicate [retardation] distinct abnormalities present in subject.</span>"
+							to_chat(user, "<span class='notice'>Scans indicate [braindamage] distinct abnormalities present in subject.</span>")
 							return
 						else
-							user << "<span class='notice'>Scans indicate [retardation+rand(-20,20)] distinct abnormalities present in subject.</span>"
+							to_chat(user, "<span class='notice'>Scans indicate [braindamage+rand(-20,20)] distinct abnormalities present in subject.</span>")
 							return
 
-				user << "<span class='warning'>Scans indicate total brain failure in subject.</span>"
+				to_chat(user, "<span class='warning'>Scans indicate total brain failure in subject.</span>")
 				return
 			if("Initiate Crystal Therapy")
 				if(!crystal)
 					neural_check(user, H)
 					return
-				user << "<span class='danger'>Error: Crystal depleted. Terminating operation..</span>"
+				to_chat(user, "<span class='danger'>Error: Crystal depleted. Terminating operation..</span>")
 				playsound(src, 'sound/machines/buzz-two.ogg', 50, 1)
 				visible_message("<span class='warning'>[connected] buzzes harshly.</span>", "<span class='warning'>You hear a sharp buzz.</span>")
 			if("%eRr:# C:\\NT>quaid.exe")
 				if(!crystal)
 					total_recall(user, H)
 					return
-				user << "<span class='danger'>Error: Crystal depleted. Terminating operation..</span>"
+				to_chat(user, "<span class='danger'>Error: Crystal depleted. Terminating operation..</span>")
 				playsound(src, 'sound/machines/buzz-two.ogg', 50, 1)
 				visible_message("<span class='warning'>[connected] buzzes harshly.</span>", "<span class='warning'>You hear a sharp buzz.</span>")
 			if("Recycle Crystal")
 				if(crystal)
-					user << "<span class='warning'>Eliminating depleted crystal.</span>"
+					to_chat(user, "<span class='warning'>Eliminating depleted crystal.</span>")
 					playsound(src.loc, 'sound/machines/juicer.ogg', 50, 1)
 					sleep(100)
 					crystal = 0
 					visible_message("<span class='notice'>[connected] pings cheerfully.</span>", "<span class='notice'>You hear a ping.</span>")
 					playsound(src.loc, 'sound/machines/ding.ogg', 50, 1)
 					return
-				user << "<span class='danger'>Error: Crystal depletion not detected. Terminating operation..</span>"
+				to_chat(user, "<span class='danger'>Error: Crystal depletion not detected. Terminating operation..</span>")
 				playsound(src, 'sound/machines/buzz-two.ogg', 50, 1)
 				visible_message("<span class='warning'>[connected] buzzes harshly.</span>", "<span class='warning'>You hear a sharp buzz.</span>")
 
@@ -528,7 +620,7 @@
 	var/response = input(user,"Input number of rotations","Therapy Pod","0")
 	var/alert = text2num(sanitize(response))
 	if(!alert)
-		user << "<span class='warning'>Error. Invalid input.</span>"
+		to_chat(user, "<span class='warning'>Error. Invalid input.</span>")
 		return
 
 	for(var/i=0;i<alert;i++)
@@ -536,15 +628,15 @@
 		var/electroshock_trauma = 0
 		if(!H || H != connected.occupant.resolve())
 			if(get_dist(user,src) <= 1)
-				user << "<span class='danger'>Error: Subject not recognized. Terminating operation.</span>"
+				to_chat(user, "<span class='danger'>Error: Subject not recognized. Terminating operation.</span>")
 			playsound(src, 'sound/machines/buzz-two.ogg', 50, 1)
 			visible_message("<span class='warning'>[connected] buzzes harshly.</span>", "<span class='warning'>You hear a sharp buzz.</span>")
 			break
 
-		var/obj/item/organ/brain/sponge = H.internal_organs_by_name["brain"]
+		var/obj/item/organ/internal/brain/sponge = H.internal_organs_by_name[BP_BRAIN]
 		if (!istype(sponge) || !sponge.traumas.len)
 			if(get_dist(user,src) <= 1)
-				user << "<span class='danger'>Error: Subject not recognized. Terminating operation.</span>"
+				to_chat(user, "<span class='danger'>Error: Subject not recognized. Terminating operation.</span>")
 			playsound(src, 'sound/machines/buzz-two.ogg', 50, 1)
 			visible_message("<span class='warning'>[connected] buzzes harshly.</span>", "<span class='warning'>You hear a sharp buzz.</span>")
 			break
@@ -563,7 +655,7 @@
 
 		else
 			if(get_dist(user,src) <= 1)
-				user << "<span class='danger'>Error: Brain abnormality not recognized. Subject contamination detected.</span>"
+				to_chat(user, "<span class='danger'>Error: Brain abnormality not recognized. Subject contamination detected.</span>")
 			playsound(src, 'sound/machines/buzz-two.ogg', 50, 1)
 			visible_message("<span class='warning'>[connected] buzzes harshly.</span>", "<span class='warning'>You hear a sharp buzz.</span>")
 			H.apply_radiation(max(1,i))
@@ -578,13 +670,13 @@
 			var/list/choices2 = list("5 minutes", "15 minutes", "30 minutes", "2 hours", "6 months", "Cancel")
 			var/response2 = input(user,"Input timeframe.","Memory Wipe") as null|anything in choices2
 			if(response2 != "Cancel")
-				user << "<span class='notice'>Initiating memory wipe. Process will take approximately two minutes.</span>"
-				H << "<span class='danger'>You feel a sharp pain in your brain as the therapy pod begins to hum menacingly!!</span>"
+				to_chat(user, "<span class='notice'>Initiating memory wipe. Process will take approximately two minutes.</span>")
+				to_chat(H, "<span class='danger'>You feel a sharp pain in your brain as the therapy pod begins to hum menacingly!!</span>")
 				sleep(1200-rand(0,150))
 				if(H && H == connected.occupant.resolve())
 					var/timespan = response2
-					H << "<span class='danger'>You feel a part of your past self, a portion of your memories, a piece of your very being slip away...</span>"
-					H << "<b>Your memory of the past [timespan] has been wiped. Your ability to recall these past [timespan] has been removed from your brain, and you remember nothing that ever ocurred within those [timespan].</b>"
+					to_chat(H, "<span class='danger'>You feel a part of your past self, a portion of your memories, a piece of your very being slip away...</span>")
+					to_chat(H, "<b>Your memory of the past [timespan] has been wiped. Your ability to recall these past [timespan] has been removed from your brain, and you remember nothing that ever ocurred within those [timespan].</b>")
 					crystal = 1
 					return
 			else
@@ -593,15 +685,15 @@
 			var/new_memory = input(user,"Input New Memory","quaid.exe")
 			var/memory_implant = sanitize(new_memory)
 			if(memory_implant)
-				user << "<span class='notice'>Initiating memory implantation. Process will take approximately two minutes. Subject's memory of this process will also be wiped.</span>"
-				H << "<span class='danger'>You feel a sharp pain in your brain as the therapy pod begins to hum menacingly!</span>"
+				to_chat(user, "<span class='notice'>Initiating memory implantation. Process will take approximately two minutes. Subject's memory of this process will also be wiped.</span>")
+				to_chat(H, "<span class='danger'>You feel a sharp pain in your brain as the therapy pod begins to hum menacingly!</span>")
 				sleep(1200-rand(0,150))
 				if(H && H == connected.occupant.resolve())
-					H << "<span class='danger'>You blink, and somehow between the timespan of your eyes closing and your eyes opening your perception of the world has changed in some imperceptible way...</span>"
-					H << "<b>A new memory has been implanted in your mind as follows: [memory_implant] - you have no reason to suspect the memory to be fabricated, as your memory of the past two minutes has also been altered.</b>"
+					to_chat(H, "<span class='danger'>You blink, and somehow between the timespan of your eyes closing and your eyes opening your perception of the world has changed in some imperceptible way...</span>")
+					to_chat(H, "<b>A new memory has been implanted in your mind as follows: [memory_implant] - you have no reason to suspect the memory to be fabricated, as your memory of the past two minutes has also been altered.</b>")
 					crystal = 1
 					return
 	if(get_dist(user,src) <= 1)
-		user << "<span class='danger'>Error: Operation failed. Terminating operation.</span>"
+		to_chat(user, "<span class='danger'>Error: Operation failed. Terminating operation.</span>")
 	playsound(src, 'sound/machines/buzz-two.ogg', 50, 1)
 	visible_message("<span class='warning'>[connected] buzzes harshly.</span>", "<span class='warning'>You hear a sharp buzz.</span>")

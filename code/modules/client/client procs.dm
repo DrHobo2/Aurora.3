@@ -19,8 +19,22 @@
 		- If so, is there any protection against somebody spam-clicking a link?
 	If you have any  questions about this stuff feel free to ask. ~Carn
 	*/
+
 /client/Topic(href, href_list, hsrc)
 	if(!usr || usr != mob)	//stops us calling Topic for somebody else's client. Also helps prevent usr=null
+		return
+
+	if(!authed)
+		if(href_list["authaction"] in list("guest", "forums")) // Protection
+			..()
+		return
+
+	if(href_list["vueuiclose"])
+		var/datum/vueui/ui = locate(href_list["src"])
+		if(istype(ui))
+			ui.close()
+		else // UI is an orphan, close it directly.
+			src << browse(null, "window=vueui[href_list["src"]]")
 		return
 
 	// asset_cache
@@ -37,14 +51,12 @@
 		if (!info_sent)
 			handle_connection_info(src, href_list["data"])
 			info_sent = 1
-		else
-			server_greeting.close_window(src, "Your greeting window has malfunctioned and has been shut down.")
 
 		return
 
 	//search the href for script injection
 	if( findtext(href,"<script",1,0) )
-		world.log << "Attempted use of scripts within a topic call, by [src]"
+		world.log <<  "Attempted use of scripts within a topic call, by [src]"
 		message_admins("Attempted use of scripts within a topic call, by [src]")
 		//del(usr)
 		return
@@ -74,10 +86,10 @@
 
 	if(href_list["discord_msg"])
 		if(!holder && received_discord_pm < world.time - 6000) //Worse they can do is spam IRC for 10 minutes
-			usr << "<span class='warning'>You are no longer able to use this, it's been more then 10 minutes since an admin on Discord has responded to you</span>"
+			to_chat(usr, "<span class='warning'>You are no longer able to use this, it's been more then 10 minutes since an admin on Discord has responded to you</span>")
 			return
 		if(mute_discord)
-			usr << "<span class='warning'You cannot use this as your client has been muted from sending messages to the admins on Discord</span>"
+			to_chat(usr, "<span class='warning'You cannot use this as your client has been muted from sending messages to the admins on Discord</span>")
 			return
 		cmd_admin_discord_pm(href_list["discord_msg"])
 		return
@@ -91,6 +103,11 @@
 		if("usr")		hsrc = mob
 		if("prefs")		return prefs.process_link(usr,href_list)
 		if("vars")		return view_var_Topic(href,href_list,hsrc)
+		if("chat")		return chatOutput.Topic(href, href_list)
+
+	switch(href_list["action"])
+		if("openLink")
+			send_link(src, href_list["link"])
 
 	if(href_list["warnacknowledge"])
 		var/queryid = text2num(href_list["warnacknowledge"])
@@ -114,7 +131,7 @@
 
 		establish_db_connection(dbcon)
 		if (!dbcon.IsConnected())
-			src << "<span class='warning'>Action failed! Database link could not be established!</span>"
+			to_chat(src, "<span class='warning'>Action failed! Database link could not be established!</span>")
 			return
 
 
@@ -122,11 +139,11 @@
 		check_query.Execute(list("id" = request_id))
 
 		if (!check_query.NextRow())
-			src << "<span class='warning'>No request found!</span>"
+			to_chat(src, "<span class='warning'>No request found!</span>")
 			return
 
 		if (ckey(check_query.item[1]) != ckey || check_query.item[2] != "new")
-			src << "<span class='warning'>Request authentication failed!</span>"
+			to_chat(src, "<span class='warning'>Request authentication failed!</span>")
 			return
 
 		var/query_contents = ""
@@ -138,15 +155,15 @@
 				query_details["new_status"] = "confirmed"
 				query_details["id"] = request_id
 
-				feedback_message = "<font color='green'><b>Account successfully linked!</b></font>"
+				feedback_message = "<span class='good'><b>Account successfully linked!</b></span>"
 			if ("deny")
 				query_contents = "UPDATE ss13_player_linking SET status = :new_status:, deleted_at = NOW() WHERE id = :id:"
 				query_details["new_status"] = "rejected"
 				query_details["id"] = request_id
 
-				feedback_message = "<font color='red'><b>Link request rejected!</b></font>"
+				feedback_message = "<span class='warning'><b>Link request rejected!</b></span>"
 			else
-				src << "<span class='warning'>Invalid command sent.</span>"
+				to_chat(src, "<span class='warning'>Invalid command sent.</span>")
 				return
 
 		var/DBQuery/update_query = dbcon.NewQuery(query_contents)
@@ -155,7 +172,7 @@
 		if (href_list["linkingaction"] == "accept" && alert("To complete the process, you have to visit the website. Do you want to do so now?",,"Yes","No") == "Yes")
 			process_webint_link("interface/user/link")
 
-		src << feedback_message
+		to_chat(src, feedback_message)
 		check_linking_requests()
 		return
 
@@ -185,13 +202,13 @@
 			// Forum link from various panels.
 			if ("github")
 				if (!config.githuburl)
-					src << "<span class='danger'>Github URL not set in the config. Unable to open the site.</span>"
+					to_chat(src, "<span class='danger'>Github URL not set in the config. Unable to open the site.</span>")
 				else if (alert("This will open the Github page in your browser. Are you sure?",, "Yes", "No") == "Yes")
 					if (href_list["pr"])
 						var/pr_link = "[config.githuburl]pull/[href_list["pr"]]"
-						src << link(pr_link)
+						send_link(src, pr_link)
 					else
-						src << link(config.githuburl)
+						send_link(src, config.githuburl)
 
 			// Forum link from various panels.
 			if ("forums")
@@ -199,16 +216,11 @@
 
 			// Wiki link from various panels.
 			if ("wiki")
-				src.wiki()
+				src.wiki(sub_page = (href_list["wiki_page"] || null))
 
 			// Web interface href link from various panels.
 			if ("webint")
 				src.open_webint()
-
-			// Forward appropriate topics to the server greeting datum.
-			if ("greeting")
-				if (server_greeting)
-					server_greeting.handle_call(href_list, src)
 
 			// Handle the updating of MotD and Memo tabs upon click.
 			if ("updateHashes")
@@ -228,7 +240,7 @@
 	if (href_list["view_jobban"])
 		var/reason = jobban_isbanned(ckey, href_list["view_jobban"])
 		if (!reason)
-			to_chat(src, span("notice", "You do not appear jobbanned from this job. If you are still stopped from entering the role however, please adminhelp."))
+			to_chat(src, SPAN_NOTICE("You do not appear jobbanned from this job. If you are still stopped from entering the role however, please adminhelp."))
 			return
 
 		var/data = "<center>Jobbanned from: <b>[href_list["view_jobban"]]</b><br>"
@@ -236,7 +248,7 @@
 		data += reason
 		data += "</center>"
 
-		show_browser(src, data, "jobban_reason")
+		show_browser(src, data, "window=jobban_reason;size=400x300")
 		return
 
 	..()	//redirect to hsrc.()
@@ -244,48 +256,72 @@
 /proc/client_by_ckey(ckey)
 	return directory[ckey]
 
-/client/proc/handle_spam_prevention(var/message, var/mute_type)
-	if (config.automute_on && !holder && length(message))
-		if (last_message_time)
-			if (world.time - last_message_time < config.macro_trigger)
-				spam_alert++
-				if (spam_alert > 3)
-					if (!(prefs.muted & mute_type))
-						cmd_admin_mute(src.mob, mute_type, 1)
+/client/proc/automute_by_time(mute_type)
+	if (!last_message_time)
+		return FALSE
 
-					src << "<span class='danger'>You have tripped the macro filter. An auto-mute was applied.</span>"
-					last_message_time = world.time
-					spam_alert = 4
-					return 1
-			else
-				spam_alert = max(0, spam_alert--)
+	if (config.macro_trigger && (REALTIMEOFDAY - last_message_time) < config.macro_trigger)
+		spam_alert = min(spam_alert + 1, 4)
+		log_debug("SPAM_PROTECT: [src] tripped macro-trigger. Now at alert [spam_alert].")
 
-		last_message_time = world.time
+		if (spam_alert > 3 && !(prefs.muted & mute_type))
+			cmd_admin_mute(src.mob, mute_type, 1)
+			to_chat(src, "<span class='danger'>You have tripped the macro-trigger. An auto-mute was applied.</span>")
+			log_debug("SPAM_PROTECT: [src] tripped macro-trigger, now muted.")
+			return TRUE
 
-		if(last_message == message)
-			last_message_count++
-			if(last_message_count >= SPAM_TRIGGER_AUTOMUTE)
-				src << "<span class='danger'>You have exceeded the spam filter limit for identical messages. An auto-mute was applied.</span>"
-				cmd_admin_mute(src.mob, mute_type, 1)
-				return 1
-			if(last_message_count >= SPAM_TRIGGER_WARNING)
-				src << "<span class='danger'>You are nearing the spam filter limit for identical messages.</span>"
-				return 0
+	else
+		spam_alert = max(0, spam_alert - 1)
 
+	return FALSE
+
+/client/proc/automute_by_duplicate(message, mute_type)
+	if (!last_message)
+		return FALSE
+
+	if (last_message == message)
+		last_message_count++
+		log_debug("SPAM_PROTECT: [src] tripped duplicate message filter. Last message count: [last_message_count]. Message: [message]")
+
+		if(last_message_count >= SPAM_TRIGGER_AUTOMUTE)
+			to_chat(src, "<span class='danger'>You have exceeded the spam filter limit for identical messages. An auto-mute was applied.</span>")
+			cmd_admin_mute(mob, mute_type, 1)
+			log_debug("SPAM_PROTECT: [src] tripped duplicate message filter, now muted.")
+			last_message_count = 0
+			return TRUE
+		else if(last_message_count >= SPAM_TRIGGER_WARNING)
+			to_chat(src, "<span class='danger'>You are nearing the spam filter limit for identical messages.</span>")
+			log_debug("SPAM_PROTECT: [src] tripped duplicate message filter, now warned.")
+			return FALSE
+	else
+		last_message_count = 0
+
+	return FALSE
+
+/client/proc/handle_spam_prevention(message, mute_type)
+	. = FALSE
+
+	if (prefs.muted & mute_type)
+		to_chat(src, "<span class='warning'>You are muted and cannot send messages.</span>")
+		. = TRUE
+	else if (config.automute_on && !holder && length(message))
+		. = . || automute_by_time(mute_type)
+
+		. = . || automute_by_duplicate(message, mute_type)
+
+	last_message_time = REALTIMEOFDAY
 	last_message = message
-	last_message_count = 0
-	return 0
 
 //This stops files larger than UPLOAD_LIMIT being sent from client to server via input(), client.Import() etc.
 /client/AllowUpload(filename, filelength)
 	if(filelength > UPLOAD_LIMIT)
-		src << "<font color='red'>Error: AllowUpload(): File Upload too large. Upload Limit: [UPLOAD_LIMIT/1024]KiB.</font>"
+		to_chat(src, "<span class='warning'>Error: AllowUpload(): File Upload too large. Upload Limit: [UPLOAD_LIMIT/1024]KiB.</span>")
 		return 0
 /*	//Don't need this at the moment. But it's here if it's needed later.
 	//Helps prevent multiple files being uploaded at once. Or right after eachother.
 	var/time_to_wait = fileaccess_timer - world.time
 	if(time_to_wait > 0)
-		src << "<font color='red'>Error: AllowUpload(): Spam prevention. Please wait [round(time_to_wait/10)] seconds.</font>"
+		to_chat(src, "<span class='warning'>Error: AllowUpload(): Spam prevention. Please wait [round(time_to_wait/10)] seconds.</span>")
 		return 0
 	fileaccess_timer = world.time + FTPDELAY	*/
 	return 1
@@ -297,29 +333,85 @@
 /client/New(TopicData)
 	TopicData = null							//Prevent calls to client.Topic from connect
 
+	// Load goonchat
+	chatOutput = new(src)
+
 	if(!(connection in list("seeker", "web")))					//Invalid connection type.
 		return null
 	if(byond_version < MIN_CLIENT_VERSION)		//Out of date client.
 		return null
 
-	if(!config.guests_allowed && IsGuestKey(key))
+	if(!(config.guests_allowed || config.external_auth) && IsGuestKey(key))
 		alert(src,"This server doesn't allow guest accounts to play. Please go to http://www.byond.com/ and register for a key.","Guest","OK")
 		del(src)
 		return
 
-	src << "<span class='alert'>If the title screen is black, resources are still downloading. Please be patient until the title screen appears.</span>"
-
-
 	clients += src
 	directory[ckey] = src
+
+	if (LAZYLEN(config.client_blacklist_version))
+		var/client_version = "[byond_version].[byond_build]"
+		if (client_version in config.client_blacklist_version)
+			to_chat(src, "<span class='danger'><b>Your version of BYOND is explicitly blacklisted from joining this server!</b></span>")
+			to_chat(src, "Your current version: [client_version].")
+			to_chat(src, "Visit http://www.byond.com/download/ to download a different version. Try looking for a newer one, or go one lower.")
+			log_access("Failed Login: [key] [computer_id] [address] - Blacklisted BYOND version: [client_version].")
+			del(src)
+			return 0
+
+	if(IsGuestKey(key) && config.external_auth)
+		src.authed = FALSE
+		var/mob/abstract/unauthed/m = new()
+		m.client = src
+		src.InitPrefs() //Init some default prefs
+		m.LateLogin()
+		chatOutput.start()
+		return m
+		//Do auth shit
+	else
+		. = ..()
+		src.InitClient()
+		src.InitPrefs()
+		mob.LateLogin()
+		chatOutput.start()
+
+/client/proc/InitPrefs()
+	//preferences datum - also holds some persistant data for the client (because we may as well keep these datums to a minimum)
+	prefs = preferences_datums[ckey]
+	if(!prefs)
+		prefs = new /datum/preferences(src)
+		preferences_datums[ckey] = prefs
+
+		prefs.gather_notifications(src)
+	prefs.client = src					// Safety reasons here.
+	prefs.last_ip = address				//these are gonna be used for banning
+	prefs.last_id = computer_id			//these are gonna be used for banning
+	if (byond_version >= 511 && prefs.clientfps)
+		fps = prefs.clientfps
+
+/client/proc/InitClient()
+	to_chat(src, "<span class='alert'>If the title screen is black, resources are still downloading. Please be patient until the title screen appears.</span>")
 
 	//Admin Authorisation
 	holder = admin_datums[ckey]
 	if(holder)
-		admins += src
+		staff += src
 		holder.owner = src
 
 	log_client_to_db()
+
+	if (byond_version < config.client_error_version)
+		to_chat(src, "<span class='danger'><b>Your version of BYOND is too old!</b></span>")
+		to_chat(src, config.client_error_message)
+		to_chat(src, "Your version: [byond_version].")
+		to_chat(src, "Required version: [config.client_error_version] or later.")
+		to_chat(src, "Visit http://www.byond.com/download/ to get the latest version of BYOND.")
+		if (holder)
+			to_chat(src, "Admins get a free pass. However, <b>please</b> update your BYOND as soon as possible. Certain things may cause crashes if you play with your present version.")
+		else
+			log_access("Failed Login: [key] [computer_id] [address] - Outdated BYOND major version: [byond_version].")
+			del(src)
+			return 0
 
 	// New player, and we don't want any.
 	if (!holder)
@@ -338,41 +430,8 @@
 			del(src)
 			return 0
 
-	if (byond_version < config.client_error_version)
-		src << "<span class='danger'><b>Your version of BYOND is too old!</b></span>"
-		src << config.client_error_message
-		src << "Your version: [byond_version]."
-		src << "Required version: [config.client_error_version] or later."
-		src << "Visit http://www.byond.com/download/ to get the latest version of BYOND."
-		if (holder)
-			src << "Admins get a free pass. However, <b>please</b> update your BYOND as soon as possible. Certain things may cause crashes if you play with your present version."
-		else
-			log_access("Failed Login: [key] [computer_id] [address] - Outdated BYOND major version: [byond_version].")
-			del(src)
-			return 0
-
-	if (LAZYLEN(config.client_blacklist_version))
-		var/client_version = "[byond_version].[byond_build]"
-		if (client_version in config.client_blacklist_version)
-			src << "<span class='danger'><b>Your version of BYOND is explicitly blacklisted from joining this server!</b></span>"
-			src << "Your current version: [client_version]."
-			src << "Visit http://www.byond.com/download/ to download a different version. Try looking for a newer one, or go one lower."
-			log_access("Failed Login: [key] [computer_id] [address] - Blacklisted BYOND version: [client_version].")
-			del(src)
-			return 0
-
-	//preferences datum - also holds some persistant data for the client (because we may as well keep these datums to a minimum)
-	prefs = preferences_datums[ckey]
-	if(!prefs)
-		prefs = new /datum/preferences(src)
-		preferences_datums[ckey] = prefs
-
-		prefs.gather_notifications(src)
-	prefs.client = src					// Safety reasons here.
-	prefs.last_ip = address				//these are gonna be used for banning
-	prefs.last_id = computer_id			//these are gonna be used for banning
-
-	. = ..()	//calls mob.Login()
+	if(!tooltips)
+		tooltips = new /datum/tooltip(src)
 
 	if(holder)
 		add_admin_verbs()
@@ -387,23 +446,20 @@
 
 	send_resources()
 
-	// Server greeting shenanigans.
-	if (server_greeting.find_outdated_info(src, 1))
-		server_greeting.display_to_client(src)
-
-	// Check code/modules/admin/verbs/antag-ooc.dm for definition
-	add_aooc_if_necessary()
-
 	check_ip_intel()
 
-	//////////////
-	//DISCONNECT//
-	//////////////
+	fetch_unacked_warning_count()
+
+	is_initialized = TRUE
+
+//////////////
+//DISCONNECT//
+//////////////
 /client/Del()
 	ticket_panels -= src
 	if(holder)
 		holder.owner = null
-		admins -= src
+		staff -= src
 	directory -= ckey
 	clients -= src
 	SSassets.handle_disconnect(src)
@@ -508,6 +564,14 @@
 
 //send resources to the client. It's here in its own proc so we can move it around easiliy if need be
 /client/proc/send_resources()
+#if (PRELOAD_RSC == 0)
+	var/static/next_external_rsc = 0
+	var/list/external_rsc_urls = config.external_rsc_urls
+	if(length(external_rsc_urls))
+		next_external_rsc = Wrap(next_external_rsc+1, 1, external_rsc_urls.len+1)
+		preload_rsc = external_rsc_urls[next_external_rsc]
+#endif
+
 	SSassets.handle_connect(src)
 
 /mob/proc/MayRespawn()
@@ -525,6 +589,10 @@
 	set category = "Preferences"
 	if(prefs)
 		prefs.ShowChoices(usr)
+
+/client/proc/apply_fps(var/client_fps)
+	if(world.byond_version >= 511 && byond_version >= 511 && client_fps >= 0 && client_fps <= 1000)
+		vars["fps"] = prefs.clientfps
 
 //I honestly can't find a good place for this atm.
 //If the webint interaction gets more features, I'll move it. - Skull132
@@ -629,17 +697,8 @@
 			log_debug("Unrecognized process_webint_link() call used. Route sent: '[route]'.")
 			return
 
-	src << link(linkURL)
+	send_link(src, linkURL)
 	return
-
-/client/verb/show_greeting()
-	set name = "Open Greeting"
-	set category = "OOC"
-
-	// Update the information just in case.
-	server_greeting.find_outdated_info(src, 1)
-
-	server_greeting.display_to_client(src)
 
 /client/proc/check_ip_intel()
 	set waitfor = 0 //we sleep when getting the intel, no need to hold up the client connection while we sleep
@@ -680,3 +739,29 @@
 		sleep(1)
 	else
 		stoplag(5)
+
+/client/MouseDrag(src_object, over_object, src_location, over_location, src_control, over_control, params)
+	. = ..()
+
+	if(over_object)
+		var/mob/living/M = mob
+		if(istype(get_turf(over_object), /atom))
+			var/atom/A = get_turf(over_object)
+			if(src && src.buildmode)
+				build_click(M, src.buildmode, params, A)
+				return
+
+		if(istype(M) && !M.incapacitated())
+			var/obj/item/I = M.get_active_hand()
+			if(istype(I, /obj/item/gun))
+				var/obj/item/gun/gun = I
+				if(gun.can_autofire())
+					M.set_dir(get_dir(M, over_object))
+					gun.Fire(get_turf(over_object), M, params, (get_dist(over_object, M) <= 1), FALSE)
+
+			if(istype(I, /obj/item/rfd/mining) && isturf(over_object))
+				var/proximity = M.Adjacent(over_object)
+				var/obj/item/rfd/mining/RFDM = I
+				RFDM.afterattack(over_object, M, proximity, params, FALSE)
+
+	CHECK_TICK

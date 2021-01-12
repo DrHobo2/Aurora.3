@@ -27,10 +27,10 @@
 	A.do_attack_animation(D)
 	playsound(get_turf(A), 'sound/weapons/slice.ogg', 50, 1, -1)
 
-	if(!D.species.has_limbs["head"])
+	if(!D.species.has_limbs[BP_HEAD])
 		return 0
 
-	var/obj/item/organ/external/affecting = D.get_organ("head")
+	var/obj/item/organ/external/affecting = D.get_organ(BP_HEAD)
 	if(!istype(affecting) || affecting.is_stump())
 		return 0
 
@@ -46,10 +46,10 @@
 	if(isipc(D))
 		return 1
 
-	var/obj/item/organ/eyes/eyes = D.get_eyes()
+	var/obj/item/organ/internal/eyes/eyes = D.get_eyes()
 	eyes.take_damage(rand(3,4), 1)
 	var/armor = D.getarmor_organ(affecting,"melee")
-	D.apply_damage(10,BRUTE, "head", armor, sharp=1, edge=1)
+	D.apply_damage(10,BRUTE, BP_HEAD, armor, damage_flags = DAM_SHARP|DAM_EDGE)
 
 	return 1
 
@@ -59,7 +59,7 @@
 	playsound(get_turf(A), 'sound/weapons/slice.ogg', 50, 1, -1)
 	var/obj/item/organ/external/affecting = D.get_organ(ran_zone(A.zone_sel.selecting))
 	var/armor_block = D.run_armor_check(affecting, "melee")
-	D.apply_damage(20, BRUTE, affecting, armor_block, sharp = TRUE, edge = TRUE)
+	D.apply_damage(20, BRUTE, affecting, armor_block, damage_flags = DAM_SHARP|DAM_EDGE)
 	if(prob(20))
 		D.apply_effect(4, WEAKEN)
 	return 1
@@ -71,7 +71,7 @@
 	var/obj/item/organ/external/organ = D.get_organ(A.zone_sel.selecting)
 	var/armor = D.getarmor_organ(organ,"melee")
 	A.visible_message("<span class='danger'>[A] stabs [D]'s [organ.name] with their claws!</span>")
-	D.apply_damage(organ.brute_dam, BRUTE, organ, armor, sharp= TRUE, edge= TRUE)
+	D.apply_damage(organ.brute_dam, BRUTE, organ, armor, damage_flags = DAM_SHARP|DAM_EDGE)
 	return 1
 
 /datum/martial_art/baghrar/harm_act(var/mob/living/carbon/human/A, var/mob/living/carbon/human/D)
@@ -81,7 +81,6 @@
 	basic_hit(A,D)
 	return 1
 
-
 /datum/martial_art/baghrar/disarm_act(var/mob/living/carbon/human/A, var/mob/living/carbon/human/D)
 	add_to_streak("D",D)
 	if(check_streak(A,D))
@@ -89,29 +88,26 @@
 	basic_hit(A,D)
 	return 1
 
-
-/obj/item/baghrar_manual
-	name = "baghrar manual"
-	desc = "A manual designated to teach the user about the tajaran martial art of Baghrar."
-	icon = 'icons/obj/library.dmi'
-	icon_state ="cqcmanual"
-
-/obj/item/baghrar_manual/attack_self(mob/user as mob)
-	if(!ishuman(user))
-		return
-	var/mob/living/carbon/human/H = user
-	var/datum/martial_art/baghrar/F = new/datum/martial_art/baghrar(null)
-	F.teach(H)
-	to_chat(H, "<span class='notice'>You have learned the martial art of Baqhrar.</span>")
-	qdel(src)
-
 /datum/martial_art/baghrar/proc/baghrar_help()
-	set name = "Recall Teachings"
+	set name = "Recall Baghrar"
 	set desc = "Remember the martial techniques of the Baghrar."
-	set category = "Baghrar"
+	set category = "Abilities"
 
 	to_chat(usr, "<b><i>You twitch your ears and remember the techniques...</i></b>")
 	to_chat(usr, "<span class='notice'>Eye Rake</span>: Harm Disarm Harm. Strikes your target's face, damaging their eyes.")
 	to_chat(usr, "<span class='notice'>Claw Punch</span>: Disarm Harm Harm. Hits your target with your claws, dealing damage and causing bleeding.")
 	to_chat(usr, "<span class='notice'>Rrak'narrr Stab</span>: Harm Harm Disarm Disarm. Stabs your target with your claws, dealing more damage based on how hurt they are.")
 
+/obj/item/martial_manual/tajara
+	name = "baghrar manual"
+	desc = "A manual designated to teach the user about the tajaran martial art of Baghrar."
+	martial_art = /datum/martial_art/baghrar
+	desc_fluff = "An ancient martial art from Adhomai primarily used for sport and contests of strength. The fighting style consists of attacks against the opponent from the waist \
+	up. The form of the attacks are primarily swiping motions which take advantage of a Tajara's claws to rake an opponents torso or head. Other moves include punching for friendlier \
+	matches or stabbing forward with the claws in typical matches. Modern Baghrariri, or people who fight in the Baghrar style for sport, usually fight with implements that cover and \
+	support their claws to avoid serious bodily damage. Modern Baghrar matches are decided upon with a point scoring system over three 10 minute rounds of fighting, but historical \
+	victories were secured by knocking opponents onto the ground."
+
+#undef EYE_RAKE
+#undef CLAW_PUNCH
+#undef RRAKNARR_STAB

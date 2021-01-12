@@ -66,7 +66,7 @@
 		used_masks += gene_mask
 		plant_traits -= gene_tag
 		gene_tag_masks[gene_tag] = gene_mask
-	
+
 	..()
 
 /datum/controller/subsystem/plants/Recover()
@@ -111,10 +111,10 @@
 
 	if(survive_on_station)
 		if(seed.consume_gasses)
-			seed.consume_gasses["phoron"] = null
-			seed.consume_gasses["carbon_dioxide"] = null
-		if(seed.chems && !isnull(seed.chems["pacid"]))
-			seed.chems["pacid"] = null // Eating through the hull will make these plants completely inviable, albeit very dangerous.
+			seed.consume_gasses[GAS_PHORON] = null
+			seed.consume_gasses[GAS_CO2] = null
+		if(seed.chems && !isnull(seed.chems[/datum/reagent/acid/polyacid]))
+			seed.chems[/datum/reagent/acid/polyacid] = null // Eating through the hull will make these plants completely inviable, albeit very dangerous.
 			seed.chems -= null // Setting to null does not actually remove the entry, which is weird.
 		seed.set_trait(TRAIT_IDEAL_HEAT,293)
 		seed.set_trait(TRAIT_HEAT_TOLERANCE,20)
@@ -133,8 +133,8 @@
 	if(!holder)	return
 
 	if(!SSplants || !SSplants.gene_tag_masks)
-		usr << "Gene masks not set."
+		to_chat(usr, "Gene masks not set.")
 		return
 
 	for(var/mask in SSplants.gene_tag_masks)
-		usr << "[mask]: [SSplants.gene_tag_masks[mask]]"
+		to_chat(usr, "[mask]: [SSplants.gene_tag_masks[mask]]")

@@ -3,12 +3,12 @@
 #define REGULATE_OUTPUT	2	//shuts off when output side is above the target pressure
 
 /obj/machinery/atmospherics/binary/passive_gate
+	name = "pressure regulator"
+	desc = "A one-way air valve that can be used to regulate input or output pressure, and flow rate. Does not require power."
+	desc_info = "This is a one-way regulator, allowing gas to flow only at a specific pressure and flow rate.  If the light is green, it is flowing."
 	icon = 'icons/atmos/passive_gate.dmi'
 	icon_state = "map"
 	level = 1
-
-	name = "pressure regulator"
-	desc = "A one-way air valve that can be used to regulate input or output pressure, and flow rate. Does not require power."
 
 	use_power = 0
 	interact_offline = 1
@@ -23,6 +23,8 @@
 	var/frequency = 0
 	var/id = null
 	var/datum/radio_frequency/radio_connection
+
+	var/broadcast_status_next_process = FALSE
 
 /obj/machinery/atmospherics/binary/passive_gate/Initialize()
 	. = ..()
@@ -46,6 +48,10 @@
 
 /obj/machinery/atmospherics/binary/passive_gate/machinery_process()
 	..()
+
+	if (broadcast_status_next_process)
+		broadcast_status()
+		broadcast_status_next_process = FALSE
 
 	last_flow_rate = 0
 
@@ -73,7 +79,7 @@
 		//Figure out how much gas to transfer to meet the target pressure.
 		switch (regulate_mode)
 			if (REGULATE_INPUT)
-				transfer_moles = min(transfer_moles, calculate_transfer_moles(air2, air1, pressure_delta, (network1)? network1.volume : 0))
+				transfer_moles = min(transfer_moles, air1.total_moles*(pressure_delta/input_starting_pressure))
 			if (REGULATE_OUTPUT)
 				transfer_moles = min(transfer_moles, calculate_transfer_moles(air1, air2, pressure_delta, (network2)? network2.volume : 0))
 
@@ -106,7 +112,7 @@
 		return 0
 
 	var/datum/signal/signal = new
-	signal.transmission_method = 1 //radio signal
+	signal.transmission_method = TRANSMISSION_RADIO
 	signal.source = src
 
 	signal.data = list(
@@ -152,10 +158,10 @@
 		regulate_mode = text2num(signal.data["set_flow_rate"])
 
 	if("status" in signal.data)
-		addtimer(CALLBACK(src, .proc/broadcast_status), 2, TIMER_UNIQUE)
+		broadcast_status_next_process = TRUE
 		return //do not update_icon
 
-	addtimer(CALLBACK(src, .proc/broadcast_status), 2, TIMER_UNIQUE)
+	broadcast_status_next_process = TRUE
 	update_icon()
 	return
 
@@ -164,7 +170,7 @@
 		return
 	src.add_fingerprint(usr)
 	if(!src.allowed(user))
-		user << "<span class='warning'>Access denied.</span>"
+		to_chat(user, "<span class='warning'>Access denied.</span>")
 		return
 	usr.set_machine(src)
 	ui_interact(user)
@@ -234,21 +240,21 @@
 	src.add_fingerprint(usr)
 	return
 
-/obj/machinery/atmospherics/binary/passive_gate/attackby(var/obj/item/weapon/W as obj, var/mob/user as mob)
+/obj/machinery/atmospherics/binary/passive_gate/attackby(var/obj/item/W as obj, var/mob/user as mob)
 	if (!W.iswrench())
 		return ..()
 	if (unlocked)
-		user << "<span class='warning'>You cannot unwrench \the [src], turn it off first.</span>"
+		to_chat(user, "<span class='warning'>You cannot unwrench \the [src], turn it off first.</span>")
 		return 1
 	var/datum/gas_mixture/int_air = return_air()
 	var/datum/gas_mixture/env_air = loc.return_air()
 	if ((int_air.return_pressure()-env_air.return_pressure()) > 2*ONE_ATMOSPHERE)
-		user << "<span class='warning'>You cannot unwrench \the [src], it too exerted due to internal pressure.</span>"
+		to_chat(user, "<span class='warning'>You cannot unwrench \the [src], it too exerted due to internal pressure.</span>")
 		add_fingerprint(user)
 		return 1
-	playsound(src.loc, 'sound/items/Ratchet.ogg', 50, 1)
-	user << "<span class='notice'>You begin to unfasten \the [src]...</span>"
-	if (do_after(user, 40, act_target = src))
+	playsound(src.loc, W.usesound, 50, 1)
+	to_chat(user, "<span class='notice'>You begin to unfasten \the [src]...</span>")
+	if (do_after(user, 40/W.toolspeed, act_target = src))
 		user.visible_message( \
 			"<span class='notice'>\The [user] unfastens \the [src].</span>", \
 			"<span class='notice'>You have unfastened \the [src].</span>", \

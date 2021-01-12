@@ -16,7 +16,7 @@ var/bomb_set
 	var/code = ""
 	var/yes_code = 0
 	var/safety = 1
-	var/obj/item/weapon/disk/nuclear/auth = null
+	var/obj/item/disk/nuclear/auth = null
 	var/removal_stage = 0 // 0 is no removal, 1 is covers removed, 2 is covers open, 3 is sealant open, 4 is unwrenched, 5 is removed from bolts.
 	var/lastentered
 	use_power = 0
@@ -43,28 +43,28 @@ var/bomb_set
 		SSnanoui.update_uis(src)
 	return
 
-/obj/machinery/nuclearbomb/attackby(obj/item/weapon/O as obj, mob/user as mob, params)
+/obj/machinery/nuclearbomb/attackby(obj/item/O as obj, mob/user as mob, params)
 	if (O.isscrewdriver())
 		src.add_fingerprint(user)
 		if (src.auth)
 			if (panel_open == 0)
 				panel_open = 1
 				add_overlay("panel_open")
-				user << "You unscrew the control panel of [src]."
-				playsound(src, 'sound/items/Screwdriver.ogg', 50, 1)
+				to_chat(user, "You unscrew the control panel of [src].")
+				playsound(src,  O.usesound, 50, 1)
 			else
 				panel_open = 0
 				cut_overlay("panel_open")
-				user << "You screw the control panel of [src] back on."
-				playsound(src, 'sound/items/Screwdriver.ogg', 50, 1)
+				to_chat(user, "You screw the control panel of [src] back on.")
+				playsound(src, O.usesound, 50, 1)
 		else
 			if (panel_open == 0)
-				user << "\The [src] emits a buzzing noise, the panel staying locked in."
+				to_chat(user, "\The [src] emits a buzzing noise, the panel staying locked in.")
 			if (panel_open == 1)
 				panel_open = 0
 				cut_overlay("panel_open")
-				user << "You screw the control panel of \the [src] back on."
-				playsound(src, 'sound/items/Screwdriver.ogg', 50, 1)
+				to_chat(user, "You screw the control panel of \the [src] back on.")
+				playsound(src, O.usesound, 50, 1)
 			flick("lock", src)
 		return
 
@@ -72,7 +72,7 @@ var/bomb_set
 		return attack_hand(user)
 
 	if (src.extended)
-		if (istype(O, /obj/item/weapon/disk/nuclear))
+		if (istype(O, /obj/item/disk/nuclear))
 			usr.drop_from_inventory(O,src)
 			src.auth = O
 			src.add_fingerprint(user)
@@ -82,15 +82,15 @@ var/bomb_set
 		switch(removal_stage)
 			if(0)
 				if(O.iswelder())
-					var/obj/item/weapon/weldingtool/WT = O
+					var/obj/item/weldingtool/WT = O
 					if(!WT.isOn()) return
 					if (WT.get_fuel() < 5) // uses up 5 fuel.
-						user << "<span class='warning'>You need more fuel to complete this task.</span>"
+						to_chat(user, "<span class='warning'>You need more fuel to complete this task.</span>")
 						return
 
 					user.visible_message("[user] starts cutting loose the anchoring bolt covers on [src].", "You start cutting loose the anchoring bolt covers with [O]...")
 
-					if(do_after(user,40))
+					if(do_after(user,40/O.toolspeed))
 						if(!src || !user || !WT.remove_fuel(5, user)) return
 						user.visible_message("[user] cuts through the bolt covers on [src].", "You cut through the bolt cover.")
 						removal_stage = 1
@@ -100,7 +100,7 @@ var/bomb_set
 				if(O.iscrowbar())
 					user.visible_message("[user] starts forcing open the bolt covers on [src].", "You start forcing open the anchoring bolt covers with [O]...")
 
-					if(do_after(user,15))
+					if(do_after(user,15/O.toolspeed))
 						if(!src || !user) return
 						user.visible_message("[user] forces open the bolt covers on [src].", "You force open the bolt covers.")
 						removal_stage = 2
@@ -109,15 +109,15 @@ var/bomb_set
 			if(2)
 				if(O.iswelder())
 
-					var/obj/item/weapon/weldingtool/WT = O
+					var/obj/item/weldingtool/WT = O
 					if(!WT.isOn()) return
 					if (WT.get_fuel() < 5) // uses up 5 fuel.
-						user << "<span class='warning'>You need more fuel to complete this task.</span>"
+						to_chat(user, "<span class='warning'>You need more fuel to complete this task.</span>")
 						return
 
 					user.visible_message("[user] starts cutting apart the anchoring system sealant on [src].", "You start cutting apart the anchoring system's sealant with [O]...")
 
-					if(do_after(user,40))
+					if(do_after(user,40/O.toolspeed))
 						if(!src || !user || !WT.remove_fuel(5, user)) return
 						user.visible_message("[user] cuts apart the anchoring system sealant on [src].", "You cut apart the anchoring system's sealant.")
 						removal_stage = 3
@@ -128,7 +128,7 @@ var/bomb_set
 
 					user.visible_message("[user] begins unwrenching the anchoring bolts on [src].", "You begin unwrenching the anchoring bolts...")
 
-					if(do_after(user,50))
+					if(do_after(user,50/O.toolspeed))
 						if(!src || !user) return
 						user.visible_message("[user] unwrenches the anchoring bolts on [src].", "You unwrench the anchoring bolts.")
 						removal_stage = 4
@@ -139,7 +139,7 @@ var/bomb_set
 
 					user.visible_message("[user] begins lifting [src] off of the anchors.", "You begin lifting the device off the anchors...")
 
-					if(do_after(user,80))
+					if(do_after(user,80/O.toolspeed))
 						if(!src || !user) return
 						user.visible_message("[user] crowbars [src] off of the anchors. It can now be moved.", "You jam the crowbar under the nuclear device and lift it off its anchors. You can now move it!")
 						anchored = 0
@@ -210,10 +210,10 @@ var/bomb_set
 		return
 
 	if (src.deployable)
-		usr << "<span class='warning'>You close several panels to make [src] undeployable.</span>"
+		to_chat(usr, "<span class='warning'>You close several panels to make [src] undeployable.</span>")
 		src.deployable = 0
 	else
-		usr << "<span class='warning'>You adjust some panels to make [src] deployable.</span>"
+		to_chat(usr, "<span class='warning'>You adjust some panels to make [src] deployable.</span>")
 		src.deployable = 1
 	return
 
@@ -235,7 +235,7 @@ var/bomb_set
 			auth = null
 		else
 			var/obj/item/I = usr.get_active_hand()
-			if (istype(I, /obj/item/weapon/disk/nuclear))
+			if (istype(I, /obj/item/disk/nuclear))
 				usr.drop_from_inventory(I,src)
 				auth = I
 	if (is_auth(usr))
@@ -270,15 +270,15 @@ var/bomb_set
 					SSnanoui.update_uis(src)
 					return
 				if (!anchored)
-					usr << "<span class='warning'>\The [src] needs to be anchored.</span>"
+					to_chat(usr, "<span class='warning'>\The [src] needs to be anchored.</span>")
 					SSnanoui.update_uis(src)
 					return
 				if (safety)
-					usr << "<span class='warning'>The safety is still on.</span>"
+					to_chat(usr, "<span class='warning'>The safety is still on.</span>")
 					SSnanoui.update_uis(src)
 					return
 				if (wires.IsIndexCut(NUCLEARBOMB_WIRE_TIMING))
-					usr << "<span class='warning'>Nothing happens, something might be wrong with the wiring.</span>"
+					to_chat(usr, "<span class='warning'>Nothing happens, something might be wrong with the wiring.</span>")
 					SSnanoui.update_uis(src)
 					return
 
@@ -295,7 +295,7 @@ var/bomb_set
 					alerted = 1
 			if (href_list["safety"])
 				if (wires.IsIndexCut(NUCLEARBOMB_WIRE_SAFETY))
-					usr << "<span class='warning'>Nothing happens, something might be wrong with the wiring.</span>"
+					to_chat(usr, "<span class='warning'>Nothing happens, something might be wrong with the wiring.</span>")
 					SSnanoui.update_uis(src)
 					return
 				safety = !safety
@@ -317,7 +317,7 @@ var/bomb_set
 						secure_device()
 						visible_message("<span class='warning'>The anchoring bolts slide back into the depths of [src].</span>")
 				else
-					usr << "<span class='warning'>There is nothing to anchor to!</span>"
+					to_chat(usr, "<span class='warning'>There is nothing to anchor to!</span>")
 
 	SSnanoui.update_uis(src)
 
@@ -349,16 +349,16 @@ var/bomb_set
 
 	var/off_station = 0
 	var/turf/bomb_location = get_turf(src)
-	if(bomb_location && (bomb_location.z in current_map.station_levels))
+	if(bomb_location && isStationLevel(bomb_location.z))
 		if( (bomb_location.x < (128-NUKERANGE)) || (bomb_location.x > (128+NUKERANGE)) || (bomb_location.y < (128-NUKERANGE)) || (bomb_location.y > (128+NUKERANGE)) )
 			off_station = 1
 	else
 		off_station = 2
 
 	if(SSticker.mode && SSticker.mode.name == "Mercenary")
-		var/obj/machinery/computer/shuttle_control/multi/syndicate/syndie_location = locate(/obj/machinery/computer/shuttle_control/multi/syndicate)
+		var/obj/machinery/computer/shuttle_control/multi/antag/syndicate/syndie_location = locate(/obj/machinery/computer/shuttle_control/multi/antag/syndicate)
 		if(syndie_location)
-			SSticker.mode:syndies_didnt_escape = !(syndie_location.z in current_map.admin_levels)
+			SSticker.mode:syndies_didnt_escape = isNotAdminLevel(syndie_location.z)
 		SSticker.mode:nuke_off_station = off_station
 
 	SSticker.station_explosion_cinematic(off_station, null, GetConnectedZlevels(z))
@@ -391,30 +391,29 @@ var/bomb_set
 		icon_state = "idle"
 
 //====The nuclear authentication disc====
-/obj/item/weapon/disk/nuclear
+/obj/item/disk/nuclear
 	name = "authentication disk"
 	desc = "Better keep this safe."
-	icon = 'icons/obj/items.dmi'
 	icon_state = "nucleardisk"
 	item_state = "card-id"
-	w_class = 1.0
+	w_class = ITEMSIZE_TINY
 
-/obj/item/weapon/disk/nuclear/Initialize()
+/obj/item/disk/nuclear/Initialize()
 	. = ..()
 	nuke_disks |= src
 
-/obj/item/weapon/disk/nuclear/Destroy()
+/obj/item/disk/nuclear/Destroy()
 	nuke_disks -= src
 	if(!nuke_disks.len)
 		var/turf/T = pick_area_turf(/area/maintenance, list(/proc/is_station_turf, /proc/not_turf_contains_dense_objects))
 		if(T)
-			var/obj/D = new /obj/item/weapon/disk/nuclear(T)
+			var/obj/D = new /obj/item/disk/nuclear(T)
 			log_and_message_admins("[src], the last authentication disk, has been destroyed. Spawning [D] at ([D.x], [D.y], [D.z]).", location = T)
 		else
 			log_and_message_admins("[src], the last authentication disk, has been destroyed. Failed to respawn disc!")
 	return ..()
 
-/obj/item/weapon/disk/nuclear/touch_map_edge()
+/obj/item/disk/nuclear/touch_map_edge()
 	qdel(src)
 
 /obj/machinery/nuclearbomb/station
@@ -435,7 +434,7 @@ var/bomb_set
 
 /obj/machinery/nuclearbomb/station/LateInitialize()
 	for(var/turf/simulated/floor/T in RANGE_TURFS(1, src))
-		T.set_flooring(get_flooring_data(/decl/flooring/reinforced/circuit/red))
+		T.set_flooring(decls_repository.get_decl(/decl/flooring/reinforced/circuit/red))
 		flash_tiles += T
 	update_icon()
 

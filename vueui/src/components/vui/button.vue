@@ -1,6 +1,6 @@
 <template>
   <div @click="senddata()" class="button" :disabled="$root.$data.status < 2 || this.disabled">
-    <div v-if="icon" class="uiIcon16" :class="'ic-' + icon"/>
+    <div v-if="icon" class="uiIcon16" :class="[this.iconOnly ? '' : 'mr-1', 'ic-' + icon]"/>
     <span><slot/></span>
   </div>
 </template>
@@ -18,11 +18,19 @@ export default {
       type: Object,
       default: null
     },
+    unsafeParams: {
+      type: Object,
+      default: null
+    },
     pushState: {
       type: Boolean,
       default: false
     },
     disabled: {
+      type: Boolean,
+      default: false
+    },
+    iconOnly: {
       type: Boolean,
       default: false
     }
@@ -33,6 +41,9 @@ export default {
         return
       }
       this.$emit('click')
+      if(this.unsafeParams) {
+        Utils.sendToTopicRaw(this.unsafeParams)
+      }
       if(!this.params) {
         if (this.pushState) {
           Store.pushState()
@@ -44,9 +55,3 @@ export default {
   }
 }
 </script>
-
-<style lang="scss" scoped>
-.uiIcon16 {
-  margin-right: 4px;
-}
-</style>

@@ -25,9 +25,11 @@
 	density = 1
 	anchored = 1
 	use_power = 0
+	clicksound = /decl/sound_category/switch_sound
 
 	var/capacity = 5e6 // maximum charge
 	var/charge = 1e6 // actual charge
+	var/max_coils = 0
 
 	var/input_attempt = 0 			// 1 = attempting to charge, 0 = not attempting to charge
 	var/inputting = 0 				// 1 = actually inputting, 0 = not inputting
@@ -111,6 +113,16 @@
 
 	if(!should_be_mapped)
 		warning("Non-buildable or Non-magical SMES at [src.x]X [src.y]Y [src.z]Z")
+
+/obj/machinery/power/smes/examine(mob/user)
+	. = ..()
+	if(open_hatch)
+		to_chat(user, SPAN_SUBTLE("The maintenance hatch is open."))
+		if (max_coils > 1 && Adjacent(user))
+			var/list/coils = list()
+			for(var/obj/item/smes_coil/C in component_parts)
+				coils += C
+			to_chat(user, "The [max_coils] coil slots contain: [counting_english_list(coils)]")
 
 /obj/machinery/power/smes/add_avail(var/amount)
 	if(..(amount))
@@ -251,7 +263,7 @@
 //Will return 1 on failure
 /obj/machinery/power/smes/proc/make_terminal(const/mob/user)
 	if (user.loc == loc)
-		user << "<span class='warning'>You must not be on the same tile as the [src].</span>"
+		to_chat(user, "<span class='warning'>You must not be on the same tile as the [src].</span>")
 		return 1
 
 	//Direction the terminal will face to
@@ -263,13 +275,13 @@
 			tempDir = WEST
 	var/turf/tempLoc = get_step(src, reverse_direction(tempDir))
 	if (istype(tempLoc, /turf/space))
-		user << "<span class='warning'>You can't build a terminal on space.</span>"
+		to_chat(user, "<span class='warning'>You can't build a terminal on space.</span>")
 		return 1
 	else if (istype(tempLoc))
 		if(!tempLoc.is_plating())
-			user << "<span class='warning'>You must remove the floor plating first.</span>"
+			to_chat(user, "<span class='warning'>You must remove the floor plating first.</span>")
 			return 1
-	user << "<span class='notice'>You start adding cable to the [src].</span>"
+	to_chat(user, "<span class='notice'>You start adding cable to the [src].</span>")
 	if(do_after(user, 50))
 		terminal = new /obj/machinery/power/terminal(tempLoc)
 		terminal.set_dir(tempDir)
@@ -285,6 +297,8 @@
 
 
 /obj/machinery/power/smes/attack_ai(mob/user)
+	if(!ai_can_interact(user))
+		return
 	add_hiddenprint(user)
 	ui_interact(user)
 
@@ -293,26 +307,32 @@
 	ui_interact(user)
 
 
-/obj/machinery/power/smes/attackby(var/obj/item/weapon/W as obj, var/mob/user as mob)
+/obj/machinery/power/smes/attackby(var/obj/item/W as obj, var/mob/user as mob)
 	if(W.isscrewdriver())
 		if(!open_hatch)
 			open_hatch = 1
-			user << "<span class='notice'>You open the maintenance hatch of [src].</span>"
+			user.visible_message(\
+				"<span class='notice'>\The [user] opens the maintenance hatch of \the [src].</span>",\
+				"<span class='notice'>You open the maintenance hatch of \the [src].</span>",\
+				range = 4)
 			return 0
 		else
 			open_hatch = 0
-			user << "<span class='notice'>You close the maintenance hatch of [src].</span>"
+			user.visible_message(\
+				"<span class='notice'>\The [user] closes the maintenance hatch of \the [src].</span>",\
+				"<span class='notice'>You close the maintenance hatch of \the [src].</span>",\
+				range = 4)
 			return 0
 
 	if (!open_hatch)
-		user << "<span class='warning'>You need to open access hatch on [src] first!</span>"
+		to_chat(user, "<span class='warning'>You need to open access hatch on [src] first!</span>")
 		return 0
 
 	if(W.iscoil() && !terminal && !building_terminal)
 		building_terminal = 1
 		var/obj/item/stack/cable_coil/CC = W
 		if (CC.get_amount() <= 10)
-			user << "<span class='warning'>You need more cables.</span>"
+			to_chat(user, "<span class='warning'>You need more cables.</span>")
 			building_terminal = 0
 			return 0
 		if (make_terminal(user))
@@ -321,8 +341,8 @@
 		building_terminal = 0
 		CC.use(10)
 		user.visible_message(\
-				"<span class='notice'>[user.name] has added cables to the [src].</span>",\
-				"<span class='notice'>You added cables to the [src].</span>")
+			"<span class='notice'>[user.name] has added cables to the [src].</span>",\
+			"<span class='notice'>You added cables to the [src].</span>")
 		terminal.connect_to_network()
 		stat = 0
 		return 0
@@ -332,11 +352,11 @@
 		var/turf/tempTDir = terminal.loc
 		if (istype(tempTDir))
 			if(!tempTDir.is_plating())
-				user << "<span class='warning'>You must remove the floor plating first.</span>"
+				to_chat(user, "<span class='warning'>You must remove the floor plating first.</span>")
 			else
-				user << "<span class='notice'>You begin to cut the cables...</span>"
+				to_chat(user, "<span class='notice'>You begin to cut the cables...</span>")
 				playsound(get_turf(src), 'sound/items/Deconstruct.ogg', 50, 1)
-				if(do_after(user, 50))
+				if(do_after(user, 50/W.toolspeed))
 					if (prob(50) && electrocute_mob(usr, terminal.powernet, terminal))
 						big_spark.queue()
 						building_terminal = 0
@@ -428,7 +448,7 @@
 				output_level = input(usr, "Enter new output level (0-[output_level_max])", "SMES Output Power Control", output_level) as num
 		output_level = max(0, min(output_level_max, output_level))	// clamp to range
 
-	investigate_log("input/output; <font color='[input_level>output_level?"green":"red"][input_level]/[output_level]</font> | Output-mode: [output_attempt?"<font color='green'>on</font>":"<font color='red'>off</font>"] | Input-mode: [input_attempt?"<font color='green'>auto</font>":"<font color='red'>off</font>"] by [usr.key]","singulo")
+	investigate_log("input/output; <font color='[input_level>output_level?"green":"red"][input_level]/[output_level]</font> | Output-mode: [output_attempt?"<font color='green'>on</font>":"<span class='warning'>off</span>"] | Input-mode: [input_attempt?"<font color='green'>auto</font>":"<span class='warning'>off</span>"] by [usr.key]","singulo")
 
 	return 1
 
@@ -436,7 +456,7 @@
 	failure_timer = max(failure_timer, duration)
 
 /obj/machinery/power/smes/proc/ion_act()
-	if(src.z in current_map.station_levels)
+	if(isStationLevel(src.z))
 		if(prob(1)) //explosion
 			for(var/mob/M in viewers(src))
 				M.show_message("<span class='warning'>The [src.name] is making strange noises!</span>", 3, "<span class='warning'>You hear sizzling electronics.</span>", 2)

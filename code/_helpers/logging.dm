@@ -27,19 +27,19 @@
 	WRITE_LOG(diary, "[game_id] TOPIC: \"[T]\", from:[addr], master:[master], key:[key], auth:[queryparams["auth"] ? queryparams["auth"] : "null"] [log_end]")
 
 /proc/error(msg)
-	world.log << "## ERROR: [msg][log_end]"
+	world.log <<  "## ERROR: [msg][log_end]"
 
 /proc/shutdown_logging()
-	call(RUST_G, "log_close_all")()
+	dll_call(RUST_G, "log_close_all")
 
 #define WARNING(MSG) warning("[MSG] in [__FILE__] at line [__LINE__] src: [src] usr: [usr].")
 //print a warning message to world.log
 /proc/warning(msg)
-	world.log << "## WARNING: [msg][log_end]"
+	world.log <<  "## WARNING: [msg][log_end]"
 
 //print a testing-mode debug message to world.log
 /proc/testing(msg)
-	world.log << "## TESTING: [msg][log_end]"
+	world.log <<  "## TESTING: [msg][log_end]"
 
 /proc/game_log(category, text)
 	WRITE_LOG(diary, "[game_id] [category]: [text][log_end]")
@@ -50,6 +50,14 @@
 		game_log("ADMIN", text)
 	send_gelf_log(short_message=text, long_message="[time_stamp()]: [text]",level=level,category="ADMIN",additional_data=list("_ckey"=html_encode(ckey),"_admin_key"=html_encode(admin_key),"_ckey_target"=html_encode(ckey_target)))
 
+/proc/log_signal(var/text)
+	if(length(signal_log) >= 100)
+		signal_log.Cut(1, 2)
+	signal_log.Add("|[time_stamp()]| [text]")
+	if(config.log_signaler)
+		game_log("SIGNALER", text)
+	send_gelf_log(short_message=text, long_message="[time_stamp()]: [text]",level=SEVERITY_NOTICE,category="SIGNALER")
+
 /proc/log_debug(text,level = SEVERITY_DEBUG)
 	if (config.log_debug)
 		game_log("DEBUG", text)
@@ -57,11 +65,12 @@
 	if (level == SEVERITY_ERROR) // Errors are always logged
 		error(text)
 
-	for(var/client/C in admins)
+	for(var/s in staff)
+		var/client/C = s
 		if(!C.prefs) //This is to avoid null.toggles runtime error while still initialyzing players preferences
 			return
 		if(C.prefs.toggles & CHAT_DEBUGLOGS)
-			C << "DEBUG: [text]"
+			to_chat(C, "DEBUG: [text]")
 	send_gelf_log(short_message = text, long_message = "[time_stamp()]: [text]", level = level, category = "DEBUG")
 
 /proc/log_game(text, level = SEVERITY_NOTICE, ckey = "", admin_key = "", ckey_target = "")
@@ -121,17 +130,6 @@
 		game_log("ADMINSAY", text)
 	send_gelf_log(short_message = text, long_message = "[time_stamp()]: [text]",level = SEVERITY_NOTICE, category = "ADMINSAY")
 
-/proc/log_pda(text, level = SEVERITY_NOTICE, ckey = "", ckey_target = "")
-	if (config.log_pda)
-		game_log("PDA", text)
-	send_gelf_log(
-		short_message = text,
-		long_message = "[time_stamp()]: [text]",
-		level = level,
-		category="PDA",
-		additional_data = list("_ckey" = html_encode(ckey), "_ckey_target" = html_encode(ckey_target))
-	)
-
 /proc/log_ntirc(text, level = SEVERITY_NOTICE, ckey = "", conversation = "")
 	if (config.log_pda)
 		game_log("NTIRC", text)
@@ -144,7 +142,7 @@
 	)
 
 /proc/log_to_dd(text)
-	world.log << text //this comes before the config check because it can't possibly runtime
+	world.log <<  text //this comes before the config check because it can't possibly runtime
 	if(config.log_world_output)
 		game_log("DD_OUTPUT", text)
 	send_gelf_log(short_message = text, long_message = "[time_stamp()]: [text]", level = SEVERITY_NOTICE, category = "DD_OUTPUT")
@@ -161,14 +159,14 @@
 	game_log("GC", text)
 	send_gelf_log(text, "[time_stamp()]: [text]", high_severity ? SEVERITY_WARNING : SEVERITY_DEBUG, "GARBAGE", additional_data = list("_type" = "[type]"))
 
-/proc/log_ss(subsystem, text, log_world = TRUE)
+/proc/log_ss(subsystem, text, log_world = TRUE, severity = SEVERITY_DEBUG)
 	if (!subsystem)
 		subsystem = "UNKNOWN"
 	var/msg = "[subsystem]: [text]"
 	game_log("SS", msg)
-	send_gelf_log(msg, "[time_stamp()]: [msg]", SEVERITY_DEBUG, "SUBSYSTEM", additional_data = list("_subsystem" = subsystem))
+	send_gelf_log(msg, "[time_stamp()]: [msg]", severity, "SUBSYSTEM", additional_data = list("_subsystem" = subsystem))
 	if (log_world)
-		world.log << "SS[subsystem]: [text]"
+		world.log <<  "SS[subsystem]: [text]"
 
 /proc/log_ss_init(text)
 	game_log("SS", "[text]")
@@ -188,8 +186,12 @@
 		category = "TGS"
 	)
 
+/proc/log_ntsl(text, severity = SEVERITY_NOTICE, ckey = "")
+	game_log("NTSL", text)
+	send_gelf_log(text, "[time_stamp()]: [text]", severity, "NTSL", additional_data = list("_ckey" = ckey))
+
 /proc/log_unit_test(text)
-	world.log << "## UNIT_TEST ##: [text]"
+	world.log <<  "## UNIT_TEST ##: [text]"
 
 /proc/log_exception(exception/e)
 	if (config.log_runtime)
@@ -275,5 +277,4 @@
 /proc/key_name_admin(var/whom, var/include_name = 1)
 	return key_name(whom, 1, include_name, 1)
 
-#undef RUST_G
 #undef WRITE_LOG

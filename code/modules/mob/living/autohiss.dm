@@ -1,10 +1,3 @@
-
-#define AUTOHISS_OFF 0
-#define AUTOHISS_BASIC 1
-#define AUTOHISS_FULL 2
-
-#define AUTOHISS_NUM 3
-
 /mob/living/proc/handle_autohiss(message, datum/language/L)
 	return message // no autohiss at this level
 
@@ -24,17 +17,18 @@
 	autohiss_mode = (autohiss_mode + 1) % AUTOHISS_NUM
 	switch(autohiss_mode)
 		if(AUTOHISS_OFF)
-			src << "Auto-hiss is now OFF."
+			to_chat(src, "Auto-hiss is now OFF.")
 		if(AUTOHISS_BASIC)
-			src << "Auto-hiss is now BASIC."
+			to_chat(src, "Auto-hiss is now BASIC.")
 		if(AUTOHISS_FULL)
-			src << "Auto-hiss is now FULL."
+			to_chat(src, "Auto-hiss is now FULL.")
 		else
 			soft_assert(0, "invalid autohiss value [autohiss_mode]")
 			autohiss_mode = AUTOHISS_OFF
-			src << "Auto-hiss is now OFF."
+			to_chat(src, "Auto-hiss is now OFF.")
 
 /datum/species
+	var/has_autohiss = FALSE
 	var/list/autohiss_basic_map = null
 	var/list/autohiss_extra_map = null
 	var/list/autohiss_exempt = null
@@ -108,6 +102,8 @@
 		)
 
 /datum/species/proc/handle_autohiss(message, datum/language/lang, mode)
+	if (!autohiss_basic_map || !autohiss_basic_map.len)
+		return message
 
 	if(autohiss_exempt && (lang.name in autohiss_exempt))
 		return message

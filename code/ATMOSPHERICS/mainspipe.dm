@@ -75,7 +75,6 @@ obj/machinery/atmospherics/mains_pipe
 		update_icon()
 
 	proc/burst()
-		..()
 		for(var/obj/machinery/atmospherics/pipe/mains_component/pipe in contents)
 			burst()
 
@@ -649,7 +648,7 @@ obj/machinery/atmospherics/mains_pipe/valve
 
 		attack_hand(mob/user as mob)
 			if(!src.allowed(user))
-				user << "<span class='warning'>Access denied.</span>"
+				to_chat(user, "<span class='warning'>Access denied.</span>")
 				return
 			..()
 

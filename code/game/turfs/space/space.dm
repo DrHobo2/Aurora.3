@@ -5,6 +5,7 @@
 	icon_state = "0"
 	dynamic_lighting = 0
 	footstep_sound = null //Override to make sure because yeah
+	tracks_footprint = FALSE
 
 	plane = PLANE_SPACE_BACKGROUND
 
@@ -14,11 +15,17 @@
 	is_hole = TRUE
 
 	permit_ao = FALSE
+	var/use_space_appearance = TRUE
+	var/use_starlight = TRUE
+
+/turf/space/dynamic //For use in edge cases where you want the turf to not be completely lit, like in places where you have placed lattice.
+	dynamic_lighting = 1
 
 // Copypaste of parent for performance.
 /turf/space/Initialize()
-	appearance = SSicon_cache.space_cache["[((x + y) ^ ~(x * y) + z) % 25]"]
-	if (config.starlight)
+	if(use_space_appearance)
+		appearance = SSicon_cache.space_cache["[((x + y) ^ ~(x * y) + z) % 25]"]
+	if(config.starlight && use_starlight)
 		update_starlight()
 
 	if (initialized)
@@ -46,6 +53,9 @@
 	for(var/obj/O in src)
 		O.hide(0)
 
+/turf/space/is_solid_structure()
+	return locate(/obj/structure/lattice, src) //counts as solid structure if it has a lattice
+
 /turf/space/can_have_cabling()
 	if (locate(/obj/structure/lattice/catwalk) in src)
 		return 1
@@ -72,8 +82,8 @@
 			return
 		var/obj/item/stack/rods/R = C
 		if (R.use(1))
-			user << "<span class='notice'>Constructing support lattice ...</span>"
-			playsound(src, 'sound/weapons/Genhit.ogg', 50, 1)
+			to_chat(user, "<span class='notice'>Constructing support lattice ...</span>")
+			playsound(src, 'sound/weapons/genhit.ogg', 50, 1)
 			ReplaceWithLattice()
 		return
 
@@ -84,12 +94,12 @@
 			if (S.get_amount() < 1)
 				return
 			qdel(L)
-			playsound(src, 'sound/weapons/Genhit.ogg', 50, 1)
+			playsound(src, 'sound/weapons/genhit.ogg', 50, 1)
 			S.use(1)
-			ChangeTurf(/turf/simulated/floor/airless)
+			ChangeTurf(/turf/simulated/floor/airless, keep_air = TRUE)
 			return
 		else
-			user << "<span class='warning'>The plating is going to need some support.</span>"
+			to_chat(user, "<span class='warning'>The plating is going to need some support.</span>")
 
 	..(C, user)
 
@@ -97,7 +107,7 @@
 
 /turf/space/Entered(atom/movable/A as mob|obj)
 	if(movement_disabled)
-		usr << "<span class='warning'>Movement is admin-disabled.</span>" //This is to identify lag problems
+		to_chat(usr, "<span class='warning'>Movement is admin-disabled.</span>") //This is to identify lag problems)
 		return
 	..()
 	if ((!(A) || src != A.loc))	return
@@ -196,5 +206,5 @@
 					A.loc.Entered(A)
 	return
 
-/turf/space/ChangeTurf(var/turf/N, var/tell_universe=1, var/force_lighting_update = 0)
-	return ..(N, tell_universe, 1)
+/turf/space/ChangeTurf(var/turf/N, var/tell_universe=TRUE, var/force_lighting_update = FALSE, keep_air = FALSE)
+	return ..(N, tell_universe, TRUE, keep_air)

@@ -28,7 +28,7 @@
 	if(check_streak(A,D))
 		return 1
 	D.grabbedby(A,1)
-	var/obj/item/weapon/grab/G = A.get_active_hand()
+	var/obj/item/grab/G = A.get_active_hand()
 	if(G && prob(50))
 		G.state = GRAB_AGGRESSIVE
 		D.visible_message("<span class='danger'>[A] gets a strong grip on [D]!</span>")
@@ -55,7 +55,7 @@
 		return 0
 	TornadoAnimate(A)
 	A.visible_message("<span class='warning'>[A] sweeps [D] with their tail!</span>")
-	playsound(get_turf(A), "swing_hit", 50, 1, -1)
+	playsound(get_turf(A), /decl/sound_category/swing_hit_sound, 50, 1, -1)
 	D.apply_damage(5, BRUTE)
 	D.Weaken(2)
 	return 1
@@ -77,39 +77,34 @@
 		playsound(D, 'sound/weapons/thudswoosh.ogg', 50, 1, -1)
 	else
 		D.visible_message("<span class='danger'>[A] attempted to disarm [D]!</span>")
-		playsound(D, 'sound/weapons/punchmiss.ogg', 25, 1, -1)
+		playsound(D, /decl/sound_category/punchmiss_sound, 25, 1, -1)
 	return 1
 
 /datum/martial_art/kis_khan/proc/hammering_strike(var/mob/living/carbon/human/A, var/mob/living/carbon/human/D)
 	A.do_attack_animation(D)
 	A.visible_message("<span class='danger'>[A] slams [D] away!</span>")
-	playsound(D.loc, 'sound/weapons/punch1.ogg', 50, 1, -1)
+	playsound(D.loc, "punch", 50, 1, -1)
 	D.apply_effect(2, WEAKEN)
 	var/atom/throw_target = get_edge_target_turf(D, get_dir(D, get_step_away(D, A)))
 	D.throw_at(throw_target, 200, 4,A)
 
-/obj/item/kis_khan_manual
-	name = "kis khan scroll"
-	desc = "A parched scroll.It seems to be drawings of some sort of martial art involving tails."
-	icon = 'icons/obj/wizard.dmi'
-	icon_state = "scroll2"
-
-/obj/item/kis_khan_manual/attack_self(mob/user as mob)
-	if(!ishuman(user))
-		return
-	var/mob/living/carbon/human/H = user
-	var/datum/martial_art/kis_khan/F = new/datum/martial_art/kis_khan(null)
-	F.teach(H)
-	to_chat(H, "<span class='notice'>You have learned the martial art of Kis Khan.</span>")
-	qdel(src)
-
 /datum/martial_art/kis_khan/proc/kis_khan_help()
-	set name = "Recall Teachings"
+	set name = "Recall Kis-khan"
 	set desc = "Remember the martial techniques of the Kis-khan."
-	set category = "Kis-khan"
+	set category = "Abilities"
 
 	to_chat(usr, "<b><i>You hiss deeply and remember the traditions...</i></b>")
 	to_chat(usr, "<span class='notice'>Tail Sweep</span>: Harm Harm Disarm. Trips the victim with your tail, rendering them prone and unable to move for a short time.")
 	to_chat(usr, "<span class='notice'>Swift Disarm</span>: Disarm Disarm Grab. Strikes your target's weapon, trying to disarm it from their hands.")
 	to_chat(usr, "<span class='notice'>Hammering Strike</span>: Disarm Harm Disarm. Delivers a strikes that will push the target away from you.")
 
+/obj/item/martial_manual/unathi
+	name = "kis khan scroll"
+	desc = "A parched scroll.It seems to be drawings of some sort of martial art involving tails."
+	icon_state = "scroll"
+	item_state = "scroll"
+	martial_art = /datum/martial_art/kis_khan
+
+#undef TAIL_SWEEP
+#undef SWIFT_DISARM
+#undef HAMMERING_STRIKE

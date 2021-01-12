@@ -12,7 +12,7 @@
 	if(istype(I, /obj/item/clothing/accessory))
 
 		if(!valid_accessory_slots || !valid_accessory_slots.len)
-			usr << "<span class='warning'>You cannot attach accessories of any kind to \the [src].</span>"
+			to_chat(usr, "<span class='warning'>You cannot attach accessories of any kind to \the [src].</span>")
 			return
 
 		var/obj/item/clothing/accessory/A = I
@@ -21,7 +21,7 @@
 			attach_accessory(user, A)
 			return
 		else
-			user << "<span class='warning'>You cannot attach more accessories of this type to [src].</span>"
+			to_chat(user, "<span class='warning'>You cannot attach more accessories of this type to [src].</span>")
 		return
 
 	if(LAZYLEN(accessories))
@@ -40,32 +40,62 @@
 	return ..()
 
 /obj/item/clothing/MouseDrop(var/obj/over_object)
-	if (ishuman(usr) || issmall(usr))
+	if(ishuman(usr) || issmall(usr))
 		//makes sure that the clothing is equipped so that we can't drag it into our hand from miles away.
-		if (!(src.loc == usr))
+		if(!(src.loc == usr))
 			return
 
-		if(!over_object)
+		if(!over_object || over_object == src)
 			return
 
-		if (( usr.restrained() ) || ( usr.stat ))
+		if(istype(over_object, /obj/screen/inventory))
+			var/obj/screen/inventory/S = over_object
+			if(S.slot_id == src.equip_slot)
+				return
+
+		if(use_check_and_message(usr))
 			return
 
-		if (!usr.unEquip(src))
+		if(!usr.canUnEquip(src))
 			return
+
+		var/obj/item/clothing/C = src
+		usr.unEquip(C)
 
 		switch(over_object.name)
-			if("r_hand")
-				usr.put_in_r_hand(src)
-			if("l_hand")
-				usr.put_in_l_hand(src)
+			if(BP_R_HAND)
+				if(istype(src, /obj/item/clothing/ears))
+					C = check_two_ears(usr)
+				usr.put_in_r_hand(C)
+			if(BP_L_HAND)
+				if(istype(src, /obj/item/clothing/ears))
+					C = check_two_ears(usr)
+				usr.put_in_l_hand(C)
 		src.add_fingerprint(usr)
+
+/obj/item/clothing/proc/check_two_ears(var/mob/user)
+	// if you have to ask, it's earcode
+	// var/obj/item/clothing/ears/E
+	var/obj/item/clothing/ears/main_ear
+	if(!ishuman(user))
+		return
+	var/mob/living/carbon/human/H = user
+
+	for(var/obj/item/clothing/ears/E in H.contents)
+		H.u_equip(E)
+		if(istype(E, /obj/item/clothing/ears/offear))
+			qdel(E)
+		else
+			main_ear = E
+
+	return main_ear
+
 
 /obj/item/clothing/examine(var/mob/user)
 	..(user)
 	if(LAZYLEN(accessories))
 		for(var/obj/item/clothing/accessory/A in accessories)
-			user << "\A [A] is attached to it."
+			to_chat(user, "\A [A] is attached to it.")
 
 /obj/item/clothing/proc/attach_accessory(mob/user, obj/item/clothing/accessory/A)
 	LAZYADD(accessories, A)

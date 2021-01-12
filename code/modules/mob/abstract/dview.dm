@@ -16,11 +16,12 @@ var/mob/abstract/dview/dview_mob = new
 		living_mob_list -= src
 
 /mob/abstract/dview/Destroy(force = FALSE)
+	SHOULD_CALL_PARENT(FALSE)
 	crash_with("Some fuck [force ? "force-" : ""]qdeleted the dview mob.")
 	if (!force)
 		return QDEL_HINT_LETMELIVE
 
-	world.log << "Dview was force-qdeleted, this should never happen!"
-	
+	world.log <<  "Dview was force-qdeleted, this should never happen!"
+
 	dview_mob = new
 	return QDEL_HINT_QUEUE

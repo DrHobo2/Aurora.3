@@ -37,7 +37,9 @@
 
 /datum/export/large/reagent_dispenser/get_cost(obj/O)
 	var/obj/structure/reagent_dispensers/D = O
-	var/ratio = D.reagents.total_volume / D.reagents.maximum_volume
+	var/ratio
+	if(D?.reagents)
+		ratio = D.reagents.total_volume / D.reagents.maximum_volume
 
 	return ..() + round(contents_cost * ratio)
 
@@ -53,7 +55,7 @@
 /datum/export/large/reagent_dispenser/beer
 	unit_name = "beer keg"
 	contents_cost = 700
-	export_types = list(/obj/structure/reagent_dispensers/beerkeg)
+	export_types = list(/obj/structure/reagent_dispensers/keg/beerkeg)
 
 
 

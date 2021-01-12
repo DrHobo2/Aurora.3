@@ -1,4 +1,5 @@
 //Standard Rings
+
 /obj/item/clothing/ring/engagement
 	name = "engagement ring"
 	desc = "An engagement ring. It certainly looks expensive."
@@ -42,7 +43,7 @@
 
 /obj/item/clothing/ring/reagent/sleepy/Initialize()
 	. = ..()
-	reagents.add_reagent("chloralhydrate", 15)
+	reagents.add_reagent(/datum/reagent/polysomnine, 15)
 
 //Seals and Signet Rings
 

@@ -2,16 +2,30 @@
 	name = "nanopaste"
 	singular_name = "nanite swarm"
 	desc = "A tube of paste containing swarms of repair nanites. Very effective in repairing robotic machinery."
-	icon = 'icons/obj/nanopaste.dmi'
+	icon = 'icons/obj/stacks/nanopaste.dmi'
+	item_icons = list(
+		slot_l_hand_str = 'icons/mob/items/stacks/lefthand_nanopaste.dmi',
+		slot_r_hand_str = 'icons/mob/items/stacks/righthand_nanopaste.dmi',
+		)
 	icon_state = "tube"
 	origin_tech = list(TECH_MATERIAL = 4, TECH_ENGINEERING = 3)
 	amount = 10
 
-	var/list/construction_cost = list(DEFAULT_WALL_MATERIAL = 7000, "glass" = 7000)
+	var/list/construction_cost = list(DEFAULT_WALL_MATERIAL = 7000, MATERIAL_GLASS = 7000)
 
+/obj/item/stack/nanopaste/update_icon()
+	var/amount = round(get_amount() / 2)
+	if(amount >= 5)
+		icon_state = "[initial(icon_state)]"
+	else if(amount > 0)
+		icon_state = "[initial(icon_state)]-[amount]"
+	else
+		icon_state = "[initial(icon_state)]-empty"
 
 /obj/item/stack/nanopaste/attack(mob/living/M as mob, mob/user as mob, var/target_zone)
 	if (!istype(M) || !istype(user))
+		return 0
+	if (!can_use(1, user))
 		return 0
 	if (istype(M,/mob/living/silicon/robot))	//Repairing cyborgs
 		var/mob/living/silicon/robot/R = M
@@ -25,7 +39,7 @@
 				user.visible_message("<span class='notice'>\The [user] applied some [src] at [R]'s damaged areas.</span>",\
 					"<span class='notice'>You apply some [src] at [R]'s damaged areas.</span>")
 		else
-			user << "<span class='notice'>All [R]'s systems are nominal.</span>"
+			to_chat(user, "<span class='notice'>All [R]'s systems are nominal.</span>")
 
 	if (istype(M,/mob/living/carbon/human))		//Repairing robolimbs
 		var/mob/living/carbon/human/H = M
@@ -35,13 +49,13 @@
 			if(S.get_damage())
 				user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 
-				if(S.limb_name == "head")
+				if(S.limb_name == BP_HEAD)
 					if(H.head && istype(H.head,/obj/item/clothing/head/helmet/space))
-						user << "<span class='warning'>You can't apply [src] through [H.head]!</span>"
+						to_chat(user, "<span class='warning'>You can't apply [src] through [H.head]!</span>")
 						return
 				else
 					if(H.wear_suit && istype(H.wear_suit,/obj/item/clothing/suit/space))
-						user << "<span class='warning'>You can't apply [src] through [H.wear_suit]!</span>"
+						to_chat(user, "<span class='warning'>You can't apply [src] through [H.wear_suit]!</span>")
 						return
 
 				if(do_mob(user, M, 7))
@@ -51,20 +65,19 @@
 					user.visible_message("<span class='notice'>\The [user] applies some nanite paste at[user != M ? " \the [M]'s" : " \the [user]"] [S.name] with \the [src].</span>",\
 					"<span class='notice'>You apply some nanite paste at [user == M ? "your" : "[M]'s"] [S.name].</span>")
 			else
-				user << "<span class='notice'>Nothing to fix here.</span>"
+				to_chat(user, "<span class='notice'>Nothing to fix here.</span>")
 		else
 			if (can_operate(H))
 				if (do_surgery(H,user,src))
 					return
 			else
-				user << "<span class='notice'>Nothing to fix in here.</span>"
+				to_chat(user, "<span class='notice'>Nothing to fix in here.</span>")
 
 
 /obj/item/stack/nanopaste/surge
 	name = "modified nanopaste"
 	singular_name = "nanite swarm"
 	desc = "A tube of paste containing swarms of repair nanites. This one appears to contain different nanites."
-	icon = 'icons/obj/nanopaste.dmi'
 	icon_state = "tube-surge"
 	origin_tech = list(TECH_MATERIAL = 4, TECH_ENGINEERING = 4, TECH_MAGNET = 5, TECH_POWER = 5, TECH_COMBAT = 3, TECH_ILLEGAL = 4)
 	amount = 20
@@ -80,7 +93,7 @@
 		return 0
 
 	if (isipc(M))
-		var/obj/item/organ/surge/s = M.internal_organs_by_name["surge"]
+		var/obj/item/organ/internal/surge/s = M.internal_organs_by_name["surge"]
 		if(isnull(s))
 			user.visible_message(
 			"<span class='notice'>[user] is trying to apply [src] to [(M == user) ? ("itself") : (M)]!</span>",
@@ -90,7 +103,7 @@
 			if (!do_mob(user, M, 2))
 				return 0
 
-			s = new /obj/item/organ/surge()
+			s = new /obj/item/organ/internal/surge()
 			M.internal_organs += s
 			M.internal_organs_by_name["surge"] = s
 			user.visible_message(

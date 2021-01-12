@@ -1,15 +1,19 @@
-/obj/item/weapon/gun/energy/laser/prototype
+/obj/item/gun/energy/laser/prototype
 	name = "laser prototype"
 	desc = "A custom prototype laser weapon."
-	icon_state = "energykill"
-	item_state = "energykill"
-	fire_sound = 'sound/weapons/Laser.ogg'
+	icon = 'icons/obj/guns/modular_laser.dmi'
+	icon_state = "large_3"
+	item_state = "large_3"
+	contained_sprite = TRUE
+	has_icon_ratio = FALSE
+	has_item_ratio = FALSE
+	fire_sound = 'sound/weapons/laser1.ogg'
 	slot_flags = SLOT_BELT|SLOT_BACK
-	w_class = 3
+	w_class = ITEMSIZE_NORMAL
 	force = 10
 	origin_tech = list(TECH_COMBAT = 3, TECH_MAGNET = 2)
 	matter = list(DEFAULT_WALL_MATERIAL = 2000)
-	can_turret = 0
+	can_turret = TRUE
 	zoomdevicename = null
 	max_shots = 0
 	burst_delay = 0
@@ -26,25 +30,40 @@
 	var/named = 0
 	var/described = 0
 
-/obj/item/weapon/gun/energy/laser/prototype/examine(mob/user)
+/obj/item/gun/energy/laser/prototype/examine(mob/user)
 	..(user)
+	if(get_dist(src, user) > 1)
+		return
 	if(gun_mods.len)
 		for(var/obj/item/laser_components/modifier/modifier in gun_mods)
-			user << "You can see \the [modifier] attached."
+			to_chat(user, "You can see \the [modifier] attached.")
 	if(capacitor)
-		user << "You can see \the [capacitor] attached."
+		to_chat(user, "You can see \the [capacitor] attached.")
 	if(focusing_lens)
-		user << "You can see \the [focusing_lens] attached."
+		to_chat(user, "You can see \the [focusing_lens] attached.")
 	if(modulator)
-		user << "You can see \the [modulator] attached."
+		to_chat(user, "You can see \the [modulator] attached.")
 
-/obj/item/weapon/gun/energy/laser/prototype/attackby(var/obj/item/weapon/D, var/mob/user)
+/obj/item/gun/energy/laser/prototype/attackby(var/obj/item/D, var/mob/user)
 	if(!D.isscrewdriver())
 		return ..()
-	user << "You disassemble \the [src]."
+	to_chat(user, "You disassemble \the [src].")
 	disassemble(user)
 
-/obj/item/weapon/gun/energy/laser/prototype/proc/reset_vars()
+/obj/item/gun/energy/laser/prototype/update_icon()
+	..()
+	underlays.Cut()
+	if(length(gun_mods))
+		for(var/obj/item/laser_components/mod in gun_mods)
+			if(mod.gun_overlay)
+				underlays += mod.gun_overlay
+	underlays.Cut()
+	for(var/v in gun_mods)
+		var/obj/item/laser_components/modifier/mod = v
+		if(mod.gun_overlay)
+			underlays += mod.gun_overlay
+
+/obj/item/gun/energy/laser/prototype/proc/reset_vars()
 	burst = initial(burst)
 	reliability = initial(reliability)
 	burst_delay = initial(burst_delay)
@@ -54,26 +73,16 @@
 	criticality = initial(criticality)
 	fire_sound = initial(fire_sound)
 	force = initial(force)
+	is_wieldable = initial(is_wieldable)
+	action_button_name = initial(action_button_name)
 
-/obj/item/weapon/gun/energy/laser/prototype/proc/updatetype(var/mob/user)
+/obj/item/gun/energy/laser/prototype/proc/updatetype(var/mob/user)
 	reset_vars()
 	if(!focusing_lens || !capacitor || !modulator)
 		disassemble(user)
 		return
 
-	switch(origin_chassis)
-		if(CHASSIS_SMALL)
-			gun_type =  CHASSIS_SMALL
-			slot_flags = SLOT_BELT | SLOT_HOLSTER
-			item_state = "retro"
-		if(CHASSIS_MEDIUM)
-			gun_type = CHASSIS_MEDIUM
-			slot_flags = SLOT_BELT | SLOT_BACK
-			item_state = "energystun"
-		if(CHASSIS_LARGE)
-			gun_type = CHASSIS_LARGE
-			slot_flags = SLOT_BACK
-			item_state = "lasercannon"
+	update_chassis()
 
 	if(capacitor.reliability - capacitor.condition <= 0)
 		if(prob(66))
@@ -114,7 +123,25 @@
 	w_class = gun_type
 	reliability = max(reliability, 1)
 
-/obj/item/weapon/gun/energy/laser/prototype/proc/handle_mod()
+/obj/item/gun/energy/laser/prototype/proc/update_chassis()
+	switch(origin_chassis)
+		if(CHASSIS_SMALL)
+			gun_type = CHASSIS_SMALL
+			slot_flags = SLOT_BELT | SLOT_HOLSTER
+			item_state = "small_3"
+		if(CHASSIS_MEDIUM)
+			gun_type = CHASSIS_MEDIUM
+			slot_flags = SLOT_BELT | SLOT_BACK
+			item_state = "medium_3"
+			is_wieldable = TRUE
+		if(CHASSIS_LARGE)
+			gun_type = CHASSIS_LARGE
+			slot_flags = SLOT_BACK
+			item_state = "large_3"
+			is_wieldable = TRUE
+	update_wield_verb()
+
+/obj/item/gun/energy/laser/prototype/proc/handle_mod()
 	for(var/obj/item/laser_components/modifier/modifier in gun_mods)
 		switch(modifier.mod_type)
 			if(MOD_SILENCE)
@@ -134,12 +161,14 @@
 		if(modifier.scope_name)
 			zoomdevicename = modifier.scope_name
 
-/obj/item/weapon/gun/energy/laser/prototype/consume_next_projectile()
+/obj/item/gun/energy/laser/prototype/consume_next_projectile(var/bypass_degrade = FALSE)
 	if(!power_supply)
 		return null
 	if(!ispath(projectile_type))
 		return null
 	if(!power_supply.checked_use(charge_cost))
+		return null
+	if(!capacitor)
 		return null
 	if (self_recharge)
 		addtimer(CALLBACK(src, .proc/try_recharge), recharge_time * 2 SECONDS, TIMER_UNIQUE)
@@ -153,28 +182,23 @@
 	damage_coeff *= modulator.damage
 	A.damage *= damage_coeff
 	A.damage = min(A.damage, 60) //let's not get too ridiculous here
-	for(var/obj/item/laser_components/modifier/modifier in gun_mods)
-		if(prob((gun_mods.len * 10 * damage_coeff)/(max(1,(burst - 1)))))
-			capacitor.degrade(modifier.malus)
-		if(prob((gun_mods.len * 10 * damage_coeff)/(max(1,(burst - 1)))))
-			focusing_lens.degrade(modifier.malus)
-		if(prob((33 + capacitor.damage)/(max(1,(burst - 1)))))
-			modifier.degrade(1)
-	if((prob(A.damage)/burst))
-		if(prob(A.damage/2))
-			medium_fail(ismob(loc) ? loc : null)
-		else
-			small_fail(ismob(loc) ? loc : null)
+	if(!bypass_degrade)
+		for(var/obj/item/laser_components/modifier/modifier in gun_mods)
+			if(prob((gun_mods.len * 10 * damage_coeff)/(max(1,(burst - 1)))))
+				capacitor.degrade(modifier.malus)
+			if(prob((gun_mods.len * 10 * damage_coeff)/(max(1,(burst - 1)))))
+				focusing_lens.degrade(modifier.malus)
+			if(prob((33 + capacitor.damage)/(max(1,(burst - 1)))))
+				modifier.degrade(1)
 
 	updatetype(ismob(loc) ? loc : null)
 	return A
 
-/obj/item/weapon/gun/energy/laser/prototype/proc/disassemble(var/mob/user)
-	var/atom/A
-	if (user && user.loc)
-		A = user.loc
-	else
-		A = get_turf(src)
+/obj/item/gun/energy/laser/prototype/proc/disassemble(var/mob/user)
+	var/atom/A = get_turf(src)
+	if(!A)
+		return
+
 	if(gun_mods.len)
 		for(var/obj/item/laser_components/modifier/modifier in gun_mods)
 			modifier.forceMove(A)
@@ -201,42 +225,35 @@
 			new /obj/item/device/laser_assembly/large(A)
 	qdel(src)
 
-/obj/item/weapon/gun/energy/laser/prototype/small_fail(var/mob/user)
+/obj/item/gun/energy/laser/prototype/small_fail(var/mob/user)
 	if(capacitor)
-		user << "<span class='danger'>\The [src]'s [capacitor] short-circuits!</span>"
+		to_chat(user, "<span class='danger'>\The [src]'s [capacitor] short-circuits!</span>")
 		capacitor.small_fail(user, src)
 	return
 
-/obj/item/weapon/gun/energy/laser/prototype/medium_fail(var/mob/user)
+/obj/item/gun/energy/laser/prototype/medium_fail(var/mob/user)
 	if(capacitor)
-		user << "<span class='danger'>\The [src]'s [capacitor] overloads!</span>"
+		to_chat(user, "<span class='danger'>\The [src]'s [capacitor] overloads!</span>")
 		capacitor.medium_fail(user, src)
 	return
 
-/obj/item/weapon/gun/energy/laser/prototype/critical_fail(var/mob/user)
+/obj/item/gun/energy/laser/prototype/critical_fail(var/mob/user)
 	if(capacitor)
-		user << "<span class='danger'>\The [src]'s [capacitor] goes critical!</span>"
+		to_chat(user, "<span class='danger'>\The [src]'s [capacitor] goes critical!</span>")
 		capacitor.critical_fail(user, src)
 	return
 
-/obj/item/weapon/gun/energy/laser/prototype/can_wield()
+/obj/item/gun/energy/laser/prototype/can_wield()
 	if(origin_chassis >= CHASSIS_MEDIUM)
 		return 1
 	else
 		return 0
 
-/obj/item/weapon/gun/energy/laser/prototype/ui_action_click()
+/obj/item/gun/energy/laser/prototype/ui_action_click()
 	if(src in usr)
 		toggle_wield(usr)
 
-/obj/item/weapon/gun/energy/laser/prototype/verb/wield_shotgun()
-	set name = "Wield prototype"
-	set category = "Object"
-	set src in usr
-
-	toggle_wield(usr)
-
-/obj/item/weapon/gun/energy/laser/prototype/verb/scope()
+/obj/item/gun/energy/laser/prototype/verb/scope()
 	set category = "Object"
 	set name = "Use Scope"
 	set popup_menu = 1
@@ -245,16 +262,16 @@
 		if(wielded)
 			toggle_scope(2.0, usr)
 		else
-			usr << "<span class='warning'>You can't look through the scope without stabilizing the rifle!</span>"
+			to_chat(usr, "<span class='warning'>You can't look through the scope without stabilizing the rifle!</span>")
 	else
-		usr << "<span class='warning'>This device does not have a scope installed!</span>"
+		to_chat(usr, "<span class='warning'>This device does not have a scope installed!</span>")
 
-/obj/item/weapon/gun/energy/laser/prototype/special_check(var/mob/user)
+/obj/item/gun/energy/laser/prototype/special_check(var/mob/user)
 	if(is_charging && chargetime)
-		user << "<span class='danger'>\The [src] is already charging!</span>"
+		to_chat(user, "<span class='danger'>\The [src] is already charging!</span>")
 		return 0
 	if(!wielded && (origin_chassis == CHASSIS_LARGE))
-		user << "<span class='danger'>You require both hands to fire this weapon!</span>"
+		to_chat(user, "<span class='danger'>You require both hands to fire this weapon!</span>")
 		return 0
 	if(chargetime)
 		user.visible_message(
@@ -275,7 +292,7 @@
 
 	return ..()
 
-/obj/item/weapon/gun/energy/laser/prototype/verb/rename_gun()
+/obj/item/gun/energy/laser/prototype/verb/rename_gun()
 	set name = "Name Prototype"
 	set category = "Object"
 	set desc = "Name your invention so that its glory might be eternal"
@@ -288,11 +305,11 @@
 
 	if(src && input && !M.stat && in_range(M,src))
 		name = input
-		M << "You name the gun [input]. Say hello to your new friend."
+		to_chat(M, "You name the gun [input]. Say hello to your new friend.")
 		named = 1
 		return 1
 
-/obj/item/weapon/gun/energy/laser/prototype/verb/describe_gun()
+/obj/item/gun/energy/laser/prototype/verb/describe_gun()
 	set name = "Describe Prototype"
 	set category = "Object"
 	set desc = "Describe your invention so that its glory might be eternal"
@@ -305,6 +322,6 @@
 
 	if(src && input && !M.stat && in_range(M,src))
 		desc = input
-		M << "You describe the gun as [input]. Say hello to your new friend."
+		to_chat(M, "You describe the gun as [input]. Say hello to your new friend.")
 		described = 1
 		return 1

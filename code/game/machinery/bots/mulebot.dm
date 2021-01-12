@@ -47,7 +47,7 @@
 	var/auto_return = 1	// true if auto return to home beacon after unload
 	var/auto_pickup = 1 // true if auto-pickup at beacon
 
-	var/obj/item/weapon/cell/cell
+	var/obj/item/cell/cell
 						// the installed power cell
 
 	// constants for internal wiring bitflags
@@ -88,14 +88,14 @@
 // cell: insert it
 // other: chance to knock rider off bot
 /obj/machinery/bot/mulebot/attackby(var/obj/item/I, var/mob/user)
-	if(istype(I,/obj/item/weapon/cell) && open && !cell)
-		var/obj/item/weapon/cell/C = I
+	if(istype(I,/obj/item/cell) && open && !cell)
+		var/obj/item/cell/C = I
 		user.drop_from_inventory(C,src)
 		cell = C
 		updateDialog()
 	else if(I.isscrewdriver())
 		if(locked)
-			user << "<span class='notice'>The maintenance hatch cannot be opened or closed while the controls are locked.</span>"
+			to_chat(user, "<span class='notice'>The maintenance hatch cannot be opened or closed while the controls are locked.</span>")
 			return
 
 		open = !open
@@ -117,13 +117,13 @@
 				"<span class='notice'>You repair \the [src]!</span>"
 			)
 		else
-			user << "<span class='notice'>[src] does not need a repair!</span>"
+			to_chat(user, "<span class='notice'>[src] does not need a repair!</span>")
 	else if(load && ismob(load))  // chance to knock off rider
 		if(prob(1+I.force * 2))
 			unload(0)
 			user.visible_message("<span class='warning'>[user] knocks [load] off [src] with \the [I]!</span>", "<span class='warning'>You knock [load] off [src] with \the [I]!</span>")
 		else
-			user << "You hit [src] with \the [I] but to no effect."
+			to_chat(user, "You hit [src] with \the [I] but to no effect.")
 		user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 	else
 		..()
@@ -131,7 +131,7 @@
 
 /obj/machinery/bot/mulebot/emag_act(var/remaining_charges, var/user)
 	locked = !locked
-	user << "<span class='notice'>You [locked ? "lock" : "unlock"] the mulebot's controls!</span>"
+	to_chat(user, "<span class='notice'>You [locked ? "lock" : "unlock"] the mulebot's controls!</span>")
 	flick("mulebot-emagged", src)
 	playsound(src.loc, 'sound/effects/sparks1.ogg', 100, 0)
 	return 1
@@ -156,6 +156,8 @@
 
 
 /obj/machinery/bot/mulebot/attack_ai(var/mob/user)
+	if(!ai_can_interact(user))
+		return
 	user.set_machine(src)
 	interact(user, 1)
 
@@ -246,14 +248,14 @@
 					locked = !locked
 					updateDialog()
 				else
-					usr << "<span class='warning'>Access denied.</span>"
+					to_chat(usr, "<span class='warning'>Access denied.</span>")
 					return
 			if("power")
 				if (src.on)
 					turn_off()
 				else if (cell && !open)
 					if (!turn_on())
-						usr << "<span class='warning'>You can't switch on [src].</span>"
+						to_chat(usr, "<span class='warning'>You can't switch on [src].</span>")
 						return
 				else
 					return
@@ -273,7 +275,7 @@
 
 			if("cellinsert")
 				if(open && !cell)
-					var/obj/item/weapon/cell/C = usr.get_active_hand()
+					var/obj/item/cell/C = usr.get_active_hand()
 					if(istype(C))
 						usr.drop_from_inventory(C,src)
 						cell = C
@@ -695,12 +697,12 @@
 	playsound(src.loc, 'sound/effects/splat.ogg', 50, 1)
 
 	var/damage = rand(5,15)
-	H.apply_damage(2*damage, BRUTE, "head")
-	H.apply_damage(2*damage, BRUTE, "chest")
-	H.apply_damage(0.5*damage, BRUTE, "l_leg")
-	H.apply_damage(0.5*damage, BRUTE, "r_leg")
-	H.apply_damage(0.5*damage, BRUTE, "l_arm")
-	H.apply_damage(0.5*damage, BRUTE, "r_arm")
+	H.apply_damage(2*damage, BRUTE, BP_HEAD)
+	H.apply_damage(2*damage, BRUTE, BP_CHEST)
+	H.apply_damage(0.5*damage, BRUTE, BP_L_LEG)
+	H.apply_damage(0.5*damage, BRUTE, BP_R_LEG)
+	H.apply_damage(0.5*damage, BRUTE, BP_L_ARM)
+	H.apply_damage(0.5*damage, BRUTE, BP_R_ARM)
 
 	blood_splatter(src,H,1)
 	bloodiness += 4
@@ -805,7 +807,7 @@
 	var/datum/signal/signal = new()
 
 	signal.source = src
-	signal.transmission_method = 1
+	signal.transmission_method = TRANSMISSION_RADIO
 	signal.data = keyval
 
 	if (signal.data["findbeacon"])

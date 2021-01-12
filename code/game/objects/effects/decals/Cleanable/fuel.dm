@@ -9,8 +9,7 @@
 /obj/effect/decal/cleanable/liquid_fuel/Initialize(mapload, amt = 1, nologs = 0)
 	. = ..()
 	if(!nologs && !mapload)
-		message_admins("Liquid fuel has spilled in [loc.loc.name] ([loc.x],[loc.y],[loc.z]) (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[loc.x];Y=[loc.y];Z=[loc.z]'>JMP</a>)")
-		log_game("Liquid fuel has spilled in [loc.loc.name] ([loc.x],[loc.y],[loc.z])")
+		log_and_message_admins("spilled liquid fuel", user = usr, location = get_turf(src))
 	src.amount = amt
 
 	var/has_spread = 0
@@ -47,7 +46,6 @@
 			amount *= 0.75
 
 /obj/effect/decal/cleanable/liquid_fuel/flamethrower_fuel
-	icon_state = "mustard"
 	anchored = 0
 
 /obj/effect/decal/cleanable/liquid_fuel/flamethrower_fuel/Initialize(mapload, amt = 1, d = 0)
@@ -56,17 +54,17 @@
 
 /obj/effect/decal/cleanable/liquid_fuel/flamethrower_fuel/Spread()
 	//The spread for flamethrower fuel is much more precise, to create a wide fire pattern.
-	if(amount < 0.1) return
+	if(amount < 1) return
 	var/turf/simulated/S = loc
 	if(!istype(S)) return
 
-	for(var/d in list(turn(dir,90),turn(dir,-90), dir))
+	for(var/d in list(turn(dir, 45), turn(dir, -45), dir))
 		var/turf/simulated/O = get_step(S,d)
 		if(locate(/obj/effect/decal/cleanable/liquid_fuel/flamethrower_fuel) in O)
 			continue
 		if(O.CanPass(null, S, 0, 0) && S.CanPass(null, O, 0, 0))
-			new/obj/effect/decal/cleanable/liquid_fuel/flamethrower_fuel(O,amount*0.25,d)
-			O.hotspot_expose((T20C*2) + 380,500) //Light flamethrower fuel on fire immediately.
+			new/obj/effect/decal/cleanable/liquid_fuel/flamethrower_fuel(O,amount * 0.25,d)
+			O.hotspot_expose((T20C*2) + 400, 500) //Light flamethrower fuel on fire immediately.
 
 	amount *= 0.25
 

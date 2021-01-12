@@ -4,7 +4,7 @@
 	damage = 0
 	damage_type = BURN
 	nodamage = 1
-	check_armour = "energy"
+	check_armor = "energy"
 
 /obj/item/projectile/change/on_hit(var/atom/change)
 	wabbajack(change)
@@ -26,7 +26,7 @@
 				qdel(Robot.mmi)
 		else
 			for(var/obj/item/W in M)
-				if(istype(W, /obj/item/weapon/implant))	//TODO: Carn. give implants a dropped() or something
+				if(istype(W, /obj/item/implant))	//TODO: Carn. give implants a dropped() or something
 					qdel(W)
 					continue
 				M.drop_from_inventory(W)
@@ -36,8 +36,6 @@
 		var/options = list("robot", "slime")
 		for(var/t in all_species)
 			options += t
-		options -= "Xenomorph Queen"
-		options -= "Xenomorph"
 		if(ishuman(M))
 			var/mob/living/carbon/human/H = M
 			if(H.species)
@@ -77,25 +75,23 @@
 				H.name += " [pick(last_names)]"
 				H.real_name = H.name
 
-				addtimer(CALLBACK(H, /mob/living/carbon/human.proc/set_species, randomize), 0)
+				INVOKE_ASYNC(H, /mob/living/carbon/human.proc/set_species, randomize)
 				H.universal_speak = 1
-				var/datum/preferences/A = new() //Randomize appearance for the human
-				A.randomize_appearance_for(H)
 
 		if(new_mob)
 			for (var/spell/S in M.spell_list)
 				new_mob.add_spell(new S.type)
 
-			new_mob.a_intent = "hurt"
+			new_mob.set_intent(I_HURT)
 			if(M.mind)
 				M.mind.transfer_to(new_mob)
 			else
 				new_mob.key = M.key
 
-			new_mob << "<span class='warning'>Your form morphs into that of \a [lowertext(randomize)].</span>"
+			to_chat(new_mob, "<span class='warning'>Your form morphs into that of \a [lowertext(randomize)].</span>")
 
 			qdel(M)
 			return
 		else
-			M << "<span class='warning'>Your form morphs into that of \a [lowertext(randomize)].</span>"
+			to_chat(M, "<span class='warning'>Your form morphs into that of \a [lowertext(randomize)].</span>")
 			return

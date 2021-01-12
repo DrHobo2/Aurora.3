@@ -74,7 +74,7 @@ field_generator power level display
 	if(state == 2)
 		if(get_dist(src, user) <= 1)//Need to actually touch the thing to turn it on
 			if(src.active >= 1)
-				user << "You are unable to turn off the [src.name] once it is online."
+				to_chat(user, "You are unable to turn off the [src.name] once it is online.")
 				return 1
 			else
 				user.visible_message("[user.name] turns on the [src.name]", \
@@ -85,61 +85,61 @@ field_generator power level display
 
 				src.add_fingerprint(user)
 	else
-		user << "The [src] needs to be firmly secured to the floor first."
+		to_chat(user, "The [src] needs to be firmly secured to the floor first.")
 		return
 
 
 /obj/machinery/field_generator/attackby(obj/item/W, mob/user)
 	if(active)
-		user << "The [src] needs to be off."
+		to_chat(user, "The [src] needs to be off.")
 		return
 	else if(W.iswrench())
 		switch(state)
 			if(0)
 				state = 1
-				playsound(src.loc, 'sound/items/Ratchet.ogg', 75, 1)
+				playsound(src.loc, W.usesound, 75, 1)
 				user.visible_message("[user.name] secures [src.name] to the floor.", \
 					"You secure the external reinforcing bolts to the floor.", \
 					"You hear ratchet")
 				src.anchored = 1
 			if(1)
 				state = 0
-				playsound(src.loc, 'sound/items/Ratchet.ogg', 75, 1)
+				playsound(src.loc, W.usesound, 75, 1)
 				user.visible_message("[user.name] unsecures [src.name] reinforcing bolts from the floor.", \
 					"You undo the external reinforcing bolts.", \
 					"You hear ratchet")
 				src.anchored = 0
 			if(2)
-				user << "<span class='warning'>The [src.name] needs to be unwelded from the floor.</span>"
+				to_chat(user, "<span class='warning'>The [src.name] needs to be unwelded from the floor.</span>")
 				return
 	else if(W.iswelder())
-		var/obj/item/weapon/weldingtool/WT = W
+		var/obj/item/weldingtool/WT = W
 		switch(state)
 			if(0)
-				user << "<span class='warning'>The [src.name] needs to be wrenched to the floor.</span>"
+				to_chat(user, "<span class='warning'>The [src.name] needs to be wrenched to the floor.</span>")
 				return
 			if(1)
 				if (WT.remove_fuel(0,user))
-					playsound(src.loc, 'sound/items/Welder2.ogg', 50, 1)
+					playsound(src.loc, 'sound/items/welder_pry.ogg', 50, 1)
 					user.visible_message("[user.name] starts to weld the [src.name] to the floor.", \
 						"You start to weld the [src] to the floor.", \
 						"You hear welding")
-					if (do_after(user,20, act_target = src))
+					if (do_after(user,20/W.toolspeed, act_target = src))
 						if(!src || !WT.isOn()) return
 						state = 2
-						user << "You weld the field generator to the floor."
+						to_chat(user, "You weld the field generator to the floor.")
 				else
 					return
 			if(2)
 				if (WT.remove_fuel(0,user))
-					playsound(src.loc, 'sound/items/Welder2.ogg', 50, 1)
+					playsound(src.loc, 'sound/items/welder_pry.ogg', 50, 1)
 					user.visible_message("[user.name] starts to cut the [src.name] free from the floor.", \
 						"You start to cut the [src] free from the floor.", \
 						"You hear welding")
-					if (do_after(user,20, act_target = src))
+					if (do_after(user,20/W.toolspeed, act_target = src))
 						if(!src || !WT.isOn()) return
 						state = 1
-						user << "You cut the [src] free from the floor."
+						to_chat(user, "You cut the [src] free from the floor.")
 				else
 					return
 	else
@@ -152,7 +152,7 @@ field_generator power level display
 
 /obj/machinery/field_generator/bullet_act(var/obj/item/projectile/Proj)
 	if(istype(Proj, /obj/item/projectile/beam))
-		power += Proj.damage * EMITTER_DAMAGE_POWER_TRANSFER
+		power += Proj.damage * 1.25 * EMITTER_DAMAGE_POWER_TRANSFER
 		update_icon()
 	return 0
 
@@ -197,9 +197,9 @@ field_generator power level display
 	if(draw_power(round(power_draw)) >= power_draw)
 		return 1
 	else
-		visible_message(span("alert", "\The [src] shuts down!"))
+		visible_message(SPAN_ALERT("\The [src] shuts down!"))
 		turn_off()
-		investigate_log("ran out of power and <font color='red'>deactivated</font>","singulo")
+		investigate_log("ran out of power and <span class='warning'>deactivated</span>","singulo")
 		src.power = 0
 		return 0
 
@@ -317,5 +317,5 @@ field_generator power level display
 				if((world.time - O.last_warning) > 50) //to stop message-spam
 					temp = 0
 					message_admins("A singulo exists and a containment field has failed.",1)
-					investigate_log("has <font color='red'>failed</font> whilst a singulo exists.","singulo")
+					investigate_log("has <span class='warning'>failed</span> whilst a singulo exists.","singulo")
 			O.last_warning = world.time

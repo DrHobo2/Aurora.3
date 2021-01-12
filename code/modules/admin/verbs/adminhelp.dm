@@ -67,12 +67,7 @@ var/list/adminhelp_ignored_words = list("unknown","the","a","an","of","monkey","
 	set name = "Adminhelp"
 
 	if(say_disabled)	//This is here to try to identify lag problems
-		usr << "<span class='warning'>Speech is currently admin-disabled.</span>"
-		return
-
-	//handle muting and automuting
-	if(prefs.muted & MUTE_ADMINHELP)
-		src << "<font color='red'>Error: Admin-PM: You cannot send adminhelps (Muted).</font>"
+		to_chat(usr, "<span class='warning'>Speech is currently admin-disabled.</span>")
 		return
 
 	adminhelped = ADMINHELPED
@@ -116,23 +111,24 @@ var/list/adminhelp_ignored_words = list("unknown","the","a","an","of","monkey","
 	//Options bar:  mob, details ( admin = 2, undibbsed admin = 3, mentor = 4, character name (0 = just ckey, 1 = ckey and character name), link? (0 no don't make it a link, 1 do so),
 	//		highlight special roles (0 = everyone has same looking name, 1 = antags / special roles get a golden name)
 
-	msg = "<span class='notice'><b><font color=red>HELP: </font>[get_options_bar(mob, 2, 1, 1, 1, ticket)] (<a href='?_src_=holder;take_ticket=\ref[ticket]'>[(ticket.status == TICKET_OPEN) ? "TAKE" : "JOIN"]</a>) (<a href='?src=\ref[usr];close_ticket=\ref[ticket]'>CLOSE</a>):</b> [msg]</span>"
+	msg = "<span class='notice'><b>[create_text_tag("HELP")][get_options_bar(mob, 2, 1, 1, 1, ticket)] (<a href='?_src_=holder;take_ticket=\ref[ticket]'>[(ticket.status == TICKET_OPEN) ? "TAKE" : "JOIN"]</a>) (<a href='?src=\ref[usr];close_ticket=\ref[ticket]'>CLOSE</a>):</b> [msg]</span>"
 
 	var/admin_number_present = 0
 	var/admin_number_afk = 0
 
-	for(var/client/X in admins)
-		if((R_ADMIN|R_MOD) & X.holder.rights)
+	for(var/s in staff)
+		var/client/C = s
+		if((R_ADMIN|R_MOD) & C.holder.rights)
 			admin_number_present++
-			if(X.is_afk())
+			if(C.is_afk())
 				admin_number_afk++
-			if(X.prefs.toggles & SOUND_ADMINHELP)
-				X << 'sound/effects/adminhelp.ogg'
+			if(C.prefs.toggles & SOUND_ADMINHELP)
+				sound_to(C, 'sound/effects/adminhelp.ogg')
 
-			X << msg
+			to_chat(C, msg)
 
 	//show it to the person adminhelping too
-	src << "<font color='blue'>PM to-<b>Staff </b>: [original_msg]</font>"
+	to_chat(src, "<span class='notice'>PM to-<b>Staff </b>: [original_msg]</span>")
 
 	var/admin_number_active = admin_number_present - admin_number_afk
 	log_admin("HELP: [key_name(src)]: [original_msg] - heard by [admin_number_present] non-AFK admins.",admin_key=key_name(src))

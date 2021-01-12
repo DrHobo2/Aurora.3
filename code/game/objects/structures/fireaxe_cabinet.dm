@@ -9,21 +9,21 @@
 	var/open
 	var/unlocked
 	var/shattered
-	var/obj/item/weapon/material/twohanded/fireaxe/fireaxe
+	var/obj/item/material/twohanded/fireaxe/fireaxe
 
 /obj/structure/fireaxecabinet/attack_generic(var/mob/user, var/damage, var/attack_verb, var/wallbreaker)
 	user.do_attack_animation(src)
-	playsound(user, 'sound/effects/Glasshit.ogg', 50, 1)
+	playsound(user, 'sound/effects/glass_hit.ogg', 50, 1)
 	visible_message("<span class='danger'>[user] [attack_verb] \the [src]!</span>")
 	if(damage_threshold > damage)
-		user << "<span class='danger'>Your strike is deflected by the reinforced glass!</span>"
+		to_chat(user, "<span class='danger'>Your strike is deflected by the reinforced glass!</span>")
 		return
 	if(shattered)
 		return
 	shattered = 1
 	unlocked = 1
 	open = 1
-	playsound(user, 'sound/effects/Glassbr3.ogg', 100, 1)
+	playsound(user, /decl/sound_category/glass_break_sound, 100, 1)
 	update_icon()
 
 /obj/structure/fireaxecabinet/update_icon()
@@ -41,11 +41,13 @@
 	update_icon()
 
 /obj/structure/fireaxecabinet/attack_ai(var/mob/user)
+	if(!ai_can_interact(user))
+		return
 	toggle_lock(user)
 
 /obj/structure/fireaxecabinet/attack_hand(var/mob/user)
 	if(!unlocked)
-		user << "<span class='warning'>\The [src] is locked.</span>"
+		to_chat(user, "<span class='warning'>\The [src] is locked.</span>")
 		return
 	toggle_open(user)
 
@@ -56,11 +58,11 @@
 			return
 
 		if(!open)
-			user << "<span class='warning'>\The [src] is closed.</span>"
+			to_chat(user, "<span class='warning'>\The [src] is closed.</span>")
 			return
 
 		if(!fireaxe)
-			user << "<span class='warning'>\The [src] is empty.</span>"
+			to_chat(user, "<span class='warning'>\The [src] is empty.</span>")
 			return
 
 		fireaxe.forceMove(get_turf(user))
@@ -82,14 +84,14 @@
 		toggle_lock(user)
 		return
 
-	if(istype(O, /obj/item/weapon/material/twohanded/fireaxe))
+	if(istype(O, /obj/item/material/twohanded/fireaxe))
 		if(open)
 			if(fireaxe)
-				user << "<span class='warning'>There is already \a [fireaxe] inside \the [src].</span>"
+				to_chat(user, "<span class='warning'>There is already \a [fireaxe] inside \the [src].</span>")
 			else if(user.unEquip(O))
 				O.forceMove(src)
 				fireaxe = O
-				user << "<span class='notice'>You place \the [fireaxe] into \the [src].</span>"
+				to_chat(user, "<span class='notice'>You place \the [fireaxe] into \the [src].</span>")
 				update_icon()
 			return
 
@@ -107,7 +109,7 @@
 	else
 		user.setClickCooldown(10)
 		open = !open
-		user << "<span class='notice'>You [open ? "open" : "close"] \the [src].</span>"
+		to_chat(user, "<span class='notice'>You [open ? "open" : "close"] \the [src].</span>")
 	update_icon()
 
 /obj/structure/fireaxecabinet/proc/toggle_lock(var/mob/user)
@@ -121,7 +123,7 @@
 		unlocked = 1
 	else
 		user.setClickCooldown(10)
-		user << "<span class='notice'>You begin [unlocked ? "enabling" : "disabling"] \the [src]'s maglock.</span>"
+		to_chat(user, "<span class='notice'>You begin [unlocked ? "enabling" : "disabling"] \the [src]'s maglock.</span>")
 
 		if(!do_after(user, 20))
 			return
@@ -130,6 +132,6 @@
 
 		unlocked = !unlocked
 		playsound(user, 'sound/machines/lockreset.ogg', 50, 1)
-		user << "<span class = 'notice'>You [unlocked ? "disable" : "enable"] the maglock.</span>"
+		to_chat(user, "<span class = 'notice'>You [unlocked ? "disable" : "enable"] the maglock.</span>")
 
 	update_icon()

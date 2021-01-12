@@ -57,6 +57,10 @@ var/global/datum/global_init/init = new ()
 	maxx = WORLD_MIN_SIZE	// So that we don't get map-window-popin at boot. DMMS will expand this.
 	maxy = WORLD_MIN_SIZE
 
+/world/proc/enable_debugger()
+    var/dll = world.GetConfig("env", "EXTOOLS_DLL")
+    if (dll)
+        call(dll, "debug_initialize")()
 
 #define RECOMMENDED_VERSION 510
 /world/New()
@@ -82,9 +86,8 @@ var/global/datum/global_init/init = new ()
 		config.server_name += " #[(world.port % 1000) / 100]"
 
 	callHook("startup")
-	//Emergency Fix
-	load_mods()
-	//end-emergency fix
+
+	enable_debugger()
 
 	. = ..()
 
@@ -108,6 +111,20 @@ var/list/world_api_rate_limit = list()
 /world/Topic(T, addr, master, key)
 	var/list/response[] = list()
 	var/list/queryparams[]
+
+	if (!SSfail2topic)
+		response["statuscode"] = 500
+		response["response"] = "Server not initialized."
+		return json_encode(response)
+	else if (SSfail2topic.IsRateLimited(addr))
+		response["statuscode"] = 429
+		response["response"] = "Rate limited."
+		return json_encode(response)
+
+	if (length(T) > 2000)
+		response["statuscode"] = 413
+		response["response"] = "Payload too large."
+		return json_encode(response)
 
 	try
 		queryparams = json_decode(T)
@@ -133,11 +150,6 @@ var/list/world_api_rate_limit = list()
 	var/query = queryparams["query"]
 	var/auth = queryparams["auth"]
 
-	/*if (!SSticker) //If the game is not started most API Requests would not work because of the throtteling
-		response["statuscode"] = 500
-		response["response"] = "Game not started yet!"
-		return json_encode(response)*/
-
 	if (isnull(query))
 		log_debug("API - Bad Request - No query specified")
 		response["statuscode"] = 400
@@ -153,7 +165,7 @@ var/list/world_api_rate_limit = list()
 		response["response"] = "Not Implemented"
 		return json_encode(response)
 
-	var/unauthed = api_do_auth_check(addr,auth,command)
+	var/unauthed = command.check_auth(addr, auth)
 	if (unauthed)
 		if (unauthed == 3)
 			log_debug("API: Request denied - Auth Service Unavailable")
@@ -188,10 +200,8 @@ var/list/world_api_rate_limit = list()
 		return json_encode(response)
 
 
-/world/Reboot(var/reason)
-	var/hard_reset = FALSE
-
-	if (world.TgsAvailable())
+/world/Reboot(reason, hard_reset = FALSE)
+	if (!hard_reset && world.TgsAvailable())
 		switch (config.rounds_until_hard_restart)
 			if (-1)
 				hard_reset = FALSE
@@ -204,9 +214,14 @@ var/list/world_api_rate_limit = list()
 				else
 					hard_reset = FALSE
 					SSpersist_config.rounds_since_hard_restart++
+	else if (!world.TgsAvailable() && hard_reset)
+		hard_reset = FALSE
 
 	SSpersist_config.save_to_file("data/persistent_config.json")
 	Master.Shutdown()
+
+	to_chat_immediate(world, "<br><span class='danger'>The server is restarting.</span><br>You should automatically reconnect in a minute or so...<br><hr><br>")
+	sleep(1) // this gives clients time to receive the message
 
 	if(config.server)	//if you set a server location in config.txt, it sends you there instead of trying to reconnect to the same world address. -- NeoFite
 		for(var/client/C in clients)
@@ -269,14 +284,6 @@ var/list/world_api_rate_limit = list()
 
 	time_stamped = 1
 
-/hook/startup/proc/initialize_greeting()
-	world.initialize_greeting()
-	return 1
-
-/world/proc/initialize_greeting()
-	server_greeting = new()
-
-
 /proc/load_configuration()
 	config = new /datum/configuration()
 	config.load("config/config.txt")
@@ -284,52 +291,6 @@ var/list/world_api_rate_limit = list()
 
 	if (config.age_restrictions_from_file)
 		config.load("config/age_restrictions.txt", "age_restrictions")
-
-/hook/startup/proc/loadMods()
-	world.load_mods()
-	world.load_mentors() // no need to write another hook.
-	return 1
-
-/world/proc/load_mods()
-	if(config.admin_legacy_system)
-		var/text = file2text("config/moderators.txt")
-		if (!text)
-			error("Failed to load config/mods.txt")
-		else
-			var/list/lines = text2list(text, "\n")
-			for(var/line in lines)
-				if (!line)
-					continue
-
-				if (copytext(line, 1, 2) == ";")
-					continue
-
-				var/title = "Moderator"
-				var/rights = admin_ranks[title]
-
-				var/ckey = copytext(line, 1, length(line)+1)
-				var/datum/admins/D = new /datum/admins(title, rights, ckey)
-				D.associate(directory[ckey])
-
-/world/proc/load_mentors()
-	if(config.admin_legacy_system)
-		var/text = file2text("config/mentors.txt")
-		if (!text)
-			error("Failed to load config/mentors.txt")
-		else
-			var/list/lines = text2list(text, "\n")
-			for(var/line in lines)
-				if (!line)
-					continue
-				if (copytext(line, 1, 2) == ";")
-					continue
-
-				var/title = "Mentor"
-				var/rights = admin_ranks[title]
-
-				var/ckey = copytext(line, 1, length(line)+1)
-				var/datum/admins/D = new /datum/admins(title, rights, ckey)
-				D.associate(directory[ckey])
 
 /world/proc/update_status()
 	var/list/s = list()
@@ -340,7 +301,6 @@ var/list/world_api_rate_limit = list()
 	s += "<b>[station_name()]</b>";
 	s += " ("
 	s += "<a href=\"[config.forumurl]\">" //Change this to wherever you want the hub to link to.
-//	s += "[game_version]"
 	s += "Forums"  //Replace this with something else. Or ever better, delete it and uncomment the game version.
 	s += "</a>"
 	s += ")"
@@ -389,13 +349,16 @@ var/list/world_api_rate_limit = list()
 #define FAILED_DB_CONNECTION_CUTOFF 5
 
 /hook/startup/proc/load_databases()
+	if(!config.sql_enabled)
+		world.log << "Database Connection disabled. - Skipping Connection Establishment"
+		return 1
 	//Construct the database object from an init file.
 	dbcon = initialize_database_object("config/dbconfig.txt")
 
-	if (!setup_database_connection(dbcon))
-		world.log << "Your server failed to establish a connection with the feedback database."
+	if(!setup_database_connection(dbcon))
+		world.log <<  "Your server failed to establish a connection with the configured database."
 	else
-		world.log << "Feedback database connection established."
+		world.log <<  "Database connection established."
 	return 1
 
 /proc/initialize_database_object(var/filename)
@@ -458,24 +421,27 @@ var/list/world_api_rate_limit = list()
 		error("Database connection failed with message:")
 		error(con.ErrorMsg())
 #else
-		world.log << con.ErrorMsg()
+		world.log <<  con.ErrorMsg()
 #endif
 
 	return .
 
 //This proc ensures that the connection to the feedback database (global variable dbcon) is established
 /proc/establish_db_connection(var/DBConnection/con)
+	if (!config.sql_enabled)
+		return FALSE
+	
 	if (!con)
 		error("No DBConnection object passed to establish_db_connection() proc.")
-		return 0
+		return FALSE
 
 	if (con.failed_connections > FAILED_DB_CONNECTION_CUTOFF)
 		error("DB connection cutoff exceeded for a database object in establish_db_connection().")
-		return 0
+		return FALSE
 
 	if (!con.IsConnected())
 		return setup_database_connection(con)
 	else
-		return 1
+		return TRUE
 
 #undef FAILED_DB_CONNECTION_CUTOFF

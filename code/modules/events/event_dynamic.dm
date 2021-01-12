@@ -53,7 +53,6 @@ var/list/event_last_fired = list()
 	possibleEvents[/datum/event/economic_event] = 300
 	possibleEvents[/datum/event/mundane_news] = 300
 
-	possibleEvents[/datum/event/pda_spam] = max(min(25, player_list.len) * 4, 200)
 	possibleEvents[/datum/event/money_lotto] = max(min(5, player_list.len), 50)
 	if(account_hack_attempted)
 		possibleEvents[/datum/event/money_hacker] = max(min(25, player_list.len) * 4, 200)
@@ -80,7 +79,6 @@ var/list/event_last_fired = list()
 	if(active_with_role["Medical"] > 0)
 		possibleEvents[/datum/event/radiation_storm] = active_with_role["Medical"] * 10
 		possibleEvents[/datum/event/spontaneous_appendicitis] = active_with_role["Medical"] * 10
-		possibleEvents[/datum/event/viral_infection] = active_with_role["Medical"] * 10
 
 	possibleEvents[/datum/event/prison_break] = active_with_role["Security"] * 50
 	if(active_with_role["Security"] > 0)
@@ -115,67 +113,6 @@ var/list/event_last_fired = list()
 	//and start working via the constructor.
 	new picked_event
 
-	//moved this to proc/check_event()
-	/*var/chance = possibleEvents[picked_event]
-	var/base_chance = 0.4
-	switch(player_list.len)
-		if(5 to 10)
-			base_chance = 0.6
-		if(11 to 15)
-			base_chance = 0.7
-		if(16 to 20)
-			base_chance = 0.8
-		if(21 to 25)
-			base_chance = 0.9
-		if(26 to 30)
-			base_chance = 1.0
-		if(30 to 100000)
-			base_chance = 1.1
-
-	// Trigger the event based on how likely it currently is.
-	if(!prob(chance * eventchance * base_chance / 100))
-		return 0*/
-
-	/*switch(picked_event)
-		if("Meteor")
-			command_alert("Meteors have been detected on collision course with the station.", "Meteor Alert")
-			for(var/mob/M in player_list)
-				if(!istype(M,/mob/abstract/new_player))
-					M << sound('sound/AI/meteors.ogg')
-			spawn(100)
-				meteor_wave(10)
-				spawn_meteors()
-			spawn(700)
-				meteor_wave(10)
-				spawn_meteors()
-		if("Space Ninja")
-			//Handled in space_ninja.dm. Doesn't announce arrival, all sneaky-like.
-			space_ninja_arrival()
-		if("Radiation")
-			high_radiation_event()
-		if("Virus")
-			viral_outbreak()
-		if("Alien")
-			alien_infestation()
-		if("Prison Break")
-			prison_break()
-		if("Carp")
-			carp_migration()
-		if("Lights")
-			lightsout(1,2)
-		if("Appendicitis")
-			appendicitis()
-		if("Ion Storm")
-			IonStorm()
-		if("Spacevine")
-			spacevine_infestation()
-		if("Communications")
-			communications_blackout()
-		if("Grid Check")
-			grid_check()
-		if("Meteor")
-			meteor_shower()*/
-
 	return 1
 
 // Returns how many characters are currently active(not logged out, not AFK for more than 10 minutes)
@@ -185,6 +122,7 @@ var/list/event_last_fired = list()
 	var/list/active_with_role = list()
 	active_with_role["Engineer"] = 0
 	active_with_role["Medical"] = 0
+	active_with_role["Surgeon"] = 0
 	active_with_role["Security"] = 0
 	active_with_role["Scientist"] = 0
 	active_with_role["AI"] = 0
@@ -201,13 +139,11 @@ var/list/event_last_fired = list()
 		if(istype(M, /mob/living/silicon/robot))
 			var/mob/living/silicon/robot/R = M
 			if(R.module)
-				if(istype(R.module, /obj/item/weapon/robot_module/engineering))
+				if(istype(R.module, /obj/item/robot_module/engineering))
 					active_with_role["Engineer"]++
-				else if(istype(R.module, /obj/item/weapon/robot_module/security))
-					active_with_role["Security"]++
-				else if(istype(R.module, /obj/item/weapon/robot_module/medical))
+				else if(istype(R.module, /obj/item/robot_module/medical))
 					active_with_role["Medical"]++
-				else if(istype(R.module, /obj/item/weapon/robot_module/research))
+				else if(istype(R.module, /obj/item/robot_module/research))
 					active_with_role["Scientist"]++
 
 		if(M.mind.assigned_role in engineering_positions)
@@ -215,6 +151,8 @@ var/list/event_last_fired = list()
 
 		if(M.mind.assigned_role in medical_positions)
 			active_with_role["Medical"]++
+			if(M.mind.assigned_role == "Surgeon")
+				active_with_role["Surgeon"]++
 
 		if(M.mind.assigned_role in security_positions)
 			active_with_role["Security"]++

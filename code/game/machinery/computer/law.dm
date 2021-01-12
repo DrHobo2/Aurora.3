@@ -6,7 +6,7 @@
 	light_color = LIGHT_COLOR_GREEN
 
 	icon_screen = "command"
-	circuit = /obj/item/weapon/circuitboard/aiupload
+	circuit = /obj/item/circuitboard/aiupload
 	var/mob/living/silicon/ai/current = null
 	var/opened = 0
 
@@ -20,18 +20,18 @@
 
 	opened = !opened
 	if(opened)
-		usr << "<span class='notice'>The access panel is now open.</span>"
+		to_chat(usr, "<span class='notice'>The access panel is now open.</span>")
 	else
-		usr << "<span class='notice'>The access panel is now closed.</span>"
+		to_chat(usr, "<span class='notice'>The access panel is now closed.</span>")
 	return
 
 
-/obj/machinery/computer/aiupload/attackby(obj/item/weapon/O as obj, mob/user as mob)
-	if (!src.z in current_map.station_levels)
-		user << "<span class='danger'>Unable to establish a connection:</span>"
+/obj/machinery/computer/aiupload/attackby(obj/item/O as obj, mob/user as mob)
+	if(isNotStationLevel(src.z))
+		to_chat(user, "<span class='danger'>Unable to establish a connection:</span>")
 		return
-	if(istype(O, /obj/item/weapon/aiModule))
-		var/obj/item/weapon/aiModule/M = O
+	if(istype(O, /obj/item/aiModule))
+		var/obj/item/aiModule/M = O
 		M.install(src)
 	else
 		..()
@@ -39,18 +39,18 @@
 
 /obj/machinery/computer/aiupload/attack_hand(var/mob/user as mob)
 	if(src.stat & NOPOWER)
-		user << "The upload computer has no power!"
+		to_chat(user, "The upload computer has no power!")
 		return
 	if(src.stat & BROKEN)
-		user << "The upload computer is broken!"
+		to_chat(user, "The upload computer is broken!")
 		return
 
 	src.current = select_active_ai(user)
 
 	if (!src.current)
-		user << "No active AIs detected."
+		to_chat(user, "No active AIs detected.")
 	else
-		user << "[src.current.name] selected for law changes."
+		to_chat(user, "[src.current.name] selected for law changes.")
 	return
 
 /obj/machinery/computer/aiupload/attack_ghost(user as mob)
@@ -63,15 +63,15 @@
 	light_color = LIGHT_COLOR_GREEN
 
 	icon_screen = "command"
-	circuit = /obj/item/weapon/circuitboard/borgupload
+	circuit = /obj/item/circuitboard/borgupload
 	var/mob/living/silicon/robot/current = null
 
 
-/obj/machinery/computer/borgupload/attackby(obj/item/weapon/aiModule/module as obj, mob/user as mob)
-	if (!src.z in current_map.station_levels)
-		user << "<span class='danger'>Unable to establish a connection:</span>"
+/obj/machinery/computer/borgupload/attackby(obj/item/aiModule/module as obj, mob/user as mob)
+	if(isNotStationLevel(src.z))
+		to_chat(user, "<span class='danger'>Unable to establish a connection:</span>")
 		return
-	if(istype(module, /obj/item/weapon/aiModule))
+	if(istype(module, /obj/item/aiModule))
 		module.install(src)
 	else
 		return ..()
@@ -79,18 +79,18 @@
 
 /obj/machinery/computer/borgupload/attack_hand(var/mob/user as mob)
 	if(src.stat & NOPOWER)
-		user << "The upload computer has no power!"
+		to_chat(user, "The upload computer has no power!")
 		return
 	if(src.stat & BROKEN)
-		user << "The upload computer is broken!"
+		to_chat(user, "The upload computer is broken!")
 		return
 
 	src.current = freeborg()
 
 	if (!src.current)
-		user << "No free cyborgs detected."
+		to_chat(user, "No free cyborgs detected.")
 	else
-		user << "[src.current.name] selected for law changes."
+		to_chat(user, "[src.current.name] selected for law changes.")
 	return
 
 /obj/machinery/computer/borgupload/attack_ghost(user as mob)

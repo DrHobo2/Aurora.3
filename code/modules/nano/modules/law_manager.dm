@@ -37,7 +37,7 @@
 
 	if(href_list["law_channel"])
 		if(href_list["law_channel"] in owner.law_channels())
-			owner.lawchannel = href_list["law_channel"]
+			owner.law_channel = href_list["law_channel"]
 		return 1
 
 	if(href_list["state_law"])
@@ -134,15 +134,15 @@
 		return 1
 
 	if(href_list["notify_laws"])
-		owner << "<span class='danger'>Law Notice</span>"
+		to_chat(owner, "<span class='danger'>Law Notice</span>")
 		owner.laws.show_laws(owner)
 		if(isAI(owner))
 			var/mob/living/silicon/ai/AI = owner
 			for(var/mob/living/silicon/robot/R in AI.connected_robots)
-				R << "<span class='danger'>Law Notice</span>"
+				to_chat(R, "<span class='danger'>Law Notice</span>")
 				R.laws.show_laws(R)
 		if(usr != owner)
-			usr << "<span class='notice'>Laws displayed.</span>"
+			to_chat(usr, "<span class='notice'>Laws displayed.</span>")
 		return 1
 
 	return 0
@@ -172,7 +172,7 @@
 	var/channels[0]
 	for (var/ch_name in owner.law_channels())
 		channels[++channels.len] = list("channel" = ch_name)
-	data["channel"] = owner.lawchannel
+	data["channel"] = owner.law_channel
 	data["channels"] = channels
 	data["law_sets"] = package_multiple_laws(data["isAdmin"] ? admin_laws : player_laws)
 
@@ -209,7 +209,7 @@
 	return 0
 
 /mob/living/silicon/robot/is_slaved()
-	return lawupdate && connected_ai ? sanitize(connected_ai.name) : null
+	return law_update && connected_ai ? sanitize(connected_ai.name) : null
 
 /datum/nano_module/law_manager/proc/sync_laws(var/mob/living/silicon/ai/AI)
 	if(!AI)

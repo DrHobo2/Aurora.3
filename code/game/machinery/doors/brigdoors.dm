@@ -19,6 +19,7 @@
 	icon_state = "frame"
 	desc = "A remote control for a door."
 	req_access = list(access_brig)
+	layer = OBJ_LAYER
 	anchored = 1.0    		// can't pick it up
 	density = 0       		// can walk through it.
 	var/id = null     		// id of door it controls.
@@ -74,7 +75,7 @@
 			src.releasetime = 0
 
 		if(world.timeofday > src.releasetime)
-			if( src.timer_end() )// open doors, reset timer, clear status screen
+			if(src.timer_end(broadcast = TRUE))// open doors, reset timer, clear status screen
 				var/message = "Criminal sentence complete. The criminal is free to go."
 				ping( "\The [src] pings, \"[message]\"" )
 
@@ -116,8 +117,9 @@
 
 
 // Opens and unlocks doors, power check
-/obj/machinery/door_timer/proc/timer_end(var/early=0)
-	if(stat & (NOPOWER|BROKEN))	return 0
+/obj/machinery/door_timer/proc/timer_end(var/early = 0, var/broadcast)
+	if(stat & (NOPOWER|BROKEN))
+		return 0
 
 	timing = 0
 
@@ -126,25 +128,29 @@
 	timeset( 0 )
 
 	for(var/obj/machinery/door/window/brigdoor/door in targets)
-		if(!door.density)	continue
+		if(!door.density)
+			continue
 		spawn(0)
 			door.open()
 
 	for(var/obj/structure/closet/secure_closet/brig/C in targets)
-		if(C.broken)	continue
-		if(C.opened)	continue
+		if(C.broken)
+			continue
+		if(C.opened)
+			continue
 		C.locked = 0
 		C.icon_state = C.icon_closed
 
-	if( istype(incident))
-		for (var/datum/data/record/E in data_core.general)
-			if(E.fields["name"] == incident.criminal.name)
-				for (var/datum/data/record/R in data_core.security)
-					if(R.fields["id"] == E.fields["id"])
-						if(early == 1)
-							R.fields["criminal"] = "Parolled"
-						else
-							R.fields["criminal"] = "Released"
+	if(broadcast)
+		broadcast_security_hud_message("The timer for [id] has expired.", src)
+
+	if(istype(incident))
+		var/datum/record/general/R = SSrecords.find_record("name", incident.criminal.name)
+		if(istype(R) && istype(R.security))
+			if(early == 1)
+				R.security.criminal = "Parolled"
+			else
+				R.security.criminal = "Released"
 
 	qdel( incident )
 	incident = null
@@ -176,6 +182,8 @@
 
 //Allows AIs to use door_timer, see human attack_hand function below
 /obj/machinery/door_timer/attack_ai(var/mob/user as mob)
+	if(!ai_can_interact(user))
+		return
 	return src.attack_hand(user)
 
 // Allows humans to use door_timer
@@ -214,7 +222,7 @@
 		. += "Insert a Securty Incident Report to load a criminal sentence<br>"
 	else
 		// Time Left display (uses releasetime)
-		var/obj/item/weapon/card/id/card = incident.card.resolve()
+		var/obj/item/card/id/card = incident.card.resolve()
 		. += "<b>Criminal</b>: [card]\t"
 		. += "<a href='?src=\ref[src];button=menu_mode;menu_choice=menu_charges'>Charges</a><br>"
 		. += "<b>Sentence</b>: [add_zero( "[minute]", 2 )]:[add_zero( "[second]", 2 )]\t"
@@ -264,7 +272,7 @@
 	return .
 
 /obj/machinery/door_timer/attackby(obj/item/O as obj, var/mob/user as mob)
-	if( istype( O, /obj/item/weapon/paper/incident ))
+	if( istype( O, /obj/item/paper/incident ))
 		if( !incident )
 			if( import( O, user ))
 				ping( "\The [src] pings, \"Successfully imported incident report!\"" )
@@ -272,39 +280,39 @@
 				qdel(O)
 				src.updateUsrDialog()
 		else
-			user <<  "<span class='alert'>\The [src] buzzes, \"There's already an active sentence!\"</span>"
+			to_chat(user,  "<span class='alert'>\The [src] buzzes, \"There's already an active sentence!\"</span>")
 		return
-	else if( istype( O, /obj/item/weapon/paper ))
-		user <<  "<span class='alert'>\The [src] buzzes, \"This console only accepts authentic incident reports. Copies are invalid.\"</span>"
+	else if( istype( O, /obj/item/paper ))
+		to_chat(user,  "<span class='alert'>\The [src] buzzes, \"This console only accepts authentic incident reports. Copies are invalid.\"</span>")
 		return
 
 	..()
 
-/obj/machinery/door_timer/proc/import( var/obj/item/weapon/paper/incident/I, var/user )
+/obj/machinery/door_timer/proc/import( var/obj/item/paper/incident/I, var/user )
 	if( !istype( I ))
-		user <<  "<span class='alert'>\The [src] buzzes, \"Could not import the incident report.\"</span>"
+		to_chat(user,  "<span class='alert'>\The [src] buzzes, \"Could not import the incident report.\"</span>")
 		return 0
 
 	if( !istype( I.incident ))
-		user <<  "<span class='alert'>\The [src] buzzes, \"Report has no incident encoded!\"</span>"
+		to_chat(user,  "<span class='alert'>\The [src] buzzes, \"Report has no incident encoded!\"</span>")
 		return 0
 
 	if( !I.sentence )
-		user <<  "<span class='alert'>\The [src] buzzes, \"Report does not contain a guilty sentence!\"</span>"
+		to_chat(user,  "<span class='alert'>\The [src] buzzes, \"Report does not contain a guilty sentence!\"</span>")
 		return 0
 
 	var/datum/crime_incident/crime = I.incident
 
 	if( !istype( crime.criminal ))
-		user <<  "<span class='alert'>\The [src] buzzes, \"Report has no criminal encoded!\"</span>"
+		to_chat(user,  "<span class='alert'>\The [src] buzzes, \"Report has no criminal encoded!\"</span>")
 		return 0
 
 	if( !crime.brig_sentence )
-		user <<  "<span class='alert'>\The [src] buzzes, \"Report had no brig sentence.\"</span>"
+		to_chat(user,  "<span class='alert'>\The [src] buzzes, \"Report had no brig sentence.\"</span>")
 		return 0
 
 	if( crime.brig_sentence >= PERMABRIG_SENTENCE )
-		user <<  "<span class='alert'>\The [src] buzzes, \"The criminal has a HUT sentence and needs to be detained until transfer.\"</span>"
+		to_chat(user,  "<span class='alert'>\The [src] buzzes, \"The criminal has a HUT sentence and needs to be detained until transfer.\"</span>")
 		return 0
 
 	var/addtime = timetoset
@@ -338,11 +346,9 @@
 
 		if( "activate" )
 			src.timer_start()
-			for (var/datum/data/record/E in data_core.general)
-				if(E.fields["name"] == incident.criminal.name)
-					for (var/datum/data/record/R in data_core.security)
-						if(R.fields["id"] == E.fields["id"])
-							R.fields["criminal"] = "Incarcerated"
+			var/datum/record/general/R = SSrecords.find_record("name", incident.criminal.name)
+			if(R && R.security)
+				R.security.criminal = "Incarcerated"
 
 		if ("early_release")
 			src.timer_end(1)
@@ -399,7 +405,7 @@
 //Stolen from status_display
 /obj/machinery/door_timer/proc/texticon(var/tn, var/px = 0, var/py = 0)
 	var/image/I = image('icons/obj/status_display.dmi', "blank")
-	var/len = lentext(tn)
+	var/len = length(tn)
 
 	for(var/d = 1 to len)
 		var/char = copytext(tn, len-d+1, len-d+2)

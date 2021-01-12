@@ -46,6 +46,7 @@
 	var/role_alt_title
 
 	var/datum/job/assigned_job
+	var/datum/faction/selected_faction
 
 	var/list/datum/objective/objectives = list()
 	var/list/datum/objective/special_verbs = list()
@@ -53,9 +54,7 @@
 	var/has_been_rev = 0//Tracks if this mind has been a rev or not
 
 	var/datum/faction/faction 			//associated faction
-	var/datum/changeling/changeling		//changeling holder
-
-	var/datum/vampire/vampire //vampire holder
+	var/list/antag_datums = list()
 
 	var/rev_cooldown = 0
 
@@ -69,6 +68,7 @@
 	//put this here for easier tracking ingame
 	var/datum/money_account/initial_account
 
+	var/last_words
 	var/ambitions
 
 /datum/mind/New(var/key)
@@ -85,7 +85,9 @@
 
 /datum/mind/proc/transfer_to(mob/living/new_character)
 	if(!istype(new_character))
-		world.log << "## DEBUG: transfer_to(): Some idiot has tried to transfer_to() a non mob/living mob. Please inform Carn"
+		world.log <<  "## DEBUG: transfer_to(): Some idiot has tried to transfer_to( a non mob/living mob. Please inform Carn"
+	var/datum/changeling/changeling = antag_datums[MODE_CHANGELING]
+	var/datum/vampire/vampire = antag_datums[MODE_VAMPIRE]
 	if(current)					//remove ourself from our old body's mind variable
 		if(changeling)
 			current.remove_changeling_powers()
@@ -114,7 +116,12 @@
 		new_character.key = key		//now transfer the key to link the client to our new body
 
 /datum/mind/proc/store_memory(new_text)
-	memory += "[new_text]<BR>"
+	. = length(memory + new_text)
+
+	if (. > MAX_PAPER_MESSAGE_LEN)
+		memory = copytext(memory, . - MAX_PAPER_MESSAGE_LEN, .)
+	else
+		memory += "[new_text]<BR>"
 
 /datum/mind/proc/show_memory(mob/recipient)
 	var/output = "<B>[current.real_name]'s Memory</B><HR>"
@@ -131,7 +138,9 @@
 			output += "<B>Objective #[obj_count]</B>: [objective.explanation_text]"
 			obj_count++
 
-	recipient << browse(output,"window=memory")
+	var/datum/browser/memory_win = new(recipient, "memory")
+	memory_win.set_content(output)
+	memory_win.open()
 
 /datum/mind/proc/edit_memory()
 	if(!ROUND_IS_STARTED)
@@ -154,9 +163,9 @@
 		for(var/datum/objective/O in objectives)
 			out += "<b>Objective #[num]:</b> [O.explanation_text] "
 			if(O.completed)
-				out += "(<font color='green'>complete</font>)"
+				out += "(<span class='good'>complete</span>)"
 			else
-				out += "(<font color='red'>incomplete</font>)"
+				out += "(<span class='warning'>incomplete</span>)"
 			out += " <a href='?src=\ref[src];obj_completed=\ref[O]'>\[toggle\]</a>"
 			out += " <a href='?src=\ref[src];obj_delete=\ref[O]'>\[remove\]</a><br>"
 			num++
@@ -171,13 +180,18 @@
 /datum/mind/Topic(href, href_list)
 	if(!check_rights(R_ADMIN))	return
 
+	if(current && isliving(current))
+		if(href_list["set_psi_faculty"] && href_list["set_psi_faculty_rank"])
+			current.set_psi_rank(href_list["set_psi_faculty"], text2num(href_list["set_psi_faculty_rank"]))
+			return TRUE
+
 	if(href_list["add_antagonist"])
 		var/datum/antagonist/antag = all_antag_types[href_list["add_antagonist"]]
 		if(antag)
 			if(antag.add_antagonist(src, 1, 1, 0, 1, 1)) // Ignore equipment and role type for this.
 				log_admin("[key_name_admin(usr)] made [key_name(src, highlight_special = 1)] into a [antag.role_text].",admin_key=key_name(usr),ckey=key_name(src))
 			else
-				usr << "<span class='warning'>[src] could not be made into a [antag.role_text]!</span>"
+				to_chat(usr, "<span class='warning'>[src] could not be made into a [antag.role_text]!</span>")
 
 	else if(href_list["remove_antagonist"])
 		var/datum/antagonist/antag = all_antag_types[href_list["remove_antagonist"]]
@@ -206,11 +220,11 @@
 		memory = new_memo
 
 	else if (href_list["amb_edit"])
-		var/new_ambition = input("Enter a new ambition", "Memory",src.ambitions) as null|message
+		var/new_ambition = input("Enter a new ambition", "Memory",html_decode(src.ambitions)) as null|message
 		if(isnull(new_ambition))
 			return
 		src.ambitions = sanitize(new_ambition)
-		src.current << "<span class='warning'>Your ambitions have been changed by higher powers, they are now: [src.ambitions]</span>"
+		to_chat(src.current, "<span class='warning'>Your ambitions have been changed by higher powers, they are now: [src.ambitions]</span>")
 
 	else if (href_list["obj_edit"] || href_list["obj_add"])
 		var/datum/objective/objective
@@ -248,7 +262,7 @@
 				var/mob/def_target = null
 				var/objective_list[] = list(/datum/objective/assassinate, /datum/objective/protect, /datum/objective/debrain)
 				if (objective&&(objective.type in objective_list) && objective:target)
-					def_target = objective:target.current
+					def_target = objective.target.current
 
 				var/new_target = input("Select target:", "Objective target", def_target) as null|anything in possible_targets
 				if (!new_target) return
@@ -350,15 +364,15 @@
 
 		switch(href_list["implant"])
 			if("remove")
-				for(var/obj/item/weapon/implant/loyalty/I in H.contents)
+				for(var/obj/item/implant/mindshield/I in H.contents)
 					for(var/obj/item/organ/external/organs in H.organs)
 						if(I in organs.implants)
 							qdel(I)
 							break
-				H << "<span class='notice'><font size =3><B>Your loyalty implant has been deactivated.</B></font></span>"
+				to_chat(H, "<span class='notice'><font size =3><B>Your loyalty implant has been deactivated.</B></font></span>")
 				log_admin("[key_name_admin(usr)] has de-loyalty implanted [current].",admin_key=key_name(usr),ckey=key_name(usr))
 			if("add")
-				H << "<span class='danger'><font size =3>You somehow have become the recepient of a loyalty transplant, and it just activated!</font></span>"
+				to_chat(H, "<span class='danger'><font size =3>You somehow have become the recepient of a loyalty transplant, and it just activated!</font></span>")
 				H.implant_loyalty(H, override = TRUE)
 				log_admin("[key_name_admin(usr)] has loyalty implanted [current].",admin_key=key_name(usr),ckey=key_name(usr))
 			else
@@ -371,7 +385,7 @@
 				if (istype(R))
 					R.emagged = 0
 					if (R.activated(R.module.emag))
-						R.module_active = null
+						R.set_module_active(null)
 					if(R.module_state_1 == R.module.emag)
 						R.module_state_1 = null
 						R.contents -= R.module.emag
@@ -390,7 +404,7 @@
 						R.emagged = 0
 						if (R.module)
 							if (R.activated(R.module.emag))
-								R.module_active = null
+								R.set_module_active(null)
 							if(R.module_state_1 == R.module.emag)
 								R.module_state_1 = null
 								R.contents -= R.module.emag
@@ -423,9 +437,9 @@
 
 	else if (href_list["obj_announce"])
 		var/obj_count = 1
-		current << "<span class='notice'>Your current objectives:</span>"
+		to_chat(current, "<span class='notice'>Your current objectives:</span>")
 		for(var/datum/objective/objective in objectives)
-			current << "<B>Objective #[obj_count]</B>: [objective.explanation_text]"
+			to_chat(current, "<B>Objective #[obj_count]</B>: [objective.explanation_text]")
 			obj_count++
 	edit_memory()
 
@@ -446,19 +460,15 @@
 // have to call this periodically for the duration to work properly
 /datum/mind/proc/is_brigged(duration)
 	var/turf/T = current.loc
-	if(!istype(T))
+	if(isnull(T))
 		brigged_since = -1
 		return 0
+	var/area/A = T.loc
 	var/is_currently_brigged = 0
-	if(istype(T.loc,/area/security/brig))
+	if(A?.is_prison())
 		is_currently_brigged = 1
-		for(var/obj/item/weapon/card/id/card in current)
+		if(current.GetIdCard())
 			is_currently_brigged = 0
-			break // if they still have ID they're not brigged
-		for(var/obj/item/device/pda/P in current)
-			if(P.id)
-				is_currently_brigged = 0
-				break // if they still have ID they're not brigged
 
 	if(!is_currently_brigged)
 		brigged_since = -1
@@ -475,8 +485,8 @@
 	role_alt_title =  null
 	assigned_job =    null
 	//faction =       null //Uncommenting this causes a compile error due to 'undefined type', fucked if I know.
-	changeling =      null
-	vampire =         null
+	for(var/thing in antag_datums)
+		QDEL_NULL(thing)
 	initial_account = null
 	objectives =      list()
 	special_verbs =   list()
@@ -502,7 +512,9 @@
 		mind = new /datum/mind(key)
 		mind.original = src
 		SSticker.minds += mind
-	if(!mind.name)	mind.name = real_name
+	if(!mind.name)
+		mind.name = real_name
+
 	if (client)
 		if (client.prefs.signature)
 			mind.signature = client.prefs.signature
@@ -513,12 +525,16 @@
 //HUMAN
 /mob/living/carbon/human/mind_initialize()
 	..()
-	if(!mind.assigned_role)	mind.assigned_role = "Assistant"	//defualt
+	if(!mind.assigned_role)
+		mind.assigned_role = "Assistant"	//defualt
 
 //slime
 /mob/living/carbon/slime/mind_initialize()
 	..()
 	mind.assigned_role = "slime"
+
+/mob/living/carbon/alien/larva
+	icon_state = "larva0"
 
 /mob/living/carbon/alien/larva/mind_initialize()
 	..()
@@ -555,15 +571,10 @@
 	mind.assigned_role = "Wraith"
 	mind.special_role = "Cultist"
 
-/mob/living/simple_animal/construct/armoured/mind_initialize()
+/mob/living/simple_animal/construct/armored/mind_initialize()
 	..()
 	mind.assigned_role = "Juggernaut"
 	mind.special_role = "Cultist"
-
-/mob/living/carbon/human/voxarmalis/mind_initialize()
-	..()
-	mind.assigned_role = "Armalis"
-	mind.special_role = "Vox Raider"
 
 /mob/living/silicon/robot/syndicate/mind_initialize()
 	..()
@@ -578,6 +589,6 @@
 	..()
 	mind.assigned_role = "Familiar"
 
-/mob/living/simple_animal/mouse/familiar/familiar/mind_initialize()
+/mob/living/simple_animal/rat/familiar/familiar/mind_initialize()
 	..()
 	mind.assigned_role = "Familiar"

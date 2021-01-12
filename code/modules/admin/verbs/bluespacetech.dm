@@ -21,7 +21,7 @@
 	set desc = "Spawns a Bluespace Tech to debug stuff"
 
 	if (bst_cooldown)
-		src << "You've used this verb too recently, please wait a moment before trying again."
+		to_chat(src, "You've used this verb too recently, please wait a moment before trying again.")
 		return
 
 	if(!check_rights(R_DEV|R_ADMIN))	return
@@ -30,7 +30,7 @@
 		return //how did they get here?
 
 	if(!ROUND_IS_STARTED)
-		src << span("alert", "The game hasn't started yet!")
+		to_chat(src, SPAN_ALERT("The game hasn't started yet!"))
 		return
 
 	bst_cooldown = TRUE
@@ -55,32 +55,33 @@
 	var/obj/item/clothing/under/U = new /obj/item/clothing/under/rank/centcom_officer/bst(bst)
 	bst.equip_to_slot_or_del(U, slot_w_uniform)
 	bst.equip_to_slot_or_del(new /obj/item/device/radio/headset/ert/bst(bst), slot_l_ear)
-	bst.equip_to_slot_or_del(new /obj/item/weapon/storage/backpack/holding/bst(bst), slot_back)
-	bst.equip_to_slot_or_del(new /obj/item/weapon/storage/box/survival(bst.back), slot_in_backpack)
+	bst.equip_to_slot_or_del(new /obj/item/storage/backpack/holding/bst(bst), slot_back)
+	bst.equip_to_slot_or_del(new /obj/item/storage/box/survival(bst.back), slot_in_backpack)
 	bst.equip_to_slot_or_del(new /obj/item/clothing/shoes/black/bst(bst), slot_shoes)
-	bst.equip_to_slot_or_del(new /obj/item/clothing/head/beret(bst), slot_head)
+	bst.equip_to_slot_or_del(new /obj/item/clothing/head/beret/centcom/officer/bst(bst), slot_head)
 	bst.equip_to_slot_or_del(new /obj/item/clothing/glasses/sunglasses/bst(bst), slot_glasses)
-	bst.equip_to_slot_or_del(new /obj/item/weapon/storage/belt/utility/full(bst), slot_belt)
+	bst.equip_to_slot_or_del(new /obj/item/storage/belt/utility/very_full(bst), slot_belt)
 	bst.equip_to_slot_or_del(new /obj/item/clothing/gloves/swat/bst(bst), slot_gloves)
 	if(bst.backbag == 1)
-		bst.equip_to_slot_or_del(new /obj/item/weapon/storage/box/ids(bst), slot_r_hand)
+		bst.equip_to_slot_or_del(new /obj/item/storage/box/ids(bst), slot_r_hand)
 	else
-		bst.equip_to_slot_or_del(new /obj/item/weapon/storage/box/ids(bst.back), slot_in_backpack)
+		bst.equip_to_slot_or_del(new /obj/item/storage/box/ids(bst.back), slot_in_backpack)
 		bst.equip_to_slot_or_del(new /obj/item/device/t_scanner(bst.back), slot_in_backpack)
-		bst.equip_to_slot_or_del(new /obj/item/device/pda/captain/bst(bst.back), slot_in_backpack)
-		bst.equip_to_slot_or_del(new /obj/item/device/multitool(bst.back), slot_in_backpack)
+		bst.equip_to_slot_or_del(new /obj/item/modular_computer/handheld/pda/command/bst(bst.back), slot_in_backpack)
+		bst.equip_to_slot_or_del(new /obj/item/device/healthanalyzer(bst.back), slot_in_backpack)
+		bst.equip_to_slot_or_del(new /obj/item/research(bst.back), slot_in_backpack)
 
-		var/obj/item/weapon/storage/box/pills = new /obj/item/weapon/storage/box(null, TRUE)
+		var/obj/item/storage/box/pills = new /obj/item/storage/box(null, TRUE)
 		pills.name = "adminordrazine"
 		for(var/i = 1, i < 12, i++)
-			new /obj/item/weapon/reagent_containers/pill/adminordrazine(pills)
+			new /obj/item/reagent_containers/pill/adminordrazine(pills)
 		bst.equip_to_slot_or_del(pills, slot_in_backpack)
 
 	//Implant because access
 	bst.implant_loyalty(bst,TRUE)
 
 	//Sort out ID
-	var/obj/item/weapon/card/id/bst/id = new/obj/item/weapon/card/id/bst(bst)
+	var/obj/item/card/id/bst/id = new/obj/item/card/id/bst(bst)
 	id.registered_name = bst.real_name
 	id.assignment = "Bluespace Technician"
 	id.name = "[id.assignment]"
@@ -107,15 +108,11 @@
 	bst.add_language(LANGUAGE_SOL_COMMON)
 	bst.add_language(LANGUAGE_ROOTSONG)
 	bst.add_language(LANGUAGE_VAURCA)
-	bst.add_language(LANGUAGE_RESOMI)	// why not?
 	// Synthetics
 	bst.add_language(LANGUAGE_ROBOT)
 	bst.add_language(LANGUAGE_DRONE)
 	bst.add_language(LANGUAGE_EAL)
 	// Antagonist languages
-	bst.add_language(LANGUAGE_VOX)
-	bst.add_language(LANGUAGE_XENOMORPH)
-	bst.add_language(LANGUAGE_HIVEMIND)
 	bst.add_language(LANGUAGE_CHANGELING)
 	bst.add_language(LANGUAGE_BORER)
 
@@ -125,6 +122,7 @@
 	log_debug("Bluespace Tech Spawned: X:[bst.x] Y:[bst.y] Z:[bst.z] User:[src]")
 
 	feedback_add_details("admin_verb","BST")
+
 	return 1
 
 /client/proc/bst_post_spawn(mob/living/carbon/human/bst/bst)
@@ -133,11 +131,10 @@
 
 /mob/living/carbon/human/bst
 	universal_understand = 1
-	status_flags = GODMODE
-	var/fall_override = TRUE
+	status_flags = GODMODE|NOFALL
 
 /mob/living/carbon/human/bst/can_inject(var/mob/user, var/error_msg, var/target_zone)
-	user << span("alert", "The [src] disarms you before you can inject them.")
+	to_chat(user, SPAN_ALERT("The [src] disarms you before you can inject them."))
 	user.drop_item()
 	return 0
 
@@ -145,23 +142,23 @@
 	return 1
 
 /mob/living/carbon/human/bst/proc/suicide()
-	if(key && species.name != "Human")
+	if(key && species.name != SPECIES_HUMAN)
 		switch(species.name)
-			if("Tajara")
+			if(SPECIES_TAJARA)
 				bsc()
-			if("Baseline Frame")
+			if(SPECIES_IPC)
 				bsb()
-			if("Diona")
+			if(SPECIES_DIONA)
 				bsd()
-			if("Unathi")
+			if(SPECIES_UNATHI)
 				bsu()
-			if("Skrell")
+			if(SPECIES_SKRELL)
 				bss()
-			if("Vaurca Worker")
+			if(SPECIES_VAURCA_WORKER)
 				bsv()
 		return
 
-	src.custom_emote(1,"presses a button on their suit, followed by a polite bow.")
+	src.custom_emote(VISIBLE_MESSAGE,"presses a button on their suit, followed by a polite bow.")
 	spark(src, 5, alldirs)
 	addtimer(CALLBACK(GLOBAL_PROC, .proc/qdel, src), 10, TIMER_CLIENT_TIME)
 	animate(src, alpha = 0, time = 9, easing = QUAD_EASING)
@@ -177,17 +174,14 @@
 			ghost.voice_name = "[ghost.key] BSTech"
 
 /mob/living/carbon/human/bst/proc/bsc() //because we all have our unrealistic snowflakes right?
-	if(set_species("Tajara"))
+	if(set_species(SPECIES_TAJARA))
 		h_style = "Tajaran Ears"
 		name = "Bluespace Cat"
 		voice_name = "Bluespace Cat"
 		real_name = "Bluespace Cat"
 		mind.name = "Bluespace Cat"
-		if(wear_id)
-			var/obj/item/weapon/card/id/id = wear_id
-			if(istype(wear_id, /obj/item/device/pda))
-				var/obj/item/device/pda/pda = wear_id
-				id = pda.id
+		if(GetIdCard())
+			var/obj/item/card/id/id = GetIdCard()
 			id.registered_name = "Bluespace Cat"
 		gender = "female"
 		regenerate_icons()
@@ -197,17 +191,14 @@
 		suicide()
 
 /mob/living/carbon/human/bst/proc/bsb()
-	if(set_species("Baseline Frame"))
+	if(set_species(SPECIES_IPC))
 		h_style = "blue IPC screen"
 		name = "Bluespace Bot"
 		voice_name = "Bluespace Bot"
 		real_name = "Bluespace Bot"
 		mind.name = "Bluespace Bot"
-		if(wear_id)
-			var/obj/item/weapon/card/id/id = wear_id
-			if(istype(wear_id, /obj/item/device/pda))
-				var/obj/item/device/pda/pda = wear_id
-				id = pda.id
+		if(GetIdCard())
+			var/obj/item/card/id/id = GetIdCard()
 			id.registered_name = "Bluespace Bot"
 		regenerate_icons()
 	else
@@ -216,16 +207,13 @@
 		suicide()
 
 /mob/living/carbon/human/bst/proc/bsd()
-	if(set_species("Diona"))
+	if(set_species(SPECIES_DIONA))
 		name = "Bluespace Tree"
 		voice_name = "Bluespace Tree"
 		real_name = "Bluespace Tree"
 		mind.name = "Bluespace Tree"
-		if(wear_id)
-			var/obj/item/weapon/card/id/id = wear_id
-			if(istype(wear_id, /obj/item/device/pda))
-				var/obj/item/device/pda/pda = wear_id
-				id = pda.id
+		if(GetIdCard())
+			var/obj/item/card/id/id = GetIdCard()
 			id.registered_name = "Bluespace Tree"
 		regenerate_icons()
 	else
@@ -234,17 +222,14 @@
 		suicide()
 
 /mob/living/carbon/human/bst/proc/bsu()
-	if(set_species("Unathi"))
+	if(set_species(SPECIES_UNATHI))
 		h_style = "Unathi Horns"
 		name = "Bluespace Lizard"
 		voice_name = "Bluespace Lizard"
 		real_name = "Bluespace Lizard"
 		mind.name = "Bluespace Lizard"
-		if(wear_id)
-			var/obj/item/weapon/card/id/id = wear_id
-			if(istype(wear_id, /obj/item/device/pda))
-				var/obj/item/device/pda/pda = wear_id
-				id = pda.id
+		if(GetIdCard())
+			var/obj/item/card/id/id = GetIdCard()
 			id.registered_name = "Bluespace Lizard"
 		regenerate_icons()
 	else
@@ -253,17 +238,14 @@
 		suicide()
 
 /mob/living/carbon/human/bst/proc/bss()
-	if(set_species("Skrell"))
+	if(set_species(SPECIES_SKRELL))
 		h_style = "Skrell Average Tentacles"
 		name = "Bluespace Squid"
 		voice_name = "Bluespace Squid"
 		real_name = "Bluespace Squid"
 		mind.name = "Bluespace Squid"
-		if(wear_id)
-			var/obj/item/weapon/card/id/id = wear_id
-			if(istype(wear_id, /obj/item/device/pda))
-				var/obj/item/device/pda/pda = wear_id
-				id = pda.id
+		if(GetIdCard())
+			var/obj/item/card/id/id = GetIdCard()
 			id.registered_name = "Bluespace Squid"
 		gender = "female"
 		regenerate_icons()
@@ -273,17 +255,14 @@
 		suicide()
 
 /mob/living/carbon/human/bst/proc/bsv()
-	if(set_species("Vaurca Worker"))
+	if(set_species(SPECIES_VAURCA_WORKER))
 		h_style = "Bald"
 		name = "Bluespace Bug"
 		voice_name = "Bluespace Bug"
 		real_name = "Bluespace Bug"
 		mind.name = "Bluespace Bug"
-		if(wear_id)
-			var/obj/item/weapon/card/id/id = wear_id
-			if(istype(wear_id, /obj/item/device/pda))
-				var/obj/item/device/pda/pda = wear_id
-				id = pda.id
+		if(GetIdCard())
+			var/obj/item/card/id/id = GetIdCard()
 			id.registered_name = "Bluespace Bug"
 		regenerate_icons()
 	else
@@ -292,34 +271,30 @@
 		suicide()
 
 /mob/living/carbon/human/bst/verb/antigrav()
-	set name = "Toggle Gravity"
-	set desc = "Toggles on/off falling for you."
+	set name = "Toggle Falling"
+	set desc = "Use bluespace technology to ignore gravity."
 	set category = "BST"
 
-	if (fall_override)
-		fall_override = FALSE
-		to_chat(usr, "<span class='notice'>You will now fall normally.</span>")
-	else
-		fall_override = TRUE
-		to_chat(usr, "<span class='notice'>You will no longer fall.</span>")
+	status_flags ^= NOFALL
+	to_chat(src, SPAN_NOTICE("You will [status_flags & NOFALL ? "no longer fall" : "now fall normally"]."))
 
 /mob/living/carbon/human/bst/verb/bstwalk()
-	set name = "Ruin Everything"
-	set desc = "Uses bluespace technology to phase through solid matter and move quickly."
+	set name = "Toggle Incorporeal Movement"
+	set desc = "Use bluespace technology to phase through solid matter and move quickly."
 	set category = "BST"
 	set popup_menu = 0
 
 	if(!src.incorporeal_move)
-		src.incorporeal_move = 2
-		src << span("notice", "You will now phase through solid matter.")
+		src.incorporeal_move = INCORPOREAL_BSTECH
+		to_chat(src, SPAN_NOTICE("You will now phase through solid matter."))
 	else
-		src.incorporeal_move = 0
-		src << span("notice", "You will no-longer phase through solid matter.")
+		src.incorporeal_move = INCORPOREAL_DISABLE
+		to_chat(src, SPAN_NOTICE("You will no-longer phase through solid matter."))
 	return
 
 /mob/living/carbon/human/bst/verb/bstrecover()
-	set name = "Rejuv"
-	set desc = "Use the bluespace within you to restore your health"
+	set name = "Restore Health"
+	set desc = "Use bluespace to teleport in a fresh, healthy body."
 	set category = "BST"
 	set popup_menu = 0
 
@@ -335,7 +310,7 @@
 
 /mob/living/carbon/human/bst/verb/bstquit()
 	set name = "Teleport out"
-	set desc = "Activate bluespace to leave and return to your original mob (if you have one)."
+	set desc = "Jump into bluespace and continue wherever you left off. Deletes the BSTech and returns to your original mob if you have one."
 	set category = "BST"
 
 	var/client/C = src.client
@@ -350,26 +325,26 @@
 
 /mob/living/carbon/human/bst/verb/tgm()
 	set name = "Toggle Godmode"
-	set desc = "Enable or disable god mode. For testing things that require you to be vulnerable."
+	set desc = "For when you want to be vulnerable."
 	set category = "BST"
 
 	status_flags ^= GODMODE
-	src << span("notice", "God mode is now [status_flags & GODMODE ? "enabled" : "disabled"]")
+	to_chat(src, SPAN_NOTICE("God mode is now [status_flags & GODMODE ? "enabled" : "disabled"]"))
 
 //Equipment. All should have canremove set to 0
 //All items with a /bst need the attack_hand() proc overrided to stop people getting overpowered items.
 
 //Bag o Holding
-/obj/item/weapon/storage/backpack/holding/bst
+/obj/item/storage/backpack/holding/bst
 	canremove = 0
 	storage_slots = 56
-	max_w_class = 400
+	max_w_class = ITEMSIZE_IMMENSE
 
 /obj/item/device/radio/headset/ert/bst/attack_hand()
 	if(!usr)
 		return
 	if(!istype(usr, /mob/living/carbon/human/bst))
-		usr << span("alert", "Your hand seems to go right through the [src]. It's like it doesn't exist.")
+		to_chat(usr, SPAN_ALERT("Your hand seems to go right through the [src]. It's like it doesn't exist."))
 		return
 	else
 		..()
@@ -379,7 +354,7 @@
 	name = "bluespace technician's headset"
 	desc = "A Bluespace Technician's headset. The letters 'BST' are stamped on the side."
 	translate_binary = 1
-	translate_hive = 1
+	translate_hivenet = 1
 	canremove = 0
 	keyslot1 = new /obj/item/device/encryptionkey/binary
 	keyslot2 = new /obj/item/device/encryptionkey/ert
@@ -388,7 +363,7 @@
 	if(!usr)
 		return
 	if(!istype(usr, /mob/living/carbon/human/bst))
-		usr << span("alert", "Your hand seems to go right through the [src]. It's like it doesn't exist.")
+		to_chat(usr, SPAN_ALERT("Your hand seems to go right through the [src]. It's like it doesn't exist."))
 		return
 	else
 		..()
@@ -397,7 +372,6 @@
 /obj/item/device/radio/headset/ert/bst/recalculateChannels(var/setDescription = 0)
 	..(setDescription)
 	translate_binary = 1
-	translate_hive = 1
 	translate_hivenet = 1
 
 //Clothes
@@ -415,7 +389,7 @@
 	if(!usr)
 		return
 	if(!istype(usr, /mob/living/carbon/human/bst))
-		usr << span("alert", "Your hand seems to go right through the [src]. It's like it doesn't exist.")
+		to_chat(usr, SPAN_ALERT("Your hand seems to go right through the [src]. It's like it doesn't exist."))
 		return
 	else
 		..()
@@ -432,7 +406,7 @@
 	if(!usr)
 		return
 	if(!istype(usr, /mob/living/carbon/human/bst))
-		usr << span("alert", "Your hand seems to go right through the [src]. It's like it doesn't exist.")
+		to_chat(usr, SPAN_ALERT("Your hand seems to go right through the [src]. It's like it doesn't exist."))
 		return
 	else
 		..()
@@ -447,7 +421,7 @@
 	canremove = 0
 	flash_protection = FLASH_PROTECTION_MAJOR
 
-/obj/item/clothing/glasses/sunglasses/bst/verb/toggle_xray(mode in list("X-Ray without Lighting", "X-Ray with Lighting", "Normal"))
+/obj/item/clothing/glasses/sunglasses/bst/verb/toggle_xray(mode in list("X-Ray without Lighting", "X-Ray with Lighting", "Darkvision", "Normal vision"))
 	set name = "Change Vision Mode"
 	set desc = "Changes your glasses' vision mode."
 	set category = "BST"
@@ -455,16 +429,19 @@
 
 	switch (mode)
 		if ("X-Ray without Lighting")
-			vision_flags = (SEE_TURFS|SEE_OBJS|SEE_MOBS)
+			vision_flags = SEE_TURFS|SEE_OBJS|SEE_MOBS|SEE_BLACKNESS|SEE_SELF
 			see_invisible = SEE_INVISIBLE_NOLIGHTING
 		if ("X-Ray with Lighting")
-			vision_flags = (SEE_TURFS|SEE_OBJS|SEE_MOBS)
+			vision_flags = SEE_TURFS|SEE_OBJS|SEE_MOBS|SEE_BLACKNESS|SEE_SELF
 			see_invisible = -1
-		if ("Normal")
+		if ("Darkvision")
+			vision_flags = SEE_BLACKNESS|SEE_SELF
+			see_invisible = SEE_INVISIBLE_NOLIGHTING
+		if ("Normal vision")
 			vision_flags = 0
 			see_invisible = -1
 
-	usr << "<span class='notice'>\The [src]'s vision mode is now <b>[mode]</b>.</span>"
+	to_chat(usr, "<span class='notice'>\The [src]'s vision mode is now <b>[mode]</b>.</span>")
 
 /*	New()
 		..()
@@ -476,7 +453,7 @@
 	if(!usr)
 		return
 	if(!istype(usr, /mob/living/carbon/human/bst))
-		usr << span("alert", "Your hand seems to go right through the [src]. It's like it doesn't exist.")
+		to_chat(usr, SPAN_ALERT("Your hand seems to go right through the [src]. It's like it doesn't exist."))
 		return
 	else
 		..()
@@ -493,40 +470,58 @@
 	if(!usr)
 		return
 	if(!istype(usr, /mob/living/carbon/human/bst))
-		usr << span("alert", "Your hand seems to go right through the [src]. It's like it doesn't exist.")
+		to_chat(usr, SPAN_ALERT("Your hand seems to go right through the [src]. It's like it doesn't exist."))
 		return
 	else
 		..()
 
 	return 1 //Because Bluespace
 
-//ID
-/obj/item/weapon/card/id/bst
-	icon_state = "centcom"
-	desc = "An ID straight from Central Command. This one looks highly classified."
-//	canremove = 0
-	New()
-		access = get_all_accesses()+get_all_centcom_access()+get_all_syndicate_access()
+/obj/item/clothing/head/beret/centcom/officer/bst
+	name = "bluespace technician's beret"
+	desc = "A Bluespace Technician's beret. The letters 'BST' are stamped on the side."
+	siemens_coefficient = 0
+	permeability_coefficient = 0
+	canremove = 0
 
-/obj/item/weapon/card/id/bst/attack_hand()
+/obj/item/clothing/head/beret/centcom/officer/bst/attack_hand()
 	if(!usr)
 		return
 	if(!istype(usr, /mob/living/carbon/human/bst))
-		usr << span("alert", "Your hand seems to go right through the [src]. It's like it doesn't exist.")
+		to_chat(usr, SPAN_ALERT("Your hand seems to go right through the [src]. It's like it doesn't exist."))
 		return
 	else
 		..()
 
-/obj/item/device/pda/captain/bst
-	hidden = 1
-	message_silent = 1
-//	ttone = "DO SOMETHING HERE"
+//ID
+/obj/item/card/id/bst
+	icon_state = "centcom"
+	desc = "An ID straight from Central Command. This one looks highly classified."
 
-/obj/item/device/pda/captain/bst/attack_hand()
-	if(!usr)
+/obj/item/card/id/bst/Initialize(mapload)
+	. = ..()
+	access = get_all_accesses() + get_all_centcom_access() + get_all_syndicate_access()
+
+/obj/item/card/id/bst/verb/swap_access()
+	set name = "Change ID Access"
+	set desc = "Change your ID access to one of various jobs."
+	set category = "BST"
+	set src in usr
+
+	var/list/possible_access = list()
+	possible_access["== Default BSTech =="] = get_all_accesses() + get_all_centcom_access() + get_all_syndicate_access()
+	for(var/job in subtypesof(/datum/job))
+		var/datum/job/J = new job
+		possible_access[J.title] = J.access
+	var/chosen_access = input(usr, "Which access do you want your ID to have?", "ID Access") as null|anything in possible_access
+	if(!chosen_access)
 		return
-	if(!istype(usr, /mob/living/carbon/human/bst))
-		usr << span("alert", "Your hand seems to go right through the [src]. It's like it doesn't exist.")
+	to_chat(usr, SPAN_WARNING("Your ID now has the access of \a [chosen_access]."))
+	access = possible_access[chosen_access]
+
+/obj/item/card/id/bst/attack_hand(mob/user)
+	if(!istype(user, /mob/living/carbon/human/bst))
+		to_chat(user, SPAN_ALERT("Your hand seems to go right through \the [src]. It's like it doesn't exist."))
 		return
 	else
 		..()

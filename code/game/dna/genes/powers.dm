@@ -159,19 +159,12 @@
 			return 0
 		return ..(M,flags)
 
-	OnDrawUnderlays(var/mob/M,var/g,var/fat)
-		if(fat)
-			return "hulk_[fat]_s"
-		else
-			return "hulk_[g]_s"
-		return 0
-
 	OnMobLife(var/mob/living/carbon/human/M)
 		if(!istype(M)) return
 		if(M.health <= 25)
 			M.mutations.Remove(HULK)
 			M.update_mutations()		//update our mutation overlays
-			M << "<span class='warning'>You suddenly feel very weak.</span>"
+			to_chat(M, "<span class='warning'>You suddenly feel very weak.</span>")
 			M.Weaken(3)
 			M.emote("collapse")
 
@@ -182,14 +175,3 @@
 
 	New()
 		block=XRAYBLOCK
-
-/datum/dna/gene/basic/tk
-	name="Telekenesis"
-	activation_messages=list("You feel smarter.")
-	mutation=TK
-	activation_prob=15
-
-	New()
-		block=TELEBLOCK
-	OnDrawUnderlays(var/mob/M,var/g,var/fat)
-		return "telekinesishead[fat]_s"

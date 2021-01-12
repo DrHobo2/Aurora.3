@@ -5,7 +5,7 @@
 	layer = MOB_LAYER
 	light_range = 3
 	use_power = 0
-	var/obj/item/weapon/card/id/botcard			// the ID card that the bot "holds"
+	var/obj/item/card/id/botcard			// the ID card that the bot "holds"
 	var/on = 1
 	var/health = 0 //do not forget to set health for your bot!
 	var/maxhealth = 0
@@ -36,7 +36,7 @@
 	if(locked && !emagged)
 		locked = 0
 		emagged = 1
-		user << "<span class='warning'>You short out [src]'s maintenance hatch lock.</span>"
+		to_chat(user, "<span class='warning'>You short out [src]'s maintenance hatch lock.</span>")
 		log_and_message_admins("emagged [src]'s maintenance hatch lock")
 		return 1
 
@@ -49,16 +49,16 @@
 	..(user)
 	if (src.health < maxhealth)
 		if (src.health > maxhealth/3)
-			user << "<span class='warning'>[src]'s parts look loose.</span>"
+			to_chat(user, "<span class='warning'>[src]'s parts look loose.</span>")
 		else
-			user << "<span class='danger'>[src]'s parts look very loose!</span>"
+			to_chat(user, "<span class='danger'>[src]'s parts look very loose!</span>")
 	return
 
-/obj/machinery/bot/attackby(obj/item/weapon/W as obj, mob/user as mob)
+/obj/machinery/bot/attackby(obj/item/W as obj, mob/user as mob)
 	if(W.isscrewdriver())
 		if(!locked)
 			open = !open
-			user << "<span class='notice'>Maintenance panel is now [src.open ? "opened" : "closed"].</span>"
+			to_chat(user, "<span class='notice'>Maintenance panel is now [src.open ? "opened" : "closed"].</span>")
 	else if(W.iswelder())
 		if(health < maxhealth)
 			if(open)
@@ -66,9 +66,9 @@
 				user.visible_message("<span class='warning'>[user] repairs [src]!</span>","<span class='notice'>You repair [src]!</span>")
 				user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 			else
-				user << "<span class='notice'>Unable to repair with the maintenance panel closed.</span>"
+				to_chat(user, "<span class='notice'>Unable to repair with the maintenance panel closed.</span>")
 		else
-			user << "<span class='notice'>[src] does not need a repair.</span>"
+			to_chat(user, "<span class='notice'>[src] does not need a repair.</span>")
 	else
 		if(hasvar(W,"force") && hasvar(W,"damtype"))
 			switch(W.damtype)
@@ -129,6 +129,8 @@
 		turn_on()
 
 /obj/machinery/bot/attack_ai(mob/user as mob)
+	if(!ai_can_interact(user))
+		return
 	src.attack_hand(user)
 
 /obj/machinery/bot/attack_hand(var/mob/living/carbon/human/user)
@@ -151,7 +153,7 @@
 
 // Returns the surrounding cardinal turfs with open links
 // Including through doors openable with the ID
-/turf/proc/CardinalTurfsWithAccess(var/obj/item/weapon/card/id/ID)
+/turf/proc/CardinalTurfsWithAccess(var/obj/item/card/id/ID)
 	var/L[] = new()
 
 	//	for(var/turf/simulated/t in oview(src,1))
@@ -166,7 +168,7 @@
 
 // Returns true if a link between A and B is blocked
 // Movement through doors allowed if ID has access
-/proc/LinkBlockedWithAccess(turf/A, turf/B, obj/item/weapon/card/id/ID)
+/proc/LinkBlockedWithAccess(turf/A, turf/B, obj/item/card/id/ID)
 
 	if(A == null || B == null) return 1
 	var/adir = get_dir(A,B)
@@ -195,7 +197,7 @@
 
 // Returns true if direction is blocked from loc
 // Checks doors against access with given ID
-/proc/DirBlockedWithAccess(turf/loc,var/dir,var/obj/item/weapon/card/id/ID)
+/proc/DirBlockedWithAccess(turf/loc,var/dir,var/obj/item/card/id/ID)
 	for(var/obj/structure/window/D in loc)
 		if(!D.density)			continue
 		if(D.dir == SOUTHWEST)	return 1

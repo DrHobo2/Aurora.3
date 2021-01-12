@@ -5,7 +5,7 @@
 	desc = "A control console for launching pods. Some people prefer firing Mechas."
 	icon_screen = "command"
 	light_color = "#00b000"
-	circuit = /obj/item/weapon/circuitboard/pod
+	circuit = /obj/item/circuitboard/pod
 	var/id = 1.0
 	var/obj/machinery/mass_driver/connected = null
 	var/timing = 0.0
@@ -27,7 +27,7 @@
 		return
 
 	if(!( connected ))
-		viewers(null, null) << "Cannot locate mass driver connector. Cancelling firing sequence!"
+		to_chat(viewers(null, null), "Cannot locate mass driver connector. Cancelling firing sequence!")
 		return
 
 	var/list/same_id = list()
@@ -52,6 +52,8 @@
 	return
 
 /obj/machinery/computer/pod/attack_ai(var/mob/user as mob)
+	if(!ai_can_interact(user))
+		return
 	return attack_hand(user)
 
 /obj/machinery/computer/pod/attack_hand(var/mob/user as mob)
@@ -137,9 +139,9 @@
 
 
 /obj/machinery/computer/pod/old
-	icon_state = "oldcomp"
-
-	icon_screen = "library"
+	icon = 'icons/obj/library.dmi'
+	icon_state = "computer"
+	icon_screen = null
 	name = "DoorMex Control Computer"
 	title = "Door Controls"
 
@@ -153,7 +155,7 @@
 
 /obj/machinery/computer/pod/old/syndicate/attack_hand(var/mob/user as mob)
 	if(!allowed(user))
-		user << "<span class='warning'>Access Denied</span>"
+		to_chat(user, "<span class='warning'>Access Denied</span>")
 		return
 	else
 		..()

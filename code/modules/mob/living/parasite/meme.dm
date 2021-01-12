@@ -23,7 +23,7 @@ var/controlling
 /mob/living/parasite
 	var/mob/living/carbon/host // the host that this parasite occupies
 
-/mob/living/parasite/Login()
+/mob/living/parasite/LateLogin()
 	..()
 	// make the client see through the host instead
 	client.eye = host
@@ -77,17 +77,17 @@ var/controlling
 	meme_points = min(meme_points + gain, MAXIMUM_MEME_POINTS)
 
 	// if there are sleep toxins in the host's body, that's bad
-	if(host.reagents.has_reagent("stoxin"))
-		src << "<span class='danger'>Something in your host's blood makes you lose consciousness, you fade away...</span>"
+	if(host.reagents.has_reagent(/datum/reagent/soporific))
+		to_chat(src, "<span class='danger'>Something in your host's blood makes you lose consciousness, you fade away...</span>")
 		src.death()
 		return
 	// a host without brain is no good
 	if(!host.mind)
-		src << "<span class='danger'>Your host has no mind, you fade away...</span>"
+		to_chat(src, "<span class='danger'>Your host has no mind, you fade away...</span>")
 		src.death()
 		return
 	if(host.stat == 2)
-		src << "<span class='danger'>Your host has died, you fade away...</span>"
+		to_chat(src, "<span class='danger'>Your host has died, you fade away...</span>")
 		src.death()
 		return
 
@@ -96,7 +96,7 @@ var/controlling
 
 /mob/living/parasite/meme/death()
 	// make sure the mob is on the actual map before gibbing
-	if(host) 
+	if(host)
 		src.forceMove(host.loc)
 	src.stat = 2
 	..()
@@ -105,10 +105,10 @@ var/controlling
 // When a meme speaks, it speaks through its host
 /mob/living/parasite/meme/say(message as text)
 	if(dormant)
-		src << "<span class='notice'>You are dormant! </span>"
+		to_chat(src, "<span class='notice'>You are dormant! </span>")
 		return
 	if(!host)
-		usr << "<span class='notice'>You can't speak without a host! </span>"
+		to_chat(usr, "<span class='notice'>You can't speak without a host! </span>")
 		return
 
 	return host.say(message)
@@ -116,10 +116,10 @@ var/controlling
 // Same as speak, just with whisper
 /mob/living/parasite/meme/whisper(message as text)
 	if(dormant)
-		src << "<span class='notice'>You are dormant! </span>"
+		to_chat(src, "<span class='notice'>You are dormant! </span>")
 		return
 	if(!host)
-		usr << "<span class='notice'>You can't speak without a host! </span>"
+		to_chat(usr, "<span class='notice'>You can't speak without a host! </span>")
 		return
 
 	return host.whisper(message)
@@ -129,11 +129,11 @@ var/controlling
 	set name = "Me"
 
 	if(dormant)
-		src << "<span class='notice'>You are dormant! </span>"
+		to_chat(src, "<span class='notice'>You are dormant! </span>")
 		return
 
 	if(!host)
-		usr << "<span class='notice'>You can't speak without a host! </span>"
+		to_chat(usr, "<span class='notice'>You can't speak without a host! </span>")
 		return
 
 	return host.me_verb(message)
@@ -147,10 +147,10 @@ var/controlling
 // Try to use amount points, return 1 if successful
 /mob/living/parasite/meme/proc/use_points(amount)
 	if(dormant)
-		src << "<span class='notice'>You are dormant! </span>"
+		to_chat(src, "<span class='notice'>You are dormant! </span>")
 		return
 	if(src.meme_points < amount)
-		src << "<span class='notice'>You don't have enough meme points(need [amount]).</span>"
+		to_chat(src, "<span class='notice'>You don't have enough meme points(need [amount]).</span>")
 		return 0
 
 	src.meme_points -= round(amount)
@@ -163,7 +163,7 @@ var/controlling
 	// Can only affect other mobs thant he host if not blinded
 	if(blinded)
 		candidates = list()
-		src << "<span class='notice'>You are blinded, so you can not affect mobs other than your host.</span>"
+		to_chat(src, "<span class='notice'>You are blinded, so you can not affect mobs other than your host.</span>")
 	else
 		candidates = indoctrinated.Copy()
 
@@ -201,33 +201,10 @@ var/controlling
 	var/message = sanitize(input("Message:", "Thought") as text|null)
 	if(message)
 		log_say("MemeThought: [key_name(src)]->[M.key] : [message]",ckey=key_name(src))
-		M << "[message]"
-		src << "You said: \"[message]\" to [M]"
+		to_chat(M, "[message]")
+		to_chat(src, "You said: \"[message]\" to [M]")
 	return
-/*
-	var/list/candidates = indoctrinated.Copy()
-	if(!(src.host in candidates))
-		candidates.Add(src.host)
 
-	var/mob/target = select_indoctrinated("Thought", "Select a target which will hear your thought.")
-
-	if(!target) return
-
-	var/speaker = input("Select the voice in which you would like to make yourself heard.", "Voice") as text
-	//if(!speaker) return
-
-	var/message = input("What would you like to say?", "Message") as text
-	if(!message) return
-
-	// Use the points at the end rather than the beginning, because the user might cancel
-	if(!use_points(150)) return
-
-	message = say_quote(message)
-	var/rendered = "<span class='game say'><span class='name'>[speaker]</span> <span class='message'>[message]</span></span>"
-	target.show_message(rendered)
-
-	usr << "<i>You make [target] hear:</i> [rendered]"
-*/
 // Mutes the host
 /mob/living/parasite/meme/verb/Mute()
 	set category = "Meme"
@@ -236,21 +213,21 @@ var/controlling
 
 	if(!src.host) return
 	/*if(!host.silent)
-		usr << "\red Your host already can't speak.."
+		to_chat(usr, "\red Your host already can't speak..")
 		return*/
 	if(!use_points(250)) return
 
 	spawn
 		// backup the host incase we switch hosts after using the verb
 		//var/mob/host = src.host
-		host << "<span class='danger'>Your tongue feels numb.. You lose your ability to speak.</span>"
-		usr << "<span class='notice'>Your host can't speak anymore.</span>"
+		to_chat(host, "<span class='danger'>Your tongue feels numb.. You lose your ability to speak.</span>")
+		to_chat(usr, "<span class='notice'>Your host can't speak anymore.</span>")
 
 		host.silent += 60
 
 		sleep(1200)
-		host << "<span class='danger'>Your tongue has feeling again.</span>"
-		usr << "<span class='notice'>[host] can speak again.</span>"
+		to_chat(host, "<span class='danger'>Your tongue has feeling again.</span>")
+		to_chat(usr, "<span class='notice'>[host] can speak again.</span>")
 
 // Makes the host unable to emote
 /mob/living/parasite/meme/verb/Paralyze()
@@ -260,7 +237,7 @@ var/controlling
 
 	if(!src.host) return
 	/*if(!host.Weaken())
-		usr << "\red Your host already can't use body language.."
+		to_chat(usr, "\red Your host already can't use body language..")
 		return*/
 	if(!use_points(250)) return
 
@@ -268,14 +245,14 @@ var/controlling
 		// backup the host incase we switch hosts after using the verb
 		var/mob/host = src.host
 
-		host << "<span class='danger'>Your body feels numb. You lose your ability to use body language.</span>"
-		usr << "<span class='notice'>Your host can't use body language anymore.</span>"
+		to_chat(host, "<span class='danger'>Your body feels numb. You lose your ability to use body language.</span>")
+		to_chat(usr, "<span class='notice'>Your host can't use body language anymore.</span>")
 
 		host.Weaken(60)
 
 		sleep(1200)
-		host << "<span class='warning'>Your body has feeling again.</span>"
-		usr << "<span class='notice'>[host] can use body language again.</span>"
+		to_chat(host, "<span class='warning'>Your body has feeling again.</span>")
+		to_chat(usr, "<span class='notice'>[host] can use body language again.</span>")
 
 
 
@@ -294,26 +271,26 @@ var/controlling
 
 		host.paralysis = max(host.paralysis, 2)
 
-		host.flash_weak_pain()
-		host << "<span class='danger'><font size=5>You feel excrutiating pain all over your body! It is so bad you can't think or articulate yourself properly.</font></span>"
+		host.flash_pain(10)
+		to_chat(host, "<span class='danger'><font size=5>You feel excrutiating pain all over your body! It is so bad you can't think or articulate yourself properly.</font></span>")
 
-		usr << "<span class='notice'>You send a jolt of agonizing pain through [host], they should be unable to concentrate on anything else for half a minute.</span>"
+		to_chat(usr, "<span class='notice'>You send a jolt of agonizing pain through [host], they should be unable to concentrate on anything else for half a minute.</span>")
 
 		host.emote("scream")
 
 		for(var/i=0, i<10, i++)
 			host.stuttering = 2
 			sleep(50)
-			if(prob(80)) host.flash_weak_pain()
+			if(prob(80)) host.flash_pain(10)
 			if(prob(10)) host.paralysis = max(host.paralysis, 2)
 			if(prob(15)) host.emote("twitch")
 			else if(prob(15)) host.emote("scream")
 			else if(prob(10)) host.emote("collapse")
 
 			if(i == 10)
-				host << "<span class='danger'>THE PAIN! AGHH, THE PAIN! MAKE IT STOP! ANYTHING TO MAKE IT STOP!</span>"
+				to_chat(host, "<span class='danger'>THE PAIN! AGHH, THE PAIN! MAKE IT STOP! ANYTHING TO MAKE IT STOP!</span>")
 
-		host << "<span class='warning'>The pain subsides.</span>"
+		to_chat(host, "<span class='warning'>The pain subsides.</span>")
 
 // Cause great joy with the host, used for conditioning the host
 /mob/living/parasite/meme/verb/Joy()
@@ -329,14 +306,14 @@ var/controlling
 		host.druggy = max(host.druggy, 50)
 		host.slurring = max(host.slurring, 10)
 
-		usr << "<span class='notice'>You stimulate [host.name]'s brain, injecting waves of endorphines and dopamine into the tissue. They should now forget all their worries, particularly relating to you, for around a minute.</span>"
+		to_chat(usr, "<span class='notice'>You stimulate [host.name]'s brain, injecting waves of endorphines and dopamine into the tissue. They should now forget all their worries, particularly relating to you, for around a minute.</span>")
 
-		host << "<span class='notice'><font size=5>You are feeling wonderful! Your head is numb and drowsy, and you can't help forgetting all the worries in the world.</font></span>"
+		to_chat(host, "<span class='notice'><font size=5>You are feeling wonderful! Your head is numb and drowsy, and you can't help forgetting all the worries in the world.</font></span>")
 
 		while(host.druggy > 0)
 			sleep(10)
 
-		host << "<span class='warning'>You are feeling clear-headed again.</span>"
+		to_chat(host, "<span class='warning'>You are feeling clear-headed again.</span>")
 
 // Cause the target to hallucinate.
 /mob/living/parasite/meme/verb/Hallucinate(mob/living/carbon/human/target as mob in oview())
@@ -345,13 +322,13 @@ var/controlling
 	set desc     = "Makes your host hallucinate, has a short delay."
 
 	if(!istype(target, /mob/living/carbon/human) || !target.mind)
-		src << "<span class='warning'>You can't remotely ruin this ones mind.</span>"
+		to_chat(src, "<span class='warning'>You can't remotely ruin this ones mind.</span>")
 		return
 	if(!(target in view(host)))
-		src << "<span class='warning'>You need to make eye-contact with the target.</span>"
+		to_chat(src, "<span class='warning'>You need to make eye-contact with the target.</span>")
 		return
 	if(!(target in indoctrinated))
-		src << "<span class='warning'>You need to attune the target first.</span>"
+		to_chat(src, "<span class='warning'>You need to attune the target first.</span>")
 		return
 	if(!target) return
 	if(!use_points(300)) return
@@ -359,7 +336,7 @@ var/controlling
 	spawn(rand(300,600))
 		if(target)	target.hallucination += 400
 
-	usr << "<span class='notice'>You make [target] hallucinate.</span>"
+	to_chat(usr, "<span class='notice'>You make [target] hallucinate.</span>")
 
 // Jump to a closeby target through a whisper
 /mob/living/parasite/meme/verb/SubtleJump(mob/living/carbon/human/target as mob in oview())
@@ -368,20 +345,20 @@ var/controlling
 	set desc     = "Move to a closeby human through a whisper."
 
 	if(!istype(target, /mob/living/carbon/human) || !target.mind)
-		src << "<span class='warning'>You can't jump to this creature.</span>"
+		to_chat(src, "<span class='warning'>You can't jump to this creature.</span>")
 		return
 
 	if(target.isSynthetic())
-		src << "<span class='warning'>You can't affect synthetics.</span>"
+		to_chat(src, "<span class='warning'>You can't affect synthetics.</span>")
 		return
 
 	if(!(target in view(1, host)+src))
-		src << "<span class='warning'>The target is not close enough.</span>"
+		to_chat(src, "<span class='warning'>The target is not close enough.</span>")
 		return
 
 	// Find out whether we can speak
 	if (host.silent || (host.disabilities & 64))
-		src << "<span class='warning'>Your host can't speak.</span>"
+		to_chat(src, "<span class='warning'>Your host can't speak.</span>")
 		return
 
 	if(!use_points(350)) return
@@ -390,18 +367,18 @@ var/controlling
 		M.show_message("<B>[host]</B> whispers something incoherent.",2) // 2 stands for hearable message
 
 	// Find out whether the target can hear
-	if(target.disabilities & 32 || target.ear_deaf)
-		src << "<span class='warning'>Your target doesn't seem to hear you.</span>"
+	if(target.disabilities & 32 || isdeaf(target))
+		to_chat(src, "<span class='warning'>Your target doesn't seem to hear you.</span>")
 		return
 
 	if(target.parasites.len > 0)
-		src << "<span class='warning'>Your target already is possessed by something.</span>"
+		to_chat(src, "<span class='warning'>Your target already is possessed by something.</span>")
 		return
 
 	src.exit_host()
 	src.enter_host(target)
 
-	usr << "<span class='notice'>You successfully jumped to [target].</span>"
+	to_chat(usr, "<span class='notice'>You successfully jumped to [target].</span>")
 	log_admin("[src.key] has jumped to [target]",ckey=key_name(src))
 	message_admins("[src.key] has jumped to [target]")
 
@@ -412,20 +389,20 @@ var/controlling
 	set desc     = "Move to any mob in view through a shout."
 
 	if(!istype(target, /mob/living/carbon/human) || !target.mind)
-		src << "<span class='warning'>You can't jump to this creature.</span>"
+		to_chat(src, "<span class='warning'>You can't jump to this creature.</span>")
 		return
 
 	if(target.isSynthetic())
-		src << "<span class='warning'>You can't affect synthetics.</span>"
+		to_chat(src, "<span class='warning'>You can't affect synthetics.</span>")
 		return
 
 	if(!(target in view(host)))
-		src << "<span class='warning'>The target is not close enough.</span>"
+		to_chat(src, "<span class='warning'>The target is not close enough.</span>")
 		return
 
 	// Find out whether we can speak
 	if (host.silent || (host.disabilities & 64))
-		src << "<span class='warning'>Your host can't speak.</span>"
+		to_chat(src, "<span class='warning'>Your host can't speak.</span>")
 		return
 
 	if(!use_points(750)) return
@@ -434,18 +411,18 @@ var/controlling
 		M.show_message("<B>[host]</B> screams something incoherent!",2) // 2 stands for hearable message
 
 	// Find out whether the target can hear
-	if(target.disabilities & 32 || target.ear_deaf)
-		src << "<span class='warning'>Your target doesn't seem to hear you.</span>"
+	if(target.disabilities & 32 || isdeaf(target))
+		to_chat(src, "<span class='warning'>Your target doesn't seem to hear you.</span>")
 		return
 
 	if(target.parasites.len > 0)
-		src << "<span class='warning'>Your target already is possessed by something.</span>"
+		to_chat(src, "<span class='warning'>Your target already is possessed by something.</span>")
 		return
 
 	src.exit_host()
 	src.enter_host(target)
 
-	usr << "<span class='notice'>You successfully jumped to [target].</span>"
+	to_chat(usr, "<span class='notice'>You successfully jumped to [target].</span>")
 	log_admin("[src.key] has jumped to [target]",ckey=key_name(src))
 	message_admins("[src.key] has jumped to [target]")
 
@@ -456,24 +433,24 @@ var/controlling
 	set desc     = "Move to a mob in sight that you have already attuned."
 
 	if(!istype(target, /mob/living/carbon/human) || !target.mind)
-		src << "<span class='warning'>You can't jump to this creature.</span>"
+		to_chat(src, "<span class='warning'>You can't jump to this creature.</span>")
 		return
 
 	if(target.isSynthetic())
-		src << "<span class='warning'>You can't affect synthetics.</span>"
+		to_chat(src, "<span class='warning'>You can't affect synthetics.</span>")
 		return
 
 	if(!(target in view(host)))
-		src << "<span class='warning'>You need to make eye-contact with the target.</span>"
+		to_chat(src, "<span class='warning'>You need to make eye-contact with the target.</span>")
 		return
 	if(!(target in indoctrinated))
-		src << "<span class='warning'>You need to attune the target first.</span>"
+		to_chat(src, "<span class='warning'>You need to attune the target first.</span>")
 		return
 
 	src.exit_host()
 	src.enter_host(target)
 
-	usr << "<span class='notice'>You successfully jumped to [target].</span>"
+	to_chat(usr, "<span class='notice'>You successfully jumped to [target].</span>")
 
 	log_admin("[src.key] has jumped to [target]",ckey=key_name(src))
 	message_admins("[src.key] has jumped to [target]")
@@ -485,22 +462,22 @@ var/controlling
 	set desc     = "Change the host's brain structure, making it easier for you to manipulate him."
 
 	if(host in src.indoctrinated)
-		usr << "<span class='notice'>You have already attuned this host.</span>"
+		to_chat(usr, "<span class='notice'>You have already attuned this host.</span>")
 		return
 
 	if(!host) return
 
-	for (var/obj/item/weapon/implant/loyalty/I in host)
+	for (var/obj/item/implant/mindshield/I in host)
 		if (I.implanted)
-			src << "<span class='warning'>Your host's mind is shielded!</span>"
+			to_chat(src, "<span class='warning'>Your host's mind is shielded!</span>")
 			return
 
 	if(!use_points(400)) return
 
 	src.indoctrinated.Add(host)
 
-	usr << "<span class='notice'>You successfully indoctrinated [host].</span>"
-	host << "<span class='danger'>Your head feels a bit roomier...</span>"
+	to_chat(usr, "<span class='notice'>You successfully indoctrinated [host].</span>")
+	to_chat(host, "<span class='danger'>Your head feels a bit roomier...</span>")
 
 	log_admin("[src.key] has attuned [host]",ckey=key_name(src))
 	message_admins("[src.key] has attuned [host]")
@@ -513,16 +490,16 @@ var/controlling
 
 	if(!host) return
 	if(!(host in indoctrinated))
-		usr << "<span class='warning'>You need to attune the host first.</span>"
+		to_chat(usr, "<span class='warning'>You need to attune the host first.</span>")
 		return
 	if(!use_points(500)) return
 
-	usr << "<span class='notice'>You inject drugs into [host].</span>"
-	host << "<span class='danger'>You feel your body strengthen and your pain subside.</span>"
+	to_chat(usr, "<span class='notice'>You inject drugs into [host].</span>")
+	to_chat(host, "<span class='danger'>You feel your body strengthen and your pain subside.</span>")
 	host.analgesic = 60
 	while(host.analgesic > 0)
 		sleep(60)
-	host << "<span class='notice'>The dizziness wears off, and you can feel pain again.</span>"
+	to_chat(host, "<span class='notice'>The dizziness wears off, and you can feel pain again.</span>")
 
 
 /mob/proc/clearHUD()
@@ -536,21 +513,21 @@ var/controlling
 	set desc     = "Take direct control of the host for a while."
 
 	if(!host)
-		src << "You have discovered a severe bug - NO HOST. CONTACT DEVELOPER."
+		to_chat(src, "You have discovered a severe bug - NO HOST. CONTACT DEVELOPER.")
 		return
 
 	if(src.stat)
-		src << "<span class='warning'>You cannot do that in your current state.</span>"
+		to_chat(src, "<span class='warning'>You cannot do that in your current state.</span>")
 		return
 
-	for (var/obj/item/weapon/implant/loyalty/I in host)
+	for (var/obj/item/implant/mindshield/I in host)
 		if (I.implanted)
-			src << "<span class='warning'>Your host's mind is shielded!</span>"
+			to_chat(src, "<span class='warning'>Your host's mind is shielded!</span>")
 			return
 
 	if(!use_points(500)) return
 
-	src << "<span class='danger'>You assume direct control!</span>"
+	to_chat(src, "<span class='danger'>You assume direct control!</span>")
 
 	spawn()
 
@@ -558,8 +535,8 @@ var/controlling
 			return
 		else
 
-			src << "<span class='warning'>You shroud your hosts brain, assuming control!</span>"
-			host << "<span class='danger'>You can feel thoughts that arent your own begin to dictate your body's actions.</span>"
+			to_chat(src, "<span class='warning'>You shroud your hosts brain, assuming control!</span>")
+			to_chat(host, "<span class='danger'>You can feel thoughts that arent your own begin to dictate your body's actions.</span>")
 
 			// host -> brain
 			var/h2b_id = host.computer_id
@@ -607,7 +584,7 @@ var/controlling
 
 	if(istype(host,/mob/living/carbon/human))
 		var/mob/living/carbon/human/H = host
-		var/obj/item/organ/external/head = H.get_organ("head")
+		var/obj/item/organ/external/head = H.get_organ(BP_HEAD)
 		head.implants -= src
 
 	controlling = 0
@@ -657,7 +634,7 @@ var/controlling
 	if(!host) return
 	if(!use_points(100)) return
 
-	usr << "<span class='warning'>You enter dormant mode.You won't be able to take action until all your points have recharged.</span>"
+	to_chat(usr, "<span class='warning'>You enter dormant mode.You won't be able to take action until all your points have recharged.</span>")
 
 	dormant = 1
 
@@ -666,12 +643,12 @@ var/controlling
 
 	dormant = 0
 
-	usr << "<span class='danger'>You have regained all points and exited dormant mode!</span>"
+	to_chat(usr, "<span class='danger'>You have regained all points and exited dormant mode!</span>")
 
 /mob/living/parasite/meme/verb/Show_Points()
 	set category = "Meme"
 
-	usr << "<b>Meme Points: [src.meme_points]/[MAXIMUM_MEME_POINTS]</b>"
+	to_chat(usr, "<b>Meme Points: [src.meme_points]/[MAXIMUM_MEME_POINTS]</b>")
 
 // Stat panel to show meme points, copypasted from alien
 /mob/living/parasite/meme/Stat()

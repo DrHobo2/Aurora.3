@@ -6,12 +6,14 @@
 	icon_screen = "robot"
 	light_color = "#a97faa"
 	req_access = list(access_robotics)
-	circuit = /obj/item/weapon/circuitboard/robotics
+	circuit = /obj/item/circuitboard/robotics
 
 	var/safety = 1
 
 
 /obj/machinery/computer/robotics/attack_ai(var/mob/user as mob)
+	if(!ai_can_interact(user))
+		return
 	ui_interact(user)
 
 /obj/machinery/computer/robotics/attack_hand(var/mob/user as mob)
@@ -37,7 +39,7 @@
 		return
 	var/mob/user = usr
 	if(!src.allowed(user))
-		user << "Access Denied"
+		to_chat(user, "Access Denied")
 		return
 
 	// Destroys the cyborg
@@ -46,11 +48,11 @@
 		if(!target || !istype(target))
 			return
 		if(isAI(user) && (target.connected_ai != user))
-			user << "Access Denied. This robot is not linked to you."
+			to_chat(user, "Access Denied. This robot is not linked to you.")
 			return
 		// Cyborgs may blow up themselves via the console
 		if(isrobot(user) && user != target)
-			user << "Access Denied."
+			to_chat(user, "Access Denied.")
 			return
 		var/choice = input("Really detonate [target.name]?") in list ("Yes", "No")
 		if(choice != "Yes")
@@ -60,17 +62,18 @@
 
 		// Antagonistic cyborgs? Left here for downstream
 		if(target.mind && target.mind.special_role && target.emagged)
-			target << "Extreme danger.  Termination codes detected.  Scrambling security codes and automatic AI unlink triggered."
+			to_chat(target, "Extreme danger.  Termination codes detected.  Scrambling security codes and automatic AI unlink triggered.")
 			target.ResetSecurityCodes()
-
+			return
+			
 		if(target.emagged)
-			user << "Access Denied. Safety protocols are disabled."
+			to_chat(user, "Access Denied. Safety protocols are disabled.")
 			return
 
 		else
 			message_admins("[key_name_admin(usr)] detonated [target.name]!")
 			log_game("[key_name(usr)] detonated [target.name]!",ckey=key_name(usr))
-			target << "<span class='danger'>Self-destruct command received.</span>"
+			to_chat(target, "<span class='danger'>Self-destruct command received.</span>")
 			spawn(10)
 				target.self_destruct()
 
@@ -83,27 +86,27 @@
 			return
 
 		if(isAI(user) && (target.connected_ai != user))
-			user << "Access Denied. This robot is not linked to you."
+			to_chat(user, "Access Denied. This robot is not linked to you.")
 			return
 
 		if(isrobot(user))
-			user << "Access Denied."
+			to_chat(user, "Access Denied.")
 			return
 
 		if(target.emagged)
 			return
 
-		var/choice = input("Really [target.lockcharge ? "unlock" : "lockdown"] [target.name] ?") in list ("Yes", "No")
+		var/choice = input("Really [target.lock_charge ? "unlock" : "lockdown"] [target.name] ?") in list ("Yes", "No")
 		if(choice != "Yes")
 			return
 
 		if(!target || !istype(target))
 			return
 
-		target.SetLockdown(!target.lockcharge) // Toggle.
-		message_admins("[key_name_admin(usr)] [target.lockcharge ? "locked down" : "released"] [target.name]!")
-		log_game("[key_name(usr)] [target.lockcharge ? "locked down" : "released"] [target.name]!",ckey=key_name(usr))
-		target << (target.lockcharge ? "You have been locked down!" : "Your lockdown has been lifted!")
+		target.SetLockdown(!target.lock_charge) // Toggle.
+		message_admins("[key_name_admin(usr)] [target.lock_charge ? "locked down" : "released"] [target.name]!")
+		log_game("[key_name(usr)] [target.lock_charge ? "locked down" : "released"] [target.name]!",ckey=key_name(usr))
+		to_chat(target, (target.lock_charge ? "You have been locked down!" : "Your lockdown has been lifted!"))
 
 	// Remotely hacks the cyborg. Only antag AIs can do this and only to linked cyborgs.
 	else if (href_list["hack"])
@@ -113,11 +116,11 @@
 
 		// Antag AI checks
 		if(!istype(user, /mob/living/silicon/ai) || !(user.mind.special_role && user.mind.original == user))
-			user << "Access Denied"
+			to_chat(user, "Access Denied")
 			return
 
 		if(target.emagged)
-			user << "Robot is already hacked."
+			to_chat(user, "Robot is already hacked.")
 			return
 
 		var/choice = input("Really hack [target.name]? This cannot be undone.") in list("Yes", "No")
@@ -130,24 +133,24 @@
 		message_admins("[key_name_admin(usr)] emagged [target.name] using robotic console!")
 		log_game("[key_name(usr)] emagged [target.name] using robotic console!",ckey=key_name(usr))
 		target.emagged = 1
-		target << "<span class='notice'>Failsafe protocols overriden. New tools available.</span>"
+		to_chat(target, "<span class='notice'>Failsafe protocols overriden. New tools available.</span>")
 
 	// Arms the emergency self-destruct system
 	else if(href_list["arm"])
 		if(istype(user, /mob/living/silicon))
-			user << "Access Denied"
+			to_chat(user, "Access Denied")
 			return
 
 		safety = !safety
-		user << "You [safety ? "disarm" : "arm"] the emergency self destruct"
+		to_chat(user, "You [safety ? "disarm" : "arm"] the emergency self destruct")
 
 	// Destroys all accessible cyborgs if safety is disabled
 	else if(href_list["nuke"])
 		if(istype(user, /mob/living/silicon))
-			user << "Access Denied"
+			to_chat(user, "Access Denied")
 			return
 		if(safety)
-			user << "Self-destruct aborted - safety active"
+			to_chat(user, "Self-destruct aborted - safety active")
 			return
 
 		message_admins("[key_name_admin(usr)] detonated all cyborgs!")
@@ -157,11 +160,11 @@
 			if(istype(R, /mob/living/silicon/robot/drone))
 				continue
 			// Ignore antagonistic cyborgs
-			if(R.scrambledcodes)
+			if(R.scrambled_codes)
 				continue
 			if(R.emagged)
 				continue
-			R << "<span class='danger'>Self-destruct command received.</span>"
+			to_chat(R, "<span class='danger'>Self-destruct command received.</span>")
 			spawn(10)
 				R.self_destruct()
 
@@ -177,14 +180,14 @@
 		if(istype(R, /mob/living/silicon/robot/drone))
 			continue
 		// Ignore antagonistic cyborgs
-		if(R.scrambledcodes)
+		if(R.scrambled_codes)
 			continue
 
 		var/list/robot = list()
 		robot["name"] = R.name
 		if(R.stat)
 			robot["status"] = "Not Responding"
-		else if (R.lockcharge) // changed this from !R.canmove to R.lockcharge because of issues with lockdown and chairs
+		else if (R.lock_charge) // changed this from !R.canmove to R.lock_charge because of issues with lockdown and chairs
 			robot["status"] = "Lockdown"
 		else
 			robot["status"] = "Operational"

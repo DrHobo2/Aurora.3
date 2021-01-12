@@ -31,7 +31,7 @@
 	icon = 'icons/obj/computer.dmi'
 
 	icon_screen = "turbinecomp"
-	circuit = /obj/item/weapon/circuitboard/turbine_control
+	circuit = /obj/item/circuitboard/turbine_control
 	anchored = 1
 	density = 1
 	var/obj/machinery/compressor/compressor
@@ -181,7 +181,7 @@
 		return
 	if (usr.IsAdvancedToolUser())
 		if(!istype(usr, /mob/living/silicon/ai))
-			usr << "<span class='warning'>You don't have the dexterity to do this!</span>"
+			to_chat(usr, "<span class='warning'>You don't have the dexterity to do this!</span>")
 			return
 
 	if (( usr.machine==src && ((get_dist(src, usr) <= 1) && istype(src.loc, /turf))) || (istype(usr, /mob/living/silicon/ai)))

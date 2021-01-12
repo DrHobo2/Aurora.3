@@ -10,9 +10,10 @@
 // Alert status
 // And arbitrary messages set by comms computer
 /obj/machinery/status_display
+	name = "status display"
 	icon = 'icons/obj/status_display.dmi'
 	icon_state = "frame"
-	name = "status display"
+	layer = OBJ_LAYER
 	anchored = 1
 	density = 0
 	use_power = 1
@@ -137,7 +138,7 @@
 /obj/machinery/status_display/examine(mob/user)
 	. = ..(user)
 	if(mode != STATUS_DISPLAY_BLANK && mode != STATUS_DISPLAY_ALERT)
-		user << "The display says:<br>\t[sanitize(message1)]<br>\t[sanitize(message2)]"
+		to_chat(user, "The display says:<br>\t[sanitize(message1)]<br>\t[sanitize(message2)]")
 
 /obj/machinery/status_display/proc/set_message(m1, m2)
 	if(m1)
@@ -177,7 +178,7 @@
 	return "[add_zero(num2text((timeleft / 60) % 60),2)]:[add_zero(num2text(timeleft % 60), 2)]"
 
 /obj/machinery/status_display/proc/get_supply_shuttle_timer()
-	var/datum/shuttle/ferry/supply/shuttle = SScargo.shuttle
+	var/datum/shuttle/autodock/ferry/supply/shuttle = SScargo.shuttle
 	if (!shuttle)
 		return "Error"
 
@@ -189,7 +190,7 @@
 	return ""
 
 /obj/machinery/status_display/proc/get_arrivals_shuttle_timer()
-	var/datum/shuttle/ferry/arrival/shuttle = SSarrivals.shuttle
+	var/datum/shuttle/autodock/ferry/arrival/shuttle = SSarrivals.shuttle
 	if (!shuttle)
 		return "Error"
 
@@ -211,7 +212,6 @@
 		return "[add_zero(num2text((timeleft / 60) % 60),2)]:[add_zero(num2text(timeleft % 60), 2)]"
 	else
 		return "Launch"
-	return ""
 
 /obj/machinery/status_display/proc/remove_display()
 	cut_overlays()

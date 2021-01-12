@@ -17,7 +17,7 @@
 	var/inactive_on_main_station = 0
 	for(var/zone/zone in SSair.zones)
 		var/turf/simulated/turf = locate() in zone.contents
-		if(turf && turf.z in current_map.station_levels)
+		if(turf && isStationLevel(turf.z))
 			if(zone.needs_update)
 				active_on_main_station++
 			else
@@ -79,7 +79,7 @@
 	var/output = "<b>Radio Report</b><hr>"
 	for (var/fq in SSradio.frequencies)
 		output += "<b>Freq: [fq]</b><br>"
-		var/list/datum/radio_frequency/fqs = SSradio.frequencies[fq]
+		var/datum/radio_frequency/fqs = SSradio.frequencies[fq]
 		if (!fqs)
 			output += "&nbsp;&nbsp;<b>ERROR</b><br>"
 			continue
@@ -102,21 +102,15 @@
 	set name = "Reload Admins"
 	set category = "Debug"
 
-	if(!check_rights(R_SERVER|R_DEV))	return
+	if(!check_rights(R_SERVER|R_DEV))
+		return
 
-	message_admins("[usr] manually reloaded admins")
+	if (config.use_forumuser_api)
+		update_admins_from_api(FALSE)
+
+	log_and_message_admins("manually reloaded admins.")
 	load_admins()
 	feedback_add_details("admin_verb","RLDA") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
-
-/client/proc/reload_mentors()
-	set name = "Reload Mentors"
-	set category = "Debug"
-
-	if(!check_rights(R_SERVER)) return
-
-	message_admins("[usr] manually reloaded Mentors")
-	world.load_mods()
-
 
 //todo:
 /client/proc/jump_to_dead_group()
@@ -124,11 +118,11 @@
 	set category = "Debug"
 		/*
 	if(!holder)
-		src << "Only administrators may use this command."
+		to_chat(src, "Only administrators may use this command.")
 		return
 
 	if(!SSair)
-		usr << "Cannot find air_system"
+		to_chat(usr, "Cannot find air_system")
 		return
 	var/datum/air_group/dead_groups = list()
 	for(var/datum/air_group/group in SSair.air_groups)
@@ -146,11 +140,11 @@
 	set category = "Debug"
 	/*
 	if(!holder)
-		src << "Only administrators may use this command."
+		to_chat(src, "Only administrators may use this command.")
 		return
 
 	if(!SSair)
-		usr << "Cannot find air_system"
+		to_chat(usr, "Cannot find air_system")
 		return
 
 	var/turf/T = get_turf(usr)
@@ -159,7 +153,7 @@
 		AG.next_check = 30
 		AG.group_processing = 0
 	else
-		usr << "Local airgroup is unsimulated!"
+		to_chat(usr, "Local airgroup is unsimulated!")
 	feedback_add_details("admin_verb","KLAG") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 	*/
 
@@ -168,9 +162,9 @@
 	set desc = "This spams all the active jobban entries for the current round to standard output."
 	set category = "Debug"
 
-	usr << "<b>Jobbans active in this round.</b>"
+	to_chat(usr, "<b>Jobbans active in this round.</b>")
 	for(var/t in jobban_keylist)
-		usr << "[t]"
+		to_chat(usr, "[t]")
 
 /client/proc/print_jobban_old_filter()
 	set name = "Search Jobban Log"
@@ -181,7 +175,7 @@
 	if(!filter)
 		return
 
-	usr << "<b>Jobbans active in this round.</b>"
+	to_chat(usr, "<b>Jobbans active in this round.</b>")
 	for(var/t in jobban_keylist)
 		if(findtext(t, filter))
-			usr << "[t]"
+			to_chat(usr, "[t]")

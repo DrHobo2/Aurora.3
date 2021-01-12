@@ -11,7 +11,7 @@
 
 	establish_db_connection(dbcon)
 	if (!dbcon.IsConnected())
-		usr << "<font color='red'>Error: warn(): Database Connection failed, reverting to legacy systems.</font>"
+		to_chat(usr, "<span class='warning'>Error: warn(): Database Connection failed, reverting to legacy systems.</span>")
 		usr.client.warn_legacy(warned_ckey)
 		return
 
@@ -43,14 +43,14 @@
 			warned_ip = lookup_query.item[1]
 			warned_computerid = lookup_query.item[2]
 
-	var/DBQuery/insert_query = dbcon.NewQuery("INSERT INTO ss13_warnings (id, time, severity, reason, notes, ckey, computerid, ip, a_ckey, a_ip, a_computerid) VALUES (null, Now(), :warning_severity:, :warning_reason:, :warning_notes:, :warned_ckey:, :warned_computerid:, :warned_ip:, :a_ckey:, :a_ip:, :a_computerid:)")
-	insert_query.Execute(list("warning_severity" = warning_severity, "warning_reason" = warning_reason, "warning_notes" = warning_notes, "warned_ckey" = warned_ckey, "warned_computerid" = warned_computerid, "warned_ip" = warned_ip, "a_ckey" = ckey, "a_ip" = address, "a_computerid" = computer_id))
+	var/DBQuery/insert_query = dbcon.NewQuery("INSERT INTO ss13_warnings (id, time, game_id, severity, reason, notes, ckey, computerid, ip, a_ckey, a_ip, a_computerid) VALUES (null, Now(), :game_id:, :warning_severity:, :warning_reason:, :warning_notes:, :warned_ckey:, :warned_computerid:, :warned_ip:, :a_ckey:, :a_ip:, :a_computerid:)")
+	insert_query.Execute(list("game_id" = game_id,"warning_severity" = warning_severity, "warning_reason" = warning_reason, "warning_notes" = warning_notes, "warned_ckey" = warned_ckey, "warned_computerid" = warned_computerid, "warned_ip" = warned_ip, "a_ckey" = ckey, "a_ip" = address, "a_computerid" = computer_id))
 
 	notes_add_sql(warned_ckey, "Warning added by [ckey], for: [warning_reason]. || Notes regarding the warning: [warning_notes].", src, warned_ip, warned_computerid)
 
 	feedback_add_details("admin_verb", "WARN-DB")
 	if (C)
-		C << "<font color='red'><BIG><B>You have been warned by an administrator.</B></BIG><br>Click <a href='byond://?src=\ref[src];warnview=1'>here</a> to review and acknowledge them!</font>"
+		to_chat(C, "<span class='warning'><BIG><B>You have been warned by an administrator.</B></BIG><br>Click <a href='byond://?src=\ref[src];warnview=1'>here</a> to review and acknowledge them!</span>")
 
 	message_admins("[key_name_admin(src)] has warned [warned_ckey] for: [warning_reason].")
 
@@ -63,7 +63,7 @@
 
 /client/proc/warn_legacy(warned_ckey)
 	if (!warned_ckey)
-		usr << "<font color='red'>Error: warn_legacy(): No ckey passed!</font>"
+		to_chat(usr, "<span class='warning'>Error: warn_legacy(): No ckey passed!</span>")
 		return
 
 	var/datum/preferences/D
@@ -72,14 +72,14 @@
 	else	D = preferences_datums[warned_ckey]
 
 	if(!D)
-		src << "<font color='red'>Error: warn_legacy(): No such ckey found.</font>"
+		to_chat(src, "<span class='warning'>Error: warn_legacy(): No such ckey found.</span>")
 		return
 
 	if(++D.warns >= MAX_WARNS)					//uh ohhhh...you'reee iiiiin trouuuubble O:)
 		ban_unban_log_save("[ckey] warned [warned_ckey], resulting in a [AUTOBANTIME] minute autoban.")
 		if(C)
 			message_admins("[key_name_admin(src)] has warned [key_name_admin(C)] resulting in a [AUTOBANTIME] minute ban.")
-			C << "<font color='red'><BIG><B>You have been autobanned due to a warning by [ckey].</B></BIG><br>This is a temporary ban, it will be removed in [AUTOBANTIME] minutes.</font>"
+			to_chat(C, "<span class='warning'><BIG><B>You have been autobanned due to a warning by [ckey].</B></BIG><br>This is a temporary ban, it will be removed in [AUTOBANTIME] minutes.</span>")
 			qdel(C)
 		else
 			message_admins("[key_name_admin(src)] has warned [warned_ckey] resulting in a [AUTOBANTIME] minute ban.")
@@ -87,7 +87,7 @@
 		feedback_inc("ban_warn",1)
 	else
 		if(C)
-			C << "<font color='red'><BIG><B>You have been warned by an administrator.</B></BIG><br>Further warnings will result in an autoban.</font>"
+			to_chat(C, "<span class='warning'><BIG><B>You have been warned by an administrator.</B></BIG><br>Further warnings will result in an autoban.</span>")
 			message_admins("[key_name_admin(src)] has warned [key_name_admin(C)]. They have [MAX_WARNS-D.warns] strikes remaining.")
 		else
 			message_admins("[key_name_admin(src)] has warned [warned_ckey] (DC). They have [MAX_WARNS-D.warns] strikes remaining.")
@@ -124,8 +124,8 @@
 	var/DBQuery/notification_query = dbcon.NewQuery({"SELECT
 		id, message, created_by
 	FROM ss13_player_notifications
-	WHERE 
-		acked_at IS NULL 
+	WHERE
+		acked_at IS NULL
 		AND ckey = :ckey:
 		AND type IN ('player_greeting','player_greeting_chat')
 	"})
@@ -142,7 +142,7 @@
 			dat += "<th width='60%'>TEXT</th>"
 			dat += "<th width='20%'>ACKNOWLEDGE</th>"
 			dat += "</tr>"
-		
+
 		dat += "<tr bgcolor='90ee90' align='center'>"
 		dat += "<td>[notification_query.item[3]]</td>"
 		dat += "<td>[notification_query.item[2]]</td>"
@@ -222,6 +222,7 @@
 	query.Execute(list("warning_id" = warning_id))
 
 	warnings_check()
+	fetch_unacked_warning_count()
 
 /client/proc/notifications_acknowledge(var/id)
 	if(!id)
@@ -276,6 +277,21 @@
 	return data
 
 /*
+ * A proc used to gather if someone has Unacknowledged Warnings
+ */
+/client/proc/fetch_unacked_warning_count()
+	establish_db_connection(dbcon)
+	if (!dbcon)
+		return
+	if (!dbcon.IsConnected())
+		return
+	var/DBQuery/warning_count_query = dbcon.NewQuery("SELECT COUNT(*) FROM ss13_warnings WHERE (visible = 1 AND acknowledged = 0 AND expired = 0) AND (ckey = :ckey: OR computerid = :computer_id: OR ip = :address:)")
+	warning_count_query.Execute(list("ckey" = ckey, "computer_id" = computer_id, "address" = address))
+	if(warning_count_query.NextRow())
+		unacked_warning_count = text2num(warning_count_query.item[1])
+		return unacked_warning_count
+
+/*
  * A proc for an admin/moderator to look up a member's warnings.
  */
 
@@ -297,8 +313,7 @@
 	var/dcolor = "#ffdddd"	//dark colour, severity = 1
 	var/ecolor = "#e3e3e3"	//gray colour, expired = 1
 
-	establish_db_connection(dbcon)
-	if (!dbcon.IsConnected())
+	if (!establish_db_connection(dbcon))
 		alert("Connection to the SQL database lost. Aborting. Please alert the database admin!")
 		return
 
@@ -434,7 +449,7 @@
 	var/DBQuery/addquery = dbcon.NewQuery("INSERT INTO ss13_player_notifications (`ckey`, `type`, `message`, `created_by`) VALUES (:ckey:, :type:, :message:, :a_ckey:)")
 	addquery.Execute(list("ckey" = ckey, "type" = type, "message" = message, "a_ckey" = usr.ckey))
 	to_chat(usr,"Notification added.")
-	
+
 
 /*
  * A proc for editing and deleting warnings issued
@@ -464,12 +479,12 @@
 		count++
 
 	if (count == 0)
-		usr << "<span class='warning'>Database update failed due to a warning id not being present in the database.</span>"
+		to_chat(usr, "<span class='warning'>Database update failed due to a warning id not being present in the database.</span>")
 		error("Database update failed due to a warning id not being present in the database.")
 		return
 
 	if (count > 1)
-		usr << "<span class='warning'>Database update failed due to multiple warnings having the same ID. Contact the database admin.</span>"
+		to_chat(usr, "<span class='warning'>Database update failed due to multiple warnings having the same ID. Contact the database admin.</span>")
 		error("Database update failed due to multiple warnings having the same ID. Contact the database admin.")
 		return
 
@@ -482,14 +497,14 @@
 				message_admins("<span class='notice'>[key_name_admin(usr)] deleted one of [ckey]'s warnings.</span>")
 				log_admin("[key_name(usr)] deleted one of [ckey]'s warnings.", admin_key=key_name(usr), ckey=ckey)
 			else
-				usr << "Cancelled"
+				to_chat(usr, "Cancelled")
 				return
 
 		if ("editReason")
 			query_details["new_reason"] = input("Edit this warning's reason.", "New Reason", reason, null) as null|text
 
 			if(!query_details["new_reason"] || query_details["new_reason"] == reason)
-				usr << "Cancelled"
+				to_chat(usr, "Cancelled")
 				return
 
 			var/DBQuery/reason_query = dbcon.NewQuery("UPDATE ss13_warnings SET reason = :new_reason:, edited = 1, lasteditor = :a_ckey:, lasteditdate = NOW() WHERE id = :warning_id:")
@@ -502,7 +517,7 @@
 			query_details["new_notes"] = input("Edit this warning's notes.", "New Notes", notes, null) as null|text
 
 			if(!query_details["new_notes"] || query_details["new_notes"] == notes)
-				usr << "Cancelled"
+				to_chat(usr, "Cancelled")
 				return
 
 			var/DBQuery/notes_query = dbcon.NewQuery("UPDATE ss13_warnings SET notes = :new_notes:, edited = 1, lasteditor = :a_ckey:, lasteditdate = NOW() WHERE id = :warning_id:")

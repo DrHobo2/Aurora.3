@@ -15,14 +15,16 @@
 
 	tameable = FALSE
 
+	organ_names = list("chest", "lower body", "left arm", "right arm", "left leg", "right leg", "head")
 	response_help  = "pets"
 	response_disarm = "shoves"
 	response_harm   = "harmlessly punches"
-	maxHealth = 100
+	maxHealth = 1000
 	health = 1000
 	harm_intent_damage = 0
 	melee_damage_lower = 30
 	melee_damage_upper = 30
+	resist_mod = 15
 	mob_size = 25
 	environment_smash = 2
 	attacktext = "punished"
@@ -109,7 +111,7 @@
 	for(var/i in 1 to 5)
 		var/mob/living/simple_animal/hostile/gift/T = new /mob/living/simple_animal/hostile/gift(get_turf(src))
 		var/turf/landing = get_step(src, pick(alldirs))
-		addtimer(CALLBACK(T, /atom/movable/.proc/throw_at, landing, 30, 5), 0)
+		INVOKE_ASYNC(T, /atom/movable/.proc/throw_at, landing, 30, 5)
 
 /mob/living/simple_animal/hostile/krampus/proc/send_to_hell(mob/living/M)
 	if(!M)
@@ -121,10 +123,10 @@
 
 /mob/living/simple_animal/hostile/gift
 	name = "christmas gift"
-	desc = "PRESENTS!!!! eek!"
+	desc = "PRESENTS!!!!...OH SHIT!"
 	icon = 'icons/obj/items.dmi'
-	icon_state = "gift1"
-	icon_living = "gift1"
+	icon_state = "gift1_evil"
+	icon_living = "gift1_evil"
 	icon_dead = "gift1"
 
 	response_help = "touches"
@@ -164,8 +166,8 @@
 	switch(size)
 
 		if("medium")
-			icon_state = "gift2"
-			icon_living = "gift2"
+			icon_state = "gift2_evil"
+			icon_living = "gift2_evil"
 			icon_dead = "gift2"
 			maxHealth = 100
 			health = 100
@@ -173,8 +175,8 @@
 			melee_damage_upper = 10
 
 		if("big")
-			icon_state = "gift3"
-			icon_living = "gift3"
+			icon_state = "gift3_evil"
+			icon_living = "gift3_evil"
 			icon_dead = "gift3"
 			maxHealth = 150
 			health = 150
@@ -189,12 +191,12 @@
 	switch(size)
 
 		if("medium")
-			new /obj/item/weapon/xmasgift/medium(get_turf(src))
+			new /obj/item/xmasgift/medium(get_turf(src))
 
 		if("big")
-			new /obj/item/weapon/xmasgift/large(get_turf(src))
+			new /obj/item/xmasgift/large(get_turf(src))
 
 		else
-			new /obj/item/weapon/xmasgift/small(get_turf(src))
+			new /obj/item/xmasgift(get_turf(src))
 
 	qdel(src)

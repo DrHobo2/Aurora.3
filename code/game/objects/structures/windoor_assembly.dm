@@ -13,20 +13,21 @@ obj/structure/windoor_assembly
 	name = "windoor assembly"
 	icon = 'icons/obj/doors/windoor.dmi'
 	icon_state = "l_windoor_assembly01"
+	obj_flags = OBJ_FLAG_ROTATABLE
 	anchored = 0
 	density = 0
 	dir = NORTH
-	w_class = 3
+	w_class = ITEMSIZE_NORMAL
 	flags = ON_BORDER
 
-	var/obj/item/weapon/airlock_electronics/electronics = null
+	var/obj/item/airlock_electronics/electronics = null
 
 	//Vars to help with the icon's name
 	var/facing = "l"	//Does the windoor open to the left or right?
 	var/secure = ""		//Whether or not this creates a secure windoor
 	var/state = "01"	//How far the door assembly has progressed in terms of sprites
 
-obj/structure/windoor_assembly/New(Loc, start_dir=NORTH, constructed=0)
+/obj/structure/windoor_assembly/New(Loc, start_dir=NORTH, constructed=0)
 	..()
 	if(constructed)
 		state = "01"
@@ -70,30 +71,30 @@ obj/structure/windoor_assembly/Destroy()
 	switch(state)
 		if("01")
 			if(W.iswelder() && !anchored )
-				var/obj/item/weapon/weldingtool/WT = W
+				var/obj/item/weldingtool/WT = W
 				if (WT.remove_fuel(0,user))
 					user.visible_message("[user] dissassembles the windoor assembly.", "You start to dissassemble the windoor assembly.")
-					playsound(src.loc, 'sound/items/Welder2.ogg', 50, 1)
+					playsound(src.loc, 'sound/items/welder_pry.ogg', 50, 1)
 
-					if(do_after(user, 40))
+					if(do_after(user, 40/W.toolspeed))
 						if(!src || !WT.isOn()) return
-						user << "<span class='notice'>You dissasembled the windoor assembly!</span>"
+						to_chat(user, "<span class='notice'>You dissasembled the windoor assembly!</span>")
 						new /obj/item/stack/material/glass/reinforced(get_turf(src), 5)
 						if(secure)
 							new /obj/item/stack/rods(get_turf(src), 4)
 						qdel(src)
 				else
-					user << "<span class='notice'>You need more welding fuel to dissassemble the windoor assembly.</span>"
+					to_chat(user, "<span class='notice'>You need more welding fuel to dissassemble the windoor assembly.</span>")
 					return
 
 			//Wrenching an unsecure assembly anchors it in place. Step 4 complete
 			if(W.iswrench() && !anchored)
-				playsound(src.loc, 'sound/items/Ratchet.ogg', 100, 1)
+				playsound(src.loc, W.usesound, 100, 1)
 				user.visible_message("[user] secures the windoor assembly to the floor.", "You start to secure the windoor assembly to the floor.")
 
-				if(do_after(user, 40))
+				if(do_after(user, 40/W.toolspeed))
 					if(!src) return
-					user << "<span class='notice'>You've secured the windoor assembly!</span>"
+					to_chat(user, "<span class='notice'>You've secured the windoor assembly!</span>")
 					src.anchored = 1
 					if(src.secure)
 						src.name = "Secure Anchored Windoor Assembly"
@@ -102,12 +103,12 @@ obj/structure/windoor_assembly/Destroy()
 
 			//Unwrenching an unsecure assembly un-anchors it. Step 4 undone
 			else if(W.iswrench() && anchored)
-				playsound(src.loc, 'sound/items/Ratchet.ogg', 100, 1)
+				playsound(src.loc, W.usesound, 100, 1)
 				user.visible_message("[user] unsecures the windoor assembly to the floor.", "You start to unsecure the windoor assembly to the floor.")
 
-				if(do_after(user, 40))
+				if(do_after(user, 40/W.toolspeed))
 					if(!src) return
-					user << "<span class='notice'>You've unsecured the windoor assembly!</span>"
+					to_chat(user, "<span class='notice'>You've unsecured the windoor assembly!</span>")
 					src.anchored = 0
 					if(src.secure)
 						src.name = "Secure Windoor Assembly"
@@ -118,13 +119,13 @@ obj/structure/windoor_assembly/Destroy()
 			else if(istype(W, /obj/item/stack/rods) && !secure)
 				var/obj/item/stack/rods/R = W
 				if(R.get_amount() < 4)
-					user << "<span class='warning'>You need more rods to do this.</span>"
+					to_chat(user, "<span class='warning'>You need more rods to do this.</span>")
 					return
-				user << "<span class='notice'>You start to reinforce the windoor with rods.</span>"
+				to_chat(user, "<span class='notice'>You start to reinforce the windoor with rods.</span>")
 
-				if(do_after(user,40) && !secure)
+				if(do_after(user,40/W.toolspeed) && !secure)
 					if (R.use(4))
-						user << "<span class='notice'>You reinforce the windoor.</span>"
+						to_chat(user, "<span class='notice'>You reinforce the windoor.</span>")
 						src.secure = "secure_"
 						if(src.anchored)
 							src.name = "Secure Anchored Windoor Assembly"
@@ -136,9 +137,9 @@ obj/structure/windoor_assembly/Destroy()
 				user.visible_message("[user] wires the windoor assembly.", "You start to wire the windoor assembly.")
 
 				var/obj/item/stack/cable_coil/CC = W
-				if(do_after(user, 40))
+				if(do_after(user, 40/W.toolspeed))
 					if (CC.use(1))
-						user << "<span class='notice'>You wire the windoor!</span>"
+						to_chat(user, "<span class='notice'>You wire the windoor!</span>")
 						src.state = "02"
 						if(src.secure)
 							src.name = "Secure Wired Windoor Assembly"
@@ -151,13 +152,13 @@ obj/structure/windoor_assembly/Destroy()
 
 			//Removing wire from the assembly. Step 5 undone.
 			if(W.iswirecutter() && !src.electronics)
-				playsound(src.loc, 'sound/items/Wirecutter.ogg', 100, 1)
+				playsound(src.loc, 'sound/items/wirecutter.ogg', 100, 1)
 				user.visible_message("[user] cuts the wires from the airlock assembly.", "You start to cut the wires from airlock assembly.")
 
-				if(do_after(user, 40))
+				if(do_after(user, 40/W.toolspeed))
 					if(!src) return
 
-					user << "<span class='notice'>You cut the windoor wires.!</span>"
+					to_chat(user, "<span class='notice'>You cut the windoor wires.!</span>")
 					new/obj/item/stack/cable_coil(get_turf(user), 1)
 					src.state = "01"
 					if(src.secure)
@@ -166,53 +167,53 @@ obj/structure/windoor_assembly/Destroy()
 						src.name = "Anchored Windoor Assembly"
 
 			//Adding airlock electronics for access. Step 6 complete.
-			else if(istype(W, /obj/item/weapon/airlock_electronics) && W:icon_state != "door_electronics_smoked")
-				var/obj/item/weapon/airlock_electronics/EL = W
-				if(!EL.inuse)
-					playsound(src.loc, 'sound/items/Screwdriver.ogg', 100, 1)
+			else if(istype(W, /obj/item/airlock_electronics) && W:icon_state != "door_electronics_smoked")
+				var/obj/item/airlock_electronics/EL = W
+				if(!EL.is_installed)
+					playsound(src.loc, 'sound/items/screwdriver.ogg', 100, 1)
 					user.visible_message("[user] installs the electronics into the airlock assembly.", "You start to install electronics into the airlock assembly.")
-					EL.inuse = 1
+					EL.is_installed = 1
 					if(do_after(user, 40))
-						EL.inuse = 0
+						EL.is_installed = 0
 						if(!src) return
 						user.drop_from_inventory(EL,src)
-						user << "<span class='notice'>You've installed the airlock electronics!</span>"
+						to_chat(user, "<span class='notice'>You've installed the airlock electronics!</span>")
 						src.name = "Near finished Windoor Assembly"
 						src.electronics = EL
 					else
-						EL.inuse = 0
+						EL.is_installed = 0
 
 			//Screwdriver to remove airlock electronics. Step 6 undone.
 			else if(W.isscrewdriver() && src.electronics)
-				playsound(src.loc, 'sound/items/Screwdriver.ogg', 100, 1)
+				playsound(src.loc, W.usesound, 100, 1)
 				user.visible_message("[user] removes the electronics from the airlock assembly.", "You start to uninstall electronics from the airlock assembly.")
 
-				if(do_after(user, 40))
+				if(do_after(user, 40/W.toolspeed))
 					if(!src || !src.electronics) return
-					user << "<span class='notice'>You've removed the airlock electronics!</span>"
+					to_chat(user, "<span class='notice'>You've removed the airlock electronics!</span>")
 					if(src.secure)
 						src.name = "Secure Wired Windoor Assembly"
 					else
 						src.name = "Wired Windoor Assembly"
-					var/obj/item/weapon/airlock_electronics/ae = electronics
+					var/obj/item/airlock_electronics/ae = electronics
 					electronics = null
 					ae.forceMove(src.loc)
 
 			//Crowbar to complete the assembly, Step 7 complete.
 			else if(W.iscrowbar())
 				if(!src.electronics)
-					usr << "<span class='warning'>The assembly is missing electronics.</span>"
+					to_chat(usr, "<span class='warning'>The assembly is missing electronics.</span>")
 					return
 				usr << browse(null, "window=windoor_access")
-				playsound(src.loc, 'sound/items/Crowbar.ogg', 100, 1)
+				playsound(src.loc, W.usesound, 100, 1)
 				user.visible_message("[user] pries the windoor into the frame.", "You start prying the windoor into the frame.")
 
-				if(do_after(user, 40))
+				if(do_after(user, 40/W.toolspeed))
 
 					if(!src) return
 
 					density = 1 //Shouldn't matter but just incase
-					user << "<span class='notice'>You finish the windoor!</span>"
+					to_chat(user, "<span class='notice'>You finish the windoor!</span>")
 
 					if(secure)
 						var/obj/machinery/door/window/brigdoor/windoor = new /obj/machinery/door/window/brigdoor(src.loc)
@@ -261,62 +262,27 @@ obj/structure/windoor_assembly/Destroy()
 	//Update to reflect changes(if applicable)
 	update_icon()
 
+/obj/structure/windoor_assembly/rotate(var/mob/user)
+	if(use_check_and_message(user))
+		return
 
-//Rotates the windoor assembly clockwise
-//These directions are fucked up, apparently dm rotates anticlockwise by default
-/obj/structure/windoor_assembly/verb/rotate()
-	set name = "Rotate Windoor Clockwise"
-	set category = "Object"
-	set src in oview(1)
+	if(anchored)
+		to_chat(user, SPAN_WARNING("\The [src] is bolted to the floor!"))
+		return FALSE
 
-	var/targetdir = turn(src.dir, 270)
-
+	var/targetdir = turn(dir, 270)
 	for(var/obj/obstacle in get_turf(src))
 		if (obstacle == src)
 			continue
 
 		if((obstacle.flags & ON_BORDER) && obstacle.dir == targetdir)
-			usr << span("danger", "You can't turn the windoor assembly that way, there's already something there!")
+			to_chat(usr, SPAN_WARNING("You can't turn the windoor assembly that way, there's already something there!"))
 			return
 
-	if (src.anchored)
-		usr << "It is fastened to the floor; therefore, you can't rotate it!"
-		return 0
 	if(src.state != "01")
 		update_nearby_tiles(need_rebuild=1) //Compel updates before
 
-	src.set_dir(targetdir)
-
-	if(src.state != "01")
-		update_nearby_tiles(need_rebuild=1)
-
-	update_icon()
-	return
-
-
-//Rotates the windoor assembly anticlockwise
-/obj/structure/windoor_assembly/verb/revrotate()
-	set name = "Rotate Windoor Anticlockwise"
-	set category = "Object"
-	set src in oview(1)
-
-	var/targetdir = turn(src.dir, 90)
-
-	for(var/obj/obstacle in get_turf(src))
-		if (obstacle == src)
-			continue
-
-		if((obstacle.flags & ON_BORDER) && obstacle.dir == targetdir)
-			usr << span("danger", "You can't turn the windoor assembly that way, there's already something there!")
-			return
-
-	if (src.anchored)
-		usr << "It is fastened to the floor; therefore, you can't rotate it!"
-		return 0
-	if(src.state != "01")
-		update_nearby_tiles(need_rebuild=1) //Compel updates before
-
-	src.set_dir(targetdir)
+	set_dir(targetdir)
 
 	if(src.state != "01")
 		update_nearby_tiles(need_rebuild=1)
@@ -331,11 +297,11 @@ obj/structure/windoor_assembly/Destroy()
 	set src in oview(1)
 
 	if(src.facing == "l")
-		usr << "The windoor will now slide to the right."
+		to_chat(usr, "The windoor will now slide to the right.")
 		src.facing = "r"
 	else
 		src.facing = "l"
-		usr << "The windoor will now slide to the left."
+		to_chat(usr, "The windoor will now slide to the left.")
 
 	update_icon()
 	return

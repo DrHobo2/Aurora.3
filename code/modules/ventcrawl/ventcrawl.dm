@@ -6,12 +6,13 @@ var/list/ventcrawl_machinery = list(
 // Vent crawling whitelisted items, whoo
 var/global/list/can_enter_vent_with = list(
 	/obj/item/device/mmi,
-	/obj/item/weapon/implant,
+	/obj/item/implant,
 	/obj/item/device/radio/borg,
-	/obj/item/weapon/holder,
+	/obj/item/holder,
 	/obj/machinery/camera,
 	/mob/living/simple_animal/borer,
-	/mob/living/simple_animal/mouse
+	/mob/living/simple_animal/rat,
+	/mob/living/carbon/human
 	)
 
 /mob/living/var/list/icon/pipes_shown = list()
@@ -22,18 +23,18 @@ var/global/list/can_enter_vent_with = list(
 /mob/living/proc/can_ventcrawl()
 	return 0
 
-/mob/living/Login()
-	. = ..()
+/mob/living/LateLogin()
+	..()
 	//login during ventcrawl
 	if(is_ventcrawling && istype(loc, /obj/machinery/atmospherics)) //attach us back into the pipes
 		remove_ventcrawl()
 		add_ventcrawl(loc)
 
 /mob/living/carbon/slime/can_ventcrawl()
-	if(Victim)
-		src << "<span class='warning'>You cannot ventcrawl while feeding.</span>"
-		return 0
-	return 1
+	if(victim)
+		to_chat(src, SPAN_WARNING("You cannot ventcrawl while feeding."))
+		return FALSE
+	return TRUE
 
 /mob/living/proc/is_allowed_vent_crawl_item(var/obj/item/carried_item)
 	if(is_type_in_list(carried_item, can_enter_vent_with))
@@ -57,9 +58,12 @@ var/global/list/can_enter_vent_with = list(
 /mob/living/proc/ventcrawl_carry()
 	for(var/atom/A in src.contents)
 		if(!is_allowed_vent_crawl_item(A))
-			src << "<span class='warning'>You can't be carrying that when vent crawling!</span>"
-			return 0
-	return 1
+			to_chat(src, SPAN_WARNING("You can't be carrying that when vent crawling!"))
+			return FALSE
+	return TRUE
+
+/mob/living/simple_animal/hostile/morph/ventcrawl_carry()
+	return TRUE
 
 /obj/machinery/atmospherics/AltClick(mob/living/user)
 	if(is_type_in_list(src, ventcrawl_machinery) && user.can_ventcrawl())
@@ -77,7 +81,7 @@ var/global/list/can_enter_vent_with = list(
 		if(is_type_in_list(U,ventcrawl_machinery) && Adjacent(U))
 			pipes |= U
 	if(!pipes || !pipes.len)
-		usr << "<span class='notice'>There are no pipes that you can ventcrawl into within range!</span>"
+		to_chat(usr, "<span class='notice'>There are no pipes that you can ventcrawl into within range!</span>")
 		return
 	if(pipes.len == 1)
 		pipe = pipes[1]
@@ -95,7 +99,7 @@ var/global/list/can_enter_vent_with = list(
 /mob/living/simple_animal/borer/ventcrawl_carry()
 	return 1
 
-/mob/living/simple_animal/mouse/can_ventcrawl()
+/mob/living/simple_animal/rat/can_ventcrawl()
 	return 1
 
 /mob/living/simple_animal/spiderbot/can_ventcrawl()
@@ -141,7 +145,7 @@ var/global/list/can_enter_vent_with = list(
 					if(!is_type_in_list(vent_found, ventcrawl_machinery) || !vent_found.can_crawl_through())
 						vent_found = null
 				else
-					src << "<span class='warning'>Stand next to the selected vent!</span>"
+					to_chat(src, "<span class='warning'>Stand next to the selected vent!</span>")
 					return
 
 			if(!vent_found && isnull(clicked_on))
@@ -156,7 +160,7 @@ var/global/list/can_enter_vent_with = list(
 						break
 
 			if(vent_found:is_welded()) // welded check
-				src << "<span class='warning'>You can't crawl into a welded vent!</span>"
+				to_chat(src, "<span class='warning'>You can't crawl into a welded vent!</span>")
 				return
 
 			vent_trap_check("departing", vent_found)
@@ -169,23 +173,23 @@ var/global/list/can_enter_vent_with = list(
 
 						switch(vent_found.air_contents.temperature)
 							if(0 to BODYTEMP_COLD_DAMAGE_LIMIT)
-								src << "<span class='danger'>You feel a painful freeze coming from the vent!</span>"
+								to_chat(src, "<span class='danger'>You feel a painful freeze coming from the vent!</span>")
 							if(BODYTEMP_COLD_DAMAGE_LIMIT to T0C)
-								src << "<span class='warning'>You feel an icy chill coming from the vent.</span>"
+								to_chat(src, "<span class='warning'>You feel an icy chill coming from the vent.</span>")
 							if(T0C + 40 to BODYTEMP_HEAT_DAMAGE_LIMIT)
-								src << "<span class='warning'>You feel a hot wash coming from the vent.</span>"
+								to_chat(src, "<span class='warning'>You feel a hot wash coming from the vent.</span>")
 							if(BODYTEMP_HEAT_DAMAGE_LIMIT to INFINITY)
-								src << "<span class='danger'>You feel a searing heat coming from the vent!</span>"
+								to_chat(src, "<span class='danger'>You feel a searing heat coming from the vent!</span>")
 
 						switch(vent_found.air_contents.return_pressure())
 							if(0 to HAZARD_LOW_PRESSURE)
-								src << "<span class='danger'>You feel a rushing draw pulling you into the vent!</span>"
+								to_chat(src, "<span class='danger'>You feel a rushing draw pulling you into the vent!</span>")
 							if(HAZARD_LOW_PRESSURE to WARNING_LOW_PRESSURE)
-								src << "<span class='warning'>You feel a strong drag pulling you into the vent.</span>"
+								to_chat(src, "<span class='warning'>You feel a strong drag pulling you into the vent.</span>")
 							if(WARNING_HIGH_PRESSURE to HAZARD_HIGH_PRESSURE)
-								src << "<span class='warning'>You feel a strong current pushing you away from the vent.</span>"
+								to_chat(src, "<span class='warning'>You feel a strong current pushing you away from the vent.</span>")
 							if(HAZARD_HIGH_PRESSURE to INFINITY)
-								src << "<span class='danger'>You feel a roaring wind pushing you away from the vent!</span>"
+								to_chat(src, "<span class='danger'>You feel a roaring wind pushing you away from the vent!</span>")
 
 					if(!do_mob(src, vent_found, mob_size ? size_to_crawldelay(mob_size) : size_to_crawldelay(15), 1, 1))
 						return
@@ -203,16 +207,16 @@ var/global/list/can_enter_vent_with = list(
 					sight = (SEE_TURFS|BLIND)
 
 				else
-					src << "<span class='notice'>This vent is not connected to anything.</span>"
+					to_chat(src, "<span class='notice'>This vent is not connected to anything.</span>")
 
 			else
-				src << "<span class='notice'>You must be standing on or beside an air vent to enter it.</span>"
+				to_chat(src, "<span class='notice'>You must be standing on or beside an air vent to enter it.</span>")
 
 		else
-			src << "<span class='notice'>You can't vent crawl while you're stunned!</span>"
+			to_chat(src, "<span class='notice'>You can't vent crawl while you're stunned!</span>")
 
 	else
-		src << "<span class='notice'>You must be conscious to do this!</span>"
+		to_chat(src, "<span class='notice'>You must be conscious to do this!</span>")
 	return
 
 /mob/living/proc/add_ventcrawl(obj/machinery/atmospherics/starting_machine)
@@ -224,12 +228,12 @@ var/global/list/can_enter_vent_with = list(
 	for(var/datum/pipeline/pipeline in network.line_members)
 		for(var/obj/machinery/atmospherics/A in (pipeline.members || pipeline.edges)) // Adds pipe and manifold images
 			if(!A.pipe_image)
-				A.pipe_image = image(A, A.loc, layer = 20, dir = A.dir)
+				A.pipe_image = image(A, A.loc, layer = SCREEN_LAYER+0.01, dir = A.dir)
 			pipes_shown += A.pipe_image
 			client.images += A.pipe_image
 	for (var/obj/machinery/atmospherics/V in network.normal_members) // Adds vent and scrubber images
 		if (!V.pipe_image || istype(V, /obj/machinery/atmospherics/unary/vent_pump/))
-			V.pipe_image = image(V, V.loc, layer = 20, dir = V.dir)
+			V.pipe_image = image(V, V.loc, layer = SCREEN_LAYER+0.01, dir = V.dir)
 		pipes_shown += V.pipe_image
 		client.images += V.pipe_image
 

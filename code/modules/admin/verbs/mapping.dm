@@ -1,7 +1,7 @@
 //- Are all the floors with or without air, as they should be? (regular or airless)
 //- Does the area have an APC?
 //- Does the area have an Air Alarm?
-//- Does the area have a Request Console?
+//- Does the area have a Requests Console?
 //- Does the area have lights?
 //- Does the area have a light switch?
 //- Does the area have enough intercoms?
@@ -40,8 +40,6 @@ var/intercom_range_display_status = 0
 /client/proc/do_not_use_these()
 	set category = "Mapping"
 	set name = "-None of these are for ingame use!!"
-
-	..()
 
 /client/proc/camera_view()
 	set category = "Mapping"
@@ -83,13 +81,13 @@ var/intercom_range_display_status = 0
 
 	for(var/obj/machinery/camera/C1 in CL)
 		if(C1.c_tag == null)
-			output += "<li><font color='red'>null c_tag for sec camera at \[[C1.x], [C1.y], [C1.z]\] ([C1.loc.loc])</font></li>"
+			output += "<li><span class='warning'>null c_tag for sec camera at \[[C1.x], [C1.y], [C1.z]\] ([C1.loc.loc])</span></li>"
 		for(var/obj/machinery/camera/C2 in CL)
 			if(C1 != C2)
 				if(C1.c_tag == C2.c_tag)
-					output += "<li><font color='red'>c_tag match for sec. cameras at \[[C1.x], [C1.y], [C1.z]\] ([C1.loc.loc]) and \[[C2.x], [C2.y], [C2.z]\] ([C2.loc.loc]) - c_tag is [C1.c_tag]</font></li>"
+					output += "<li><span class='warning'>c_tag match for sec. cameras at \[[C1.x], [C1.y], [C1.z]\] ([C1.loc.loc]) and \[[C2.x], [C2.y], [C2.z]\] ([C2.loc.loc]) - c_tag is [C1.c_tag]</span></li>"
 				if(C1.loc == C2.loc && C1.dir == C2.dir && C1.pixel_x == C2.pixel_x && C1.pixel_y == C2.pixel_y)
-					output += "<li><font color='red'>FULLY overlapping sec. cameras at \[[C1.x], [C1.y], [C1.z]\] ([C1.loc.loc]) Networks: [C1.network] and [C2.network]</font></li>"
+					output += "<li><span class='warning'>FULLY overlapping sec. cameras at \[[C1.x], [C1.y], [C1.z]\] ([C1.loc.loc]) Networks: [C1.network] and [C2.network]</span></li>"
 				if(C1.loc == C2.loc)
 					output += "<li>overlapping sec. cameras at \[[C1.x], [C1.y], [C1.z]\] ([C1.loc.loc]) Networks: [C1.network] and [C2.network]</font></li>"
 		var/turf/T = get_step(C1,turn(C1.dir,180))
@@ -97,7 +95,7 @@ var/intercom_range_display_status = 0
 			if(!(locate(/obj/structure/grille,T)))
 				var/window_check = 0
 				for(var/obj/structure/window/W in T)
-					if (W.dir == turn(C1.dir,180) || W.dir in list(5,6,9,10) )
+					if (W.dir == turn(C1.dir,180) || (W.dir in list(5,6,9,10)))
 						window_check = 1
 						break
 				if(!window_check)
@@ -223,7 +221,7 @@ var/list/debug_verbs = list (
 	var/turf/simulated/location = get_turf(usr)
 
 	if(!istype(location, /turf/simulated)) // We're in space, let's not cause runtimes.
-		usr << "<span class='warning'>this debug tool cannot be used from space</span>"
+		to_chat(usr, "<span class='warning'>this debug tool cannot be used from space</span>")
 		return
 
 	var/icon/red = new('icons/misc/debug_group.dmi', "red")		//created here so we don't have to make thousands of these.
@@ -231,11 +229,11 @@ var/list/debug_verbs = list (
 	var/icon/blue = new('icons/misc/debug_group.dmi', "blue")
 
 	if(!usedZAScolors)
-		usr << "ZAS Test Colors"
-		usr << "Green = Zone you are standing in"
-		usr << "Blue = Connected zone to the zone you are standing in"
-		usr << "Yellow = A zone that is connected but not one adjacent to your connected zone"
-		usr << "Red = Not connected"
+		to_chat(usr, "ZAS Test Colors")
+		to_chat(usr, "Green = Zone you are standing in")
+		to_chat(usr, "Blue = Connected zone to the zone you are standing in")
+		to_chat(usr, "Yellow = A zone that is connected but not one adjacent to your connected zone")
+		to_chat(usr, "Red = Not connected")
 		usedZAScolors = 1
 
 	testZAScolors_zones += location.zone
@@ -349,7 +347,7 @@ var/global/prevent_airgroup_regroup = 0
 	set category = "Mapping"
 	set name = "Regroup All Airgroups Attempt"
 
-	usr << "<span class='warning'>Proc disabled.</span>"
+	to_chat(usr, "<span class='warning'>Proc disabled.</span>")
 
 	/*prevent_airgroup_regroup = 0
 	for(var/datum/air_group/AG in SSair.air_groups)
@@ -360,7 +358,7 @@ var/global/prevent_airgroup_regroup = 0
 	set category = "Mapping"
 	set name = "Kill pipe processing"
 
-	usr << "<span class='warning'>Proc disabled.</span>"
+	to_chat(usr, "<span class='warning'>Proc disabled.</span>")
 
 	/*pipe_processing_killed = !pipe_processing_killed
 	if(pipe_processing_killed)
@@ -372,7 +370,7 @@ var/global/prevent_airgroup_regroup = 0
 	set category = "Mapping"
 	set name = "Kill air processing"
 
-	usr << "<span class='warning'>Proc disabled.</span>"
+	to_chat(usr, "<span class='warning'>Proc disabled.</span>")
 
 //This proc is intended to detect lag problems relating to communication procs
 var/global/say_disabled = 0
@@ -380,7 +378,7 @@ var/global/say_disabled = 0
 	set category = "Mapping"
 	set name = "Disable all communication verbs"
 
-	usr << "<span class='warning'>Proc disabled.</span>"
+	to_chat(usr, "<span class='warning'>Proc disabled.</span>")
 
 	/*say_disabled = !say_disabled
 	if(say_disabled)
@@ -395,7 +393,7 @@ var/global/movement_disabled_exception //This is the client that calls the proc,
 	set category = "Mapping"
 	set name = "Disable all movement"
 
-	usr << "<span class='warning'>Proc disabled.</span>"
+	to_chat(usr, "<span class='warning'>Proc disabled.</span>")
 
 	/*movement_disabled = !movement_disabled
 	if(movement_disabled)
@@ -410,8 +408,8 @@ var/global/movement_disabled_exception //This is the client that calls the proc,
 
 	for(var/obj/machinery/door/airlock/A in world)
 		var/turf/T = get_turf(A)
-		if(istype(T, /turf/space) || istype(T, /turf/simulated/floor/asteroid) || isopenturf(T) || T.density)
-			usr << "Airlock [A] with bad turf at ([A.x],[A.y],[A.z]) in [T.loc]."
+		if(istype(T, /turf/space) || istype(T, /turf/unsimulated/floor/asteroid) || isopenturf(T) || T.density)
+			to_chat(usr, "Airlock [A] with bad turf at ([A.x],[A.y],[A.z]) in [T.loc].")
 
 /client/proc/get_bad_fdoors()
 	set category = "Mapping"
@@ -423,4 +421,4 @@ var/global/movement_disabled_exception //This is the client that calls the proc,
 		for(var/obj/machinery/door/firedoor/FD in T)
 			firelock_increment += 1
 		if(firelock_increment > 1)
-			usr << "Double firedoor [F] at ([F.x],[F.y],[F.z]) in [T.loc]."
+			to_chat(usr, "Double firedoor [F] at ([F.x],[F.y],[F.z]) in [T.loc].")

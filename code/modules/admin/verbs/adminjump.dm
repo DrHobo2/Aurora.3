@@ -8,7 +8,11 @@
 	set name = "Jump to Area"
 	set desc = "Area to jump to"
 	set category = "Admin"
+
 	if(!check_rights(R_ADMIN|R_MOD|R_DEBUG|R_DEV))
+		return
+	
+	if(istype(usr, /mob/abstract/new_player))
 		return
 
 	if(config.allow_admin_jump)
@@ -24,8 +28,13 @@
 /client/proc/jumptoturf(var/turf/T in turfs)
 	set name = "Jump to Turf"
 	set category = "Admin"
+
 	if(!check_rights(R_ADMIN|R_MOD|R_DEBUG|R_DEV))
 		return
+
+	if(isnewplayer(usr))
+		return
+
 	if(config.allow_admin_jump)
 		log_admin("[key_name(usr)] jumped to [T.x],[T.y],[T.z] in [T.loc]",admin_key=key_name(usr))
 		message_admins("[key_name_admin(usr)] jumped to [T.x],[T.y],[T.z] in [T.loc]", 1)
@@ -38,13 +47,16 @@
 
 /client/proc/jumptomob(var/mob/M in mob_list)
 	set category = "Admin"
-	set name = "Jump to Mob"
+	set name = "Jump to Mob Admin"
 
 	if(!check_rights(R_ADMIN|R_MOD|R_DEBUG|R_DEV))
 		return
 
+	if(isnewplayer(usr))
+		return
+
 	if(config.allow_admin_jump)
-		log_admin("[key_name(usr)] jumped to [key_name(M)]",admin_key=key_name(usr),ckey=key_name(M))
+		log_admin("[key_name(usr)] jumped to [key_name(M)]", admin_key=key_name(usr),ckey=key_name(M))
 		message_admins("[key_name_admin(usr)] jumped to [key_name_admin(M)]", 1)
 		if(src.mob)
 			var/mob/A = src.mob
@@ -54,7 +66,7 @@
 				A.on_mob_jump()
 				A.forceMove(T)
 			else
-				A << "This mob is not located in the game world."
+				to_chat(A, "This mob is not located in the game world.")
 	else
 		alert("Admin jumping disabled")
 
@@ -91,7 +103,7 @@
 			keys += M.client
 		var/selection = input("Please, select a player!", "Admin Jumping", null, null) as null|anything in sortKey(keys)
 		if(!selection)
-			src << "No keys found."
+			to_chat(src, "No keys found.")
 			return
 		var/mob/M = selection:mob
 		log_admin("[key_name(usr)] jumped to [key_name(M)]",admin_key=key_name(usr),ckey=key_name(M))

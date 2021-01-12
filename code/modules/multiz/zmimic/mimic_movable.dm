@@ -92,7 +92,7 @@
 
 /atom/movable/openspace/multiplier/proc/copy_lighting(atom/movable/lighting_overlay/LO)
 	appearance = LO
-	layer = LIGHTING_LAYER + 0.001
+	layer = EFFECTS_ABOVE_LIGHTING_LAYER
 	plane = OPENTURF_CAP_PLANE
 	invisibility = 0
 	if (icon_state == LIGHTING_BASE_ICON_STATE)
@@ -125,7 +125,7 @@
 		// compile_overlays() calls update_above().
 		update_above()
 
-// Object used to hold a mimiced atom's appearance. 
+// Object used to hold a mimiced atom's appearance.
 /atom/movable/openspace/overlay
 	plane = OPENTURF_MAX_PLANE
 	var/atom/movable/associated_atom
@@ -150,13 +150,13 @@
 	return ..()
 
 /atom/movable/openspace/overlay/attackby(obj/item/W, mob/user)
-	user << span("notice", "\The [src] is too far away.")
+	to_chat(user, SPAN_NOTICE("\The [src] is too far away."))
 
 /atom/movable/openspace/overlay/attack_hand(mob/user as mob)
-	user << span("notice", "You cannot reach \the [src] from here.")
+	to_chat(user, SPAN_NOTICE("You cannot reach \the [src] from here."))
 
 /atom/movable/openspace/overlay/attack_generic(mob/user as mob)
-	user << span("notice", "You cannot reach \the [src] from here.")
+	to_chat(user, SPAN_NOTICE("You cannot reach \the [src] from here."))
 
 /atom/movable/openspace/overlay/examine(mob/examiner)
 	associated_atom.examine(examiner)
@@ -175,7 +175,7 @@
 	if (!destruction_timer)
 		destruction_timer = addtimer(CALLBACK(GLOBAL_PROC, /proc/qdel, src), 10 SECONDS, TIMER_STOPPABLE)
 
-// This one's a little different because it's mimicing a turf. 
+// This one's a little different because it's mimicing a turf.
 /atom/movable/openspace/turf_overlay
 	plane = OPENTURF_MAX_PLANE
 

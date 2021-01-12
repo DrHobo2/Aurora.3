@@ -7,17 +7,17 @@
 	anchored = 1
 	density = 1
 
-	var/obj/item/weapon/sample = null
+	var/obj/item/sample = null
 	var/report_num = 0
 
-/obj/machinery/microscope/attackby(obj/item/weapon/W as obj, mob/user as mob)
+/obj/machinery/microscope/attackby(obj/item/W as obj, mob/user as mob)
 
 	if(sample)
-		user << "<span class='warning'>There is already a slide in the microscope.</span>"
+		to_chat(user, "<span class='warning'>There is already a slide in the microscope.</span>")
 		return
 
-	if(istype(W, /obj/item/weapon/forensics/slide) || istype(W, /obj/item/weapon/sample/print))
-		user << "<span class='notice'>You insert \the [W] into the microscope.</span>"
+	if(istype(W, /obj/item/forensics/slide) || istype(W, /obj/item/sample/print))
+		to_chat(user, "<span class='notice'>You insert \the [W] into the microscope.</span>")
 		user.unEquip(W)
 		W.forceMove(src)
 		sample = W
@@ -27,26 +27,26 @@
 /obj/machinery/microscope/attack_hand(mob/user)
 
 	if(!sample)
-		user << "<span class='warning'>The microscope has no sample to examine.</span>"
+		to_chat(user, "<span class='warning'>The microscope has no sample to examine.</span>")
 		return
 
-	user << "<span class='notice'>The microscope whirrs as you examine \the [sample].</span>"
+	to_chat(user, "<span class='notice'>The microscope whirrs as you examine \the [sample].</span>")
 
 	if(!do_after(user, 25) || !sample)
 		return
 
-	user << "<span class='notice'>Printing findings now...</span>"
-	var/obj/item/weapon/paper/report = new()
+	to_chat(user, "<span class='notice'>Printing findings now...</span>")
+	var/obj/item/paper/report = new()
 	var/pname
 	var/info
-	report.stamped = list(/obj/item/weapon/stamp)
+	report.stamped = list(/obj/item/stamp)
 	report.overlays = list("paper_stamped")
 	report_num++
 
-	if(istype(sample, /obj/item/weapon/forensics/slide))
-		var/obj/item/weapon/forensics/slide/slide = sample
+	if(istype(sample, /obj/item/forensics/slide))
+		var/obj/item/forensics/slide/slide = sample
 		if(slide.has_swab)
-			var/obj/item/weapon/forensics/swab/swab = slide.has_swab
+			var/obj/item/forensics/swab/swab = slide.has_swab
 
 			pname = "GSR report #[++report_num]: [swab.name]"
 			info = "<b>Scanned item:</b><br>[swab.name]<br><br>"
@@ -57,9 +57,9 @@
 				info += "No gunpowder residue found."
 
 		else if(slide.has_sample)
-			var/obj/item/weapon/sample/fibers/fibers = slide.has_sample
-			pname = "Fiber report #[++report_num]: [fibers.name]"
-			info = "<b>Scanned item:</b><br>[fibers.name]<br><br>"
+			var/obj/item/sample/fibers/fibers = slide.has_sample
+			pname = "Fiber report #[++report_num]: [initial(fibers.name)]"
+			info = "<b>Scanned item:</b><br>[initial(fibers.name)]<br><br>"
 			if(fibers.evidence)
 				info = "Molecular analysis on provided sample has determined the presence of unique fiber strings.<br><br>"
 				for(var/fiber in fibers.evidence)
@@ -69,10 +69,10 @@
 		else
 			pname = "Empty slide report #[report_num]"
 			info = "Evidence suggests that there's nothing in this slide."
-	else if(istype(sample, /obj/item/weapon/sample/print))
+	else if(istype(sample, /obj/item/sample/print))
 		pname = "Fingerprint report #[report_num]: [sample.name]"
 		info = "<b>Fingerprint analysis report #[report_num]</b>: [sample.name]<br>"
-		var/obj/item/weapon/sample/print/card = sample
+		var/obj/item/sample/print/card = sample
 		if(card.evidence && card.evidence.len)
 			info += "Surface analysis has determined unique fingerprint strings:<br><br>"
 			for(var/prints in card.evidence)
@@ -90,16 +90,16 @@
 	if(report)
 		report.update_icon()
 		if(report.info)
-			user << report.info
+			to_chat(user, report.info)
 	print(report)
 
 /obj/machinery/microscope/proc/remove_sample(var/mob/living/remover)
 	if(!istype(remover) || remover.incapacitated() || !Adjacent(remover))
-		return ..()
-	if(!sample)
-		remover << "<span class='warning'>\The [src] does not have a sample in it.</span>"
 		return
-	remover << "<span class='notice'>You remove \the [sample] from \the [src].</span>"
+	if(!sample)
+		to_chat(remover, "<span class='warning'>\The [src] does not have a sample in it.</span>")
+		return
+	to_chat(remover, "<span class='notice'>You remove \the [sample] from \the [src].</span>")
 	sample.forceMove(get_turf(src))
 	remover.put_in_hands(sample)
 	sample = null

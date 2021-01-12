@@ -10,7 +10,7 @@
 	set name = "Say"
 	set category = "IC"
 	if(say_disabled)	//This is here to try to identify lag problems
-		usr << "<span class='warning'>Speech is currently admin-disabled.</span>"
+		to_chat(usr, "<span class='warning'>Speech is currently admin-disabled.</span>")
 		return
 	//Let's try to make users fix their errors - we try to detect single, out-of-place letters and 'unintended' words
 	/*
@@ -37,7 +37,7 @@
 	set category = "IC"
 
 	if(say_disabled)	//This is here to try to identify lag problems
-		usr << "<span class='warning'>Speech is currently admin-disabled.</span>"
+		to_chat(usr, "<span class='warning'>Speech is currently admin-disabled.</span>")
 		return
 
 	message = sanitize(message)
@@ -54,52 +54,52 @@
 
 /mob/proc/say_dead(var/message)
 	if(say_disabled)	//This is here to try to identify lag problems
-		usr << "<span class='danger'>Speech is currently admin-disabled.</span>"
+		to_chat(usr, "<span class='danger'>Speech is currently admin-disabled.</span>")
 		return
 
 	if(!src.client.holder)
 		if(!config.dsay_allowed)
-			src << "<span class='danger'>Deadchat is globally muted.</span>"
+			to_chat(src, "<span class='danger'>Deadchat is globally muted.</span>")
 			return
 
 	if(client && !(client.prefs.toggles & CHAT_DEAD))
-		usr << "<span class='danger'>You have deadchat muted.</span>"
+		to_chat(usr, "<span class='danger'>You have deadchat muted.</span>")
 		return
 
 	message = process_chat_markup(message, list("~", "_"))
 
-	say_dead_direct("[pick("complains","moans","whines","laments","blubbers")], <span class='message'>\"[message]\"</span>", src)
+	say_dead_direct("[pick("complains","moans","whines","laments","blubbers")], <span class='message linkify'>\"[message]\"</span>", src)
 
 /mob/proc/say_understands(var/mob/other,var/datum/language/speaking = null)
 
 	if (src.stat == 2)		//Dead
-		return 1
+		return TRUE
 
 	//Universal speak makes everything understandable, for obvious reasons.
 	else if(src.universal_speak || src.universal_understand)
-		return 1
+		return TRUE
 
 	//Languages are handled after.
 	if (!speaking)
 		if(!other)
-			return 1
+			return TRUE
 		if(other.universal_speak)
-			return 1
+			return TRUE
 		if(isAI(src) && ispAI(other))
-			return 1
+			return TRUE
 		if (istype(other, src.type) || istype(src, other.type))
-			return 1
-		return 0
+			return TRUE
+		return FALSE
 
 	if(speaking.flags & INNATE)
-		return 1
+		return TRUE
 
 	//Language check.
 	for(var/datum/language/L in src.languages)
 		if(speaking.name == L.name)
-			return 1
+			return TRUE
 
-	return 0
+	return FALSE
 
 /*
    ***Deprecated***
@@ -111,19 +111,16 @@
 */
 
 /mob/proc/say_quote(var/message, var/datum/language/speaking = null)
-        var/verb = "says"
-        var/ending = copytext(message, length(message))
-        if(ending=="!")
-                verb=pick("exclaims","shouts","yells")
-        else if(ending=="?")
-                verb="asks"
-
-        return verb
-
-
-/mob/proc/emote(var/act, var/type, var/message)
-	if(act == "me")
-		return custom_emote(type, message)
+	. = "says"
+	var/ending = copytext(message, length(message))
+	var/pre_ending = copytext(message, length(message) - 1, length(message))
+	if(ending == "!")
+		if(pre_ending == "!" || pre_ending == "?")
+			. = pick("shouts", "yells")
+		else
+			. = "exclaims"
+	else if(ending == "?")
+		. ="asks"
 
 /mob/proc/get_ear()
 	// returns an atom representing a location on the map from which this

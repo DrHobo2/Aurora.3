@@ -26,7 +26,7 @@
 
 /obj/machinery/anti_bluespace/emag_act()
 	spark(src, 3)
-	playsound(src, "sparks", 50, 1)
+	playsound(src, /decl/sound_category/spark_sound, 50, 1)
 	emp_act(1)
 	return TRUE
 
@@ -40,33 +40,26 @@
 /obj/machinery/anti_bluespace/default_part_replacement()
 	return 0
 
-/obj/machinery/anti_bluespace/default_deconstruction_screwdriver(var/mob/user, var/obj/item/weapon/screwdriver/S)
+/obj/machinery/anti_bluespace/default_deconstruction_screwdriver(var/mob/user, var/obj/item/screwdriver/S)
 	return 0
 
-/obj/machinery/anti_bluespace/default_deconstruction_crowbar(var/mob/user, var/obj/item/weapon/crowbar/C)
+/obj/machinery/anti_bluespace/default_deconstruction_crowbar(var/mob/user, var/obj/item/crowbar/C)
 	return 0
 
 /obj/machinery/anti_bluespace/proc/do_break()
 	if(stat & BROKEN)
 		return
 	playsound(src.loc, 'sound/effects/grillehit.ogg', 100, 1)
-	visible_message(span("warning","\The [src] breaks!"))
+	visible_message(SPAN_WARNING("\The [src] breaks!"))
 	stat |= BROKEN
 	anchored = 0
 	update_icon()
 
-/obj/machinery/anti_bluespace/attack_hand(mob/user as mob)
-	if(ishuman(user) && user.a_intent == I_HURT)
-		visible_message(span("warning","\The [user] hits \the [src]!"))
-		do_break()
-	else
-		. = ..()
-
-/obj/machinery/anti_bluespace/attackby(obj/item/weapon/W as obj, mob/user as mob)
+/obj/machinery/anti_bluespace/attackby(obj/item/W as obj, mob/user as mob)
 	if(user.a_intent == I_HURT)
-		visible_message(span("warning","\The [user] hits \the [src] with \the [W]!"))
+		visible_message(SPAN_WARNING("\The [user] hits \the [src] with \the [W]!"))
 	else
-		visible_message(span("notice","\The [user] [pick("touches","pokes","prods")] \the [src] with \the [W]."))
+		visible_message(SPAN_NOTICE("\The [user] [pick("touches","pokes","prods")] \the [src] with \the [W]."))
 		if(prob(66))
 			return
 
@@ -74,6 +67,8 @@
 
 /obj/machinery/anti_bluespace/bullet_act(var/obj/item/projectile/Proj)
 	if(!(Proj.damage_type == BRUTE || Proj.damage_type == BURN))
+		return
+	if(!Proj.damage)
 		return
 
 	do_break()
@@ -106,7 +101,7 @@
 			temp_apc.flicker_all()
 
 	playsound(src.loc, 'sound/magic/lightning_chargeup.ogg', 100, 1, extrarange = 20)
-	visible_message(span("danger","\The [src] goes haywire!"))
+	visible_message(SPAN_DANGER("\The [src] goes haywire!"))
 	do_break()
 	addtimer(CALLBACK(src, .proc/haywire_teleport), 10 SECONDS)
 
@@ -123,7 +118,7 @@
 			continue
 		var/area/A = random_station_area()
 		var/turf/target = A.random_space()
-		to_chat(AM,span("warning","Bluespace energy teleports you somewhere else!"))
+		to_chat(AM, SPAN_WARNING("Bluespace energy teleports you somewhere else!"))
 		do_teleport(AM, target)
 		AM.visible_message("\The [AM] phases in!")
 

@@ -71,3 +71,15 @@
 	name = "xray impact"
 	icon_state = "impact_tachyon"
 	light_color = LIGHT_COLOR_RED
+
+/obj/effect/projectile/impact/bfg
+	icon_state = "impact_bfg"
+	light_color = LIGHT_COLOR_GREEN
+
+/obj/effect/projectile/impact/hegemony
+	icon_state = "impact_hegemony"
+	light_color = LIGHT_COLOR_ORANGE
+
+/obj/effect/projectile/impact/tesla
+	icon_state = "impact_lightning"
+	light_color = LIGHT_COLOR_CYAN

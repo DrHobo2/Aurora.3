@@ -52,10 +52,10 @@
 	var/process_lock = 0 //If the call to process is locked because it is still running
 
 	component_types = list(
-		/obj/item/weapon/circuitboard/crusher,
-		/obj/item/weapon/stock_parts/matter_bin = 4,
-		/obj/item/weapon/stock_parts/manipulator = 3,
-		/obj/item/weapon/reagent_containers/glass/beaker = 3
+		/obj/item/circuitboard/crusher,
+		/obj/item/stock_parts/matter_bin = 4,
+		/obj/item/stock_parts/manipulator = 3,
+		/obj/item/reagent_containers/glass/beaker = 3
 	)
 
 /obj/machinery/crusher_base/Initialize()
@@ -90,7 +90,7 @@
 	if(status != "idle" && prob(40) && ishuman(user))
 		var/mob/living/carbon/human/M = user
 		M.apply_damage(45, BRUTE, user.get_active_hand())
-		M.apply_damage(45, HALLOSS)
+		M.apply_damage(45, PAIN)
 		M.visible_message("<span class='danger'>[user]'s hand catches in the [src]!</span>", "<span class='danger'>Your hand gets caught in the [src]!</span>")
 		M.say("*scream")
 		return
@@ -104,21 +104,21 @@
 	//Stuff you can do if the maint hatch is open
 	if(panel_open)
 		if(O.iswrench())
-			user << "<span class='notice'>You start [valve_open ? "closing" : "opening"] the pressure relief valve of [src].</span>"
-			if(do_after(user,50))
+			to_chat(user, "<span class='notice'>You start [valve_open ? "closing" : "opening"] the pressure relief valve of [src].</span>")
+			if(do_after(user,50/O.toolspeed))
 				valve_open = !valve_open
-				user << "<span class='notice'>You [valve_open ? "open" : "close"] the pressure relief valve of [src].</span>"
+				to_chat(user, "<span class='notice'>You [valve_open ? "open" : "close"] the pressure relief valve of [src].</span>")
 				if(valve_open)
 					blocked = 0
 					action = "retract"
 			return
 	..()
 
-/obj/machinery/crusher_base/default_deconstruction_crowbar(var/mob/user, var/obj/item/weapon/crowbar/C)
+/obj/machinery/crusher_base/default_deconstruction_crowbar(var/mob/user, var/obj/item/crowbar/C)
 	if(!istype(C))
 		return 0
 	if(num_progress != 0) //Piston needs to be retracted before you are able to deconstruct it
-		user << "<span class='notice'>You can not deconstruct [src] while the piston is extended.</span>"
+		to_chat(user, "<span class='notice'>You can not deconstruct [src] while the piston is extended.</span>")
 		return 0
 	return ..()
 
@@ -501,8 +501,7 @@
 	return ..()
 
 /mob/living/carbon/piston_move()
-	if(can_feel_pain())
-		emote("scream")
+	emote("scream")
 	return ..()
 
 //Dont call the parent and return 1 to prevent effects from getting moved

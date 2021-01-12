@@ -4,7 +4,7 @@
 	var/datum/gas_mixture/air_contents = new
 
 	var/obj/machinery/atmospherics/portables_connector/connected_port
-	var/obj/item/weapon/tank/holding
+	var/obj/item/tank/holding
 
 	var/volume = 0
 	var/destroyed = 0
@@ -26,7 +26,14 @@
 	var/obj/machinery/atmospherics/portables_connector/port = locate() in loc
 	if(port)
 		connect(port)
-		update_icon()
+	
+/obj/machinery/portable_atmospherics/canister/Initialize()
+	..()
+
+	return INITIALIZE_HINT_LATELOAD
+
+/obj/machinery/portable_atmospherics/canister/LateInitialize()
+	update_icon()
 
 /obj/machinery/portable_atmospherics/machinery_process()
 	if(!connected_port) //only react when pipe_network will ont it do it for you
@@ -42,8 +49,8 @@
 
 /obj/machinery/portable_atmospherics/proc/StandardAirMix()
 	return list(
-		"oxygen" = O2STANDARD * MolesForPressure(),
-		"nitrogen" = N2STANDARD *  MolesForPressure())
+		GAS_OXYGEN = O2STANDARD * MolesForPressure(),
+		GAS_NITROGEN = N2STANDARD *  MolesForPressure())
 
 /obj/machinery/portable_atmospherics/proc/MolesForPressure(var/target_pressure = start_pressure)
 	return (target_pressure * air_contents.volume) / (R_IDEAL_GAS_EQUATION * air_contents.temperature)
@@ -98,11 +105,11 @@
 	if (network)
 		network.update = 1
 
-/obj/machinery/portable_atmospherics/attackby(var/obj/item/weapon/W as obj, var/mob/user as mob)
-	if ((istype(W, /obj/item/weapon/tank) && !( src.destroyed )))
+/obj/machinery/portable_atmospherics/attackby(var/obj/item/W as obj, var/mob/user as mob)
+	if ((istype(W, /obj/item/tank) && !( src.destroyed )))
 		if (src.holding)
 			return
-		var/obj/item/weapon/tank/T = W
+		var/obj/item/tank/T = W
 		user.drop_from_inventory(T,src)
 		src.holding = T
 		update_icon()
@@ -111,21 +118,21 @@
 	else if (W.iswrench())
 		if(connected_port)
 			disconnect()
-			user << "<span class='notice'>You disconnect \the [src] from the port.</span>"
+			to_chat(user, "<span class='notice'>You disconnect \the [src] from the port.</span>")
 			update_icon()
 			return
 		else
 			var/obj/machinery/atmospherics/portables_connector/possible_port = locate(/obj/machinery/atmospherics/portables_connector/) in loc
 			if(possible_port)
 				if(connect(possible_port))
-					user << "<span class='notice'>You connect \the [src] to the port.</span>"
+					to_chat(user, "<span class='notice'>You connect \the [src] to the port.</span>")
 					update_icon()
 					return
 				else
-					user << "<span class='notice'>\The [src] failed to connect to the port.</span>"
+					to_chat(user, "<span class='notice'>\The [src] failed to connect to the port.</span>")
 					return
 			else
-				user << "<span class='notice'>Nothing happens.</span>"
+				to_chat(user, "<span class='notice'>Nothing happens.</span>")
 				return
 
 	else if ((istype(W, /obj/item/device/analyzer)) && Adjacent(user))
@@ -133,15 +140,14 @@
 		A.analyze_gases(src, user)
 		return
 
-	return
-
+	return ..()
 
 
 /obj/machinery/portable_atmospherics/powered
 	var/power_rating
 	var/power_losses
 	var/last_power_draw = 0
-	var/obj/item/weapon/cell/cell
+	var/obj/item/cell/cell
 	has_special_power_checks = TRUE
 
 /obj/machinery/portable_atmospherics/powered/powered()
@@ -152,12 +158,12 @@
 	return 0
 
 /obj/machinery/portable_atmospherics/powered/attackby(obj/item/I, mob/user)
-	if(istype(I, /obj/item/weapon/cell))
+	if(istype(I, /obj/item/cell))
 		if(cell)
-			user << "There is already a power cell installed."
+			to_chat(user, "There is already a power cell installed.")
 			return
 
-		var/obj/item/weapon/cell/C = I
+		var/obj/item/cell/C = I
 
 		user.drop_from_inventory(C,src)
 		C.add_fingerprint(user)
@@ -168,7 +174,7 @@
 
 	if(I.isscrewdriver())
 		if(!cell)
-			user << "<span class='warning'>There is no power cell installed.</span>"
+			to_chat(user, "<span class='warning'>There is no power cell installed.</span>")
 			return
 
 		user.visible_message("<span class='notice'>[user] opens the panel on [src] and removes [cell].</span>", "<span class='notice'>You open the panel on [src] and remove [cell].</span>")
@@ -195,3 +201,9 @@
 
 	log_admin("[user] ([user.ckey]) opened '[src.name]' containing [gases].", ckey=key_name(user))
 	message_admins("[key_name_admin(user)] opened '[src.name]' containing [gases]. (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[x];Y=[y];Z=[z]'>JMP</a>)")
+
+/obj/machinery/portable_atmospherics/proc/log_open_userless(var/cause)
+	if(air_contents.gas.len == 0)
+		return
+
+	message_admins("'[src.name]' was opened[cause ? " by [cause]" : ""], containing [english_list(air_contents.gas)]. (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[x];Y=[y];Z=[z]'>JMP</a>)")
