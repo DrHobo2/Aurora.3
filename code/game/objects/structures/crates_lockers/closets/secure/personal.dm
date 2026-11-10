@@ -1,88 +1,78 @@
 /obj/structure/closet/secure_closet/personal
 	name = "personal closet"
 	desc = "It's a secure locker for personnel. The first card swiped gains control."
-	req_access = list(access_all_personal_lockers)
+	req_access = list(/datum/access/all_personal_lockers::id)
 	var/registered_name = null
 
 /obj/structure/closet/secure_closet/personal/fill()
 	if(prob(50))
-		new /obj/item/weapon/storage/backpack(src)
+		new /obj/item/storage/backpack(src)
 	else
-		new /obj/item/weapon/storage/backpack/satchel_norm(src)
-	new /obj/item/device/radio/headset( src )
+		new /obj/item/storage/backpack/satchel(src)
+	new /obj/item/radio/headset(src)
+	new /obj/item/radio/headset/alt(src)
 
 /obj/structure/closet/secure_closet/personal/patient
 	name = "patient's closet"
 
 /obj/structure/closet/secure_closet/personal/patient/fill()
-	if(prob(50))
-		new /obj/item/clothing/under/medical_gown(src)
-	else
-		new /obj/item/clothing/under/medical_gown/white(src)
-	new /obj/item/clothing/shoes/white( src )
+	new /obj/random/medical_gown(src)
+	new /obj/random/medical_gown(src)
+	new /obj/item/clothing/shoes/sneakers( src )
+	new /obj/item/clothing/shoes/sneakers( src )
 
 
 /obj/structure/closet/secure_closet/personal/cabinet
-	icon_state = "cabinetdetective_locked"
-	icon_closed = "cabinetdetective"
-	icon_locked = "cabinetdetective_locked"
-	icon_opened = "cabinetdetective_open"
-	icon_broken = "cabinetdetective_broken"
-	icon_off = "cabinetdetective_broken"
-
-/obj/structure/closet/secure_closet/personal/cabinet/update_icon()
-	if(broken)
-		icon_state = icon_broken
-	else
-		if(!opened)
-			if(locked)
-				icon_state = icon_locked
-			else
-				icon_state = icon_closed
-		else
-			icon_state = icon_opened
+	icon_state = "cabinet"
+	open_sound = 'sound/machines/wooden_closet_open.ogg'
+	close_sound = 'sound/machines/wooden_closet_close.ogg'
+	door_anim_angle = 160
+	door_anim_squish = 0.22
+	door_hinge_x_alt = 7.5
+	double_doors = TRUE
 
 /obj/structure/closet/secure_closet/personal/cabinet/fill()
-	new /obj/item/weapon/storage/backpack/satchel/withwallet( src )
-	new /obj/item/device/radio/headset( src )
+	new /obj/item/storage/backpack/satchel/leather/withwallet(src)
+	new /obj/item/radio/headset(src)
+	new /obj/item/radio/headset/alt(src)
 
-
-/obj/structure/closet/secure_closet/personal/attackby(obj/item/weapon/W as obj, mob/user as mob)
+/obj/structure/closet/secure_closet/personal/attackby(obj/item/attacking_item, mob/user)
 	if (opened)
-		if (istype(W, /obj/item/weapon/grab))
-			MouseDrop_T(W:affecting, user)      //act like they were dragged onto the closet
-		if(W)
-			user.drop_from_inventory(W,loc)
+		if (istype(attacking_item, /obj/item/grab))
+			var/obj/item/grab/G = attacking_item
+			mouse_drop_receive(G.affecting, user)      //act like they were dragged onto the closet
+		if(attacking_item)
+			user.drop_from_inventory(attacking_item,loc)
 		else
 			user.drop_item()
-	else if(W.GetID())
+	else if(attacking_item.GetID())
 		if(user.loc == src)
-			to_chat(user, "<span class='notice'>You can't reach the lock from inside.</span>")
+			to_chat(user, SPAN_NOTICE("You can't reach the lock from inside."))
 			return
-		var/obj/item/weapon/card/id/I = W.GetID()
+		var/obj/item/card/id/I = attacking_item.GetID()
 
 		if(broken)
-			to_chat(user, "<span class='warning'>It appears to be broken.</span>")
+			to_chat(user, SPAN_WARNING("It appears to be broken."))
 			return
 		if(!I || !I.registered_name)	return
 		if(allowed(user) || !registered_name || (istype(I) && (registered_name == I.registered_name)))
 			//they can open all lockers, or nobody owns this, or they own this locker
 			locked = !( locked )
-			if(locked)	icon_state = icon_locked
-			else	icon_state = icon_closed
+			update_icon()
 
 			if(!registered_name)
 				registered_name = I.registered_name
 				desc = "Owned by [I.registered_name]."
 		else
-			to_chat(user, "<span class='warning'>Access Denied</span>")
-	else if(istype(W, /obj/item/weapon/melee/energy/blade))
-		if(emag_act(INFINITY, user, "The locker has been sliced open by [user] with \an [W]!", "You hear metal being sliced and sparks flying."))
-			W:spark_system.queue()
-			playsound(loc, 'sound/weapons/blade1.ogg', 50, 1)
-			playsound(loc, "sparks", 50, 1)
+			to_chat(user, SPAN_WARNING("Access denied"))
+	else if(istype(attacking_item, /obj/item/melee/energy/blade))
+		var/obj/item/melee/energy/blade/blade = attacking_item
+		if(emag_act(INFINITY, user, "The locker has been sliced open by [user] with \an [blade]!", "You hear metal being sliced and sparks flying."))
+			blade.spark_system.queue()
+			playsound(loc, 'sound/weapons/blade.ogg', 50, 1)
+			playsound(loc, SFX_SPARKS, 50, 1)
 	else
-		to_chat(user, "<span class='warning'>Access Denied</span>")
+		to_chat(user, SPAN_WARNING("Access denied"))
 	return
 
 /obj/structure/closet/secure_closet/personal/emag_act(var/remaining_charges, var/mob/user, var/visual_feedback, var/audible_feedback)
@@ -90,9 +80,9 @@
 		broken = 1
 		locked = 0
 		desc = "It appears to be broken."
-		icon_state = icon_broken
+		update_icon()
 		if(visual_feedback)
-			visible_message("<span class='warning'>[visual_feedback]</span>", "<span class='warning'>[audible_feedback]</span>")
+			visible_message(SPAN_WARNING("[visual_feedback]"), SPAN_WARNING("[audible_feedback]"))
 		return 1
 
 /obj/structure/closet/secure_closet/personal/verb/reset()
@@ -104,15 +94,15 @@
 	if(ishuman(usr))
 		add_fingerprint(usr)
 		if (locked || !registered_name)
-			usr << "<span class='warning'>You need to unlock it first.</span>"
+			to_chat(usr, SPAN_WARNING("You need to unlock it first."))
 		else if (broken)
-			usr << "<span class='warning'>It appears to be broken.</span>"
+			to_chat(usr, SPAN_WARNING("It appears to be broken."))
 		else
 			if (opened)
 				if(!close())
 					return
 			locked = 1
-			icon_state = icon_locked
+			update_icon()
 			registered_name = null
 			desc = "It's a secure locker for personnel. The first card swiped gains control."
 	return

@@ -1,12 +1,13 @@
-var/global/list/plant_seed_sprites = list()
+GLOBAL_LIST_EMPTY(plant_seed_sprites)
 
 //Seed packet object/procs.
 /obj/item/seeds
 	name = "packet of seeds"
 	icon = 'icons/obj/seeds.dmi'
-	icon_state = "blank"
-	w_class = 2.0
+	icon_state = "random"
+	w_class = WEIGHT_CLASS_SMALL
 
+	storage_slot_sort_by_name = TRUE
 	var/seed_type
 	var/datum/seed/seed
 	var/modified = 0
@@ -15,55 +16,90 @@ var/global/list/plant_seed_sprites = list()
 	update_seed()
 	. = ..()
 
-//Grabs the appropriate seed datum from the global list.
+/// Grabs the appropriate seed datum from the global list.
 /obj/item/seeds/proc/update_seed()
 	if(!seed && seed_type && !isnull(SSplants.seeds) && SSplants.seeds[seed_type])
 		seed = SSplants.seeds[seed_type]
 	update_appearance()
 
-//Updates strings and icon appropriately based on seed datum.
-/obj/item/seeds/proc/update_appearance()
-	if(!seed) return
+/// Updates strings and icon appropriately based on seed datum.
+/obj/item/seeds/proc/update_appearance(var/ret_image = FALSE)
+	if(!seed)
+		return
+
+	// This is very hacky, but we clear the icon state here because the ingame packets
+	// are all pure overlays, but we still want seeds to show up in StrongDMM.
+	icon_state = "blank"
 
 	// Update icon.
-	cut_overlays()
-	var/is_seeds = ((seed.seed_noun in list("seeds","pits","nodes")) ? 1 : 0)
+	ClearOverlays()
+	var/is_seeds = ((seed.seed_noun in list(SEED_NOUN_SEEDS, SEED_NOUN_PITS, SEED_NOUN_NODES)) ? 1 : 0)
 	var/image/seed_mask
-	var/seed_base_key = "base-[is_seeds ? seed.get_trait(TRAIT_PLANT_COLOUR) : "spores"]"
-	if(plant_seed_sprites[seed_base_key])
-		seed_mask = plant_seed_sprites[seed_base_key]
+	var/seed_base_key = "base-[is_seeds ? GET_SEED_TRAIT(seed, TRAIT_PLANT_COLOUR) : SEED_NOUN_SPORES]"
+	if(GLOB.plant_seed_sprites[seed_base_key])
+		seed_mask = GLOB.plant_seed_sprites[seed_base_key]
 	else
 		seed_mask = image('icons/obj/seeds.dmi',"[is_seeds ? "seed" : "spore"]-mask")
 		if(is_seeds) // Spore glass bits aren't coloured.
-			seed_mask.color = seed.get_trait(TRAIT_PLANT_COLOUR)
-		plant_seed_sprites[seed_base_key] = seed_mask
+			seed_mask.color = GET_SEED_TRAIT(seed, TRAIT_PLANT_COLOUR)
+		GLOB.plant_seed_sprites[seed_base_key] = seed_mask
 
 	var/image/seed_overlay
-	var/seed_overlay_key = "[seed.get_trait(TRAIT_PRODUCT_ICON)]-[seed.get_trait(TRAIT_PRODUCT_COLOUR)]"
-	if(plant_seed_sprites[seed_overlay_key])
-		seed_overlay = plant_seed_sprites[seed_overlay_key]
+	var/seed_overlay_key = "[GET_SEED_TRAIT(seed, TRAIT_PRODUCT_ICON)]-[GET_SEED_TRAIT(seed, TRAIT_PRODUCT_COLOUR)]"
+	if(GLOB.plant_seed_sprites[seed_overlay_key])
+		seed_overlay = GLOB.plant_seed_sprites[seed_overlay_key]
 	else
-		seed_overlay = image('icons/obj/seeds.dmi',"[seed.get_trait(TRAIT_PRODUCT_ICON)]")
-		seed_overlay.color = seed.get_trait(TRAIT_PRODUCT_COLOUR)
-		plant_seed_sprites[seed_overlay_key] = seed_overlay
+		seed_overlay = image('icons/obj/seeds.dmi',"[GET_SEED_TRAIT(seed, TRAIT_PRODUCT_ICON)]")
+		seed_overlay.color = GET_SEED_TRAIT(seed, TRAIT_PRODUCT_COLOUR)
+		GLOB.plant_seed_sprites[seed_overlay_key] = seed_overlay
 
-	add_overlay(seed_mask)
-	add_overlay(seed_overlay)
+	AddOverlays(seed_mask)
+	AddOverlays(seed_overlay)
 
 	if(is_seeds)
 		src.name = "packet of [seed.seed_name] [seed.seed_noun]"
-		src.desc = "It has a picture of [seed.display_name] on the front."
+		src.desc = "It has a picture of \a [seed.display_name] on the front."
 	else
 		src.name = "sample of [seed.seed_name] [seed.seed_noun]"
-		src.desc = "It's labelled as coming from [seed.display_name]."
+		src.desc = "It's labelled as coming from \a [seed.display_name]."
 
-/obj/item/seeds/examine(mob/user)
-	..(user)
+	if(ret_image)
+		var/icon/sm = icon('icons/obj/seeds.dmi', "[is_seeds ? "seed" : "spore"]-mask")
+		var/icon/so = icon('icons/obj/seeds.dmi', "[GET_SEED_TRAIT(seed, TRAIT_PRODUCT_ICON)]")
+		var/p_color = GET_SEED_TRAIT(seed, TRAIT_PRODUCT_COLOUR)
+		so *= p_color
+		if(is_seeds)
+			var/s_color = GET_SEED_TRAIT(seed, TRAIT_PLANT_COLOUR)
+			sm *= s_color
+		sm.Blend(so, ICON_OVERLAY)
+		return sm
+
+/obj/item/seeds/mechanics_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	. += "All plants have preferential heat and light values. They will grow faster if close to these values. Plants also have tolerance values, \
+	and will stop growing and begin to take damage when outside of their tolerances. Use hydroponics trays to get plants within their optimal values!"
+	. += "Plants can be mutated with any mutagen, altering their genes in a random way. Do this with caution as the results may be hazardous!"
+
+/obj/item/seeds/get_examine_text(mob/user, distance, is_adjacent, infix, suffix)
+	. = ..()
+
 	if(seed && !seed.roundstart)
-		user << "It's tagged as variety #[seed.uid]."
+		. += "It's tagged as variety #[seed.uid]."
+
+	var/lower_heat_preference = GET_SEED_TRAIT(seed, TRAIT_IDEAL_HEAT) - GET_SEED_TRAIT(seed, TRAIT_HEAT_PREFERENCE)
+	var/higher_heat_preference = GET_SEED_TRAIT(seed, TRAIT_IDEAL_HEAT) + GET_SEED_TRAIT(seed, TRAIT_HEAT_PREFERENCE)
+	var/lower_light_preference = GET_SEED_TRAIT(seed, TRAIT_IDEAL_LIGHT) - GET_SEED_TRAIT(seed, TRAIT_LIGHT_PREFERENCE)
+	var/higher_light_preference = GET_SEED_TRAIT(seed, TRAIT_IDEAL_LIGHT) + GET_SEED_TRAIT(seed, TRAIT_LIGHT_PREFERENCE)
+
+	var/lower_heat_tolerance = GET_SEED_TRAIT(seed, TRAIT_IDEAL_HEAT) - GET_SEED_TRAIT(seed, TRAIT_HEAT_TOLERANCE)
+	var/higher_heat_tolerance = GET_SEED_TRAIT(seed, TRAIT_IDEAL_HEAT) + GET_SEED_TRAIT(seed, TRAIT_HEAT_TOLERANCE)
+	var/lower_light_tolerance = GET_SEED_TRAIT(seed, TRAIT_IDEAL_LIGHT) - GET_SEED_TRAIT(seed, TRAIT_LIGHT_TOLERANCE)
+	var/higher_light_tolerance = GET_SEED_TRAIT(seed, TRAIT_IDEAL_LIGHT) + GET_SEED_TRAIT(seed, TRAIT_LIGHT_TOLERANCE)
+
+	. += SPAN_NOTICE("This grows optimally between <b>[lower_heat_preference] and [higher_heat_preference] kelvin</b>, and between <b>[lower_light_preference] and [higher_light_preference] lumens.</b> It is capable of any growth at all between <b>[lower_heat_tolerance] and [higher_heat_tolerance] kelvin</b>, and between <b>[lower_light_tolerance] and [higher_light_tolerance] lumens.</b>")
 
 /obj/item/seeds/cutting
-	name = "cuttings"
+	name = SEED_NOUN_CUTTINGS
 	desc = "Some plant cuttings."
 
 /obj/item/seeds/cutting/update_appearance()
@@ -77,216 +113,3 @@ var/global/list/plant_seed_sprites = list()
 	seed = SSplants.create_random_seed()
 	seed_type = seed.name
 	. = ..()
-
-/obj/item/seeds/replicapod
-	seed_type = "diona"
-
-/obj/item/seeds/chiliseed
-	seed_type = "chili"
-
-/obj/item/seeds/plastiseed
-	seed_type = "plastic"
-
-/obj/item/seeds/grapeseed
-	seed_type = "grapes"
-
-/obj/item/seeds/greengrapeseed
-	seed_type = "greengrapes"
-
-/obj/item/seeds/peanutseed
-	seed_type = "peanut"
-
-/obj/item/seeds/cabbageseed
-	seed_type = "cabbage"
-
-/obj/item/seeds/shandseed
-	seed_type = "shand"
-
-/obj/item/seeds/mtearseed
-	seed_type = "mtear"
-
-/obj/item/seeds/berryseed
-	seed_type = "berries"
-
-/obj/item/seeds/blueberryseed
-	seed_type = "blueberries"
-
-/obj/item/seeds/glowberryseed
-	seed_type = "glowberries"
-
-/obj/item/seeds/bananaseed
-	seed_type = "banana"
-
-/obj/item/seeds/eggplantseed
-	seed_type = "eggplant"
-
-/obj/item/seeds/bloodtomatoseed
-	seed_type = "bloodtomato"
-
-/obj/item/seeds/tomatoseed
-	seed_type = "tomato"
-
-/obj/item/seeds/killertomatoseed
-	seed_type = "killertomato"
-
-/obj/item/seeds/bluetomatoseed
-	seed_type = "bluetomato"
-
-/obj/item/seeds/bluespacetomatoseed
-	seed_type = "bluespacetomato"
-
-/obj/item/seeds/cornseed
-	seed_type = "corn"
-
-/obj/item/seeds/poppyseed
-	seed_type = "poppies"
-
-/obj/item/seeds/potatoseed
-	seed_type = "potato"
-
-/obj/item/seeds/icepepperseed
-	seed_type = "icechili"
-
-/obj/item/seeds/soyaseed
-	seed_type = "soybean"
-
-/obj/item/seeds/wheatseed
-	seed_type = "wheat"
-
-/obj/item/seeds/riceseed
-	seed_type = "rice"
-
-/obj/item/seeds/carrotseed
-	seed_type = "carrot"
-
-/obj/item/seeds/reishimycelium
-	seed_type = "reishi"
-
-/obj/item/seeds/amanitamycelium
-	seed_type = "amanita"
-
-/obj/item/seeds/panocelium
-	seed_type = "panocelium"
-
-/obj/item/seeds/angelmycelium
-	seed_type = "destroyingangel"
-
-/obj/item/seeds/libertymycelium
-	seed_type = "libertycap"
-
-/obj/item/seeds/chantermycelium
-	seed_type = "mushrooms"
-
-/obj/item/seeds/towermycelium
-	seed_type = "towercap"
-
-/obj/item/seeds/glowshroom
-	seed_type = "glowshroom"
-
-/obj/item/seeds/plumpmycelium
-	seed_type = "plumphelmet"
-
-/obj/item/seeds/walkingmushroommycelium
-	seed_type = "walkingmushroom"
-
-/obj/item/seeds/nettleseed
-	seed_type = "nettle"
-
-/obj/item/seeds/deathnettleseed
-	seed_type = "deathnettle"
-
-/obj/item/seeds/weeds
-	seed_type = "weeds"
-
-/obj/item/seeds/harebell
-	seed_type = "harebells"
-
-/obj/item/seeds/sunflowerseed
-	seed_type = "sunflowers"
-
-/obj/item/seeds/brownmold
-	seed_type = "mold"
-
-/obj/item/seeds/appleseed
-	seed_type = "apple"
-
-/obj/item/seeds/poisonedappleseed
-	seed_type = "poisonapple"
-
-/obj/item/seeds/goldappleseed
-	seed_type = "goldapple"
-
-/obj/item/seeds/ambrosiavulgarisseed
-	seed_type = "ambrosia"
-
-/obj/item/seeds/ambrosiadeusseed
-	seed_type = "ambrosiadeus"
-
-/obj/item/seeds/whitebeetseed
-	seed_type = "whitebeet"
-
-/obj/item/seeds/sugarcaneseed
-	seed_type = "sugarcane"
-
-/obj/item/seeds/watermelonseed
-	seed_type = "watermelon"
-
-/obj/item/seeds/pumpkinseed
-	seed_type = "pumpkin"
-
-/obj/item/seeds/limeseed
-	seed_type = "lime"
-
-/obj/item/seeds/lemonseed
-	seed_type = "lemon"
-
-/obj/item/seeds/orangeseed
-	seed_type = "orange"
-
-/obj/item/seeds/poisonberryseed
-	seed_type = "poisonberries"
-
-/obj/item/seeds/deathberryseed
-	seed_type = "deathberries"
-
-/obj/item/seeds/grassseed
-	seed_type = "grass"
-
-/obj/item/seeds/cocoapodseed
-	seed_type = "cacao"
-
-/obj/item/seeds/cherryseed
-	seed_type = "cherry"
-
-/obj/item/seeds/kudzuseed
-	seed_type = "kudzu"
-
-/obj/item/seeds/koisspore
-	seed_type = "koisspore"
-
-/obj/item/seeds/blackkois
-	seed_type = "blackkois"
-
-/obj/item/seeds/earthenroot
-	seed_type = "earthenroot"
-
-/obj/item/seeds/nifberries
-	seed_type = "nifberries"
-
-/obj/item/seeds/tobaccoseed
-	seed_type = "tobacco"
-
-/obj/item/seeds/finetobacco
-	seed_type = "finetobacco"
-
-/obj/item/seeds/peppercornseed
-	seed_type = "peppercorn"
-
-/obj/item/seeds/garlicseed
-	seed_type = "garlic"
-
-/obj/item/seeds/onionseed
-	seed_type = "onion"
-
-/obj/item/seeds/ghostmushroomseed
-	seed_type = "ghostmushroom"

@@ -1,11 +1,11 @@
-var/global/datum/getrev/revdata = new()
+GLOBAL_DATUM_INIT(revdata, /datum/getrev, new())
 
 /hook/startup/proc/initialize_test_merges()
-	if (!revdata)
-		log_debug("GETREV: No rev found.")
+	if (!GLOB.revdata)
+		LOG_DEBUG("GETREV: No rev found.")
 		return TRUE
 
-	revdata.testmerge_initialize()
+	GLOB.revdata.testmerge_initialize()
 
 	return TRUE
 
@@ -15,7 +15,6 @@ var/global/datum/getrev/revdata = new()
 	var/date
 	var/showinfo
 	var/list/datum/tgs_revision_information/test_merge/test_merges
-	var/greeting_info
 
 /datum/getrev/New()
 	var/list/head_branch = file2list(".git/HEAD", "\n")
@@ -40,21 +39,24 @@ var/global/datum/getrev/revdata = new()
 	world.log << date
 	world.log << revision
 
-client/verb/showrevinfo()
+/client/verb/showrevinfo()
 	set category = "OOC"
 	set name = "Show Server Revision"
 	set desc = "Check the current server code revision"
 
-	if(revdata.revision)
-		src << "<b>Server revision:</b> [revdata.branch] - [revdata.date]"
-		if(config.githuburl)
-			src << "<a href='[config.githuburl]/commit/[revdata.revision]'>[revdata.revision]</a>"
+	if(GLOB.revdata.revision)
+		to_chat(src, "<b>Server revision:</b> [GLOB.revdata.branch] - [GLOB.revdata.date]")
+		if(GLOB.config.githuburl)
+			to_chat(src, "<a href='[GLOB.config.githuburl]/commit/[GLOB.revdata.revision]'>[GLOB.revdata.revision]</a>")
 		else
-			src << revdata.revision
+			to_chat(src, GLOB.revdata.revision)
 	else
-		src << "Revision unknown"
+		to_chat(src, "Revision unknown")
 
-	src << "<b>Current Map:</b> [current_map.full_name]"
+	to_chat(src, "<b>Current Map:</b> [SSatlas.current_map.full_name]")
+
+	if(GLOB.revdata.test_merges.len)
+		to_chat(src, GLOB.revdata.testmerge_overview())
 
 /datum/getrev/proc/testmerge_overview()
 	if (!test_merges.len)
@@ -69,36 +71,16 @@ client/verb/showrevinfo()
 
 	return out.Join()
 
-/datum/getrev/proc/generate_greeting_info()
-	if (!test_merges.len)
-		greeting_info = {"<div class="alert alert-info">
-		                  There are currently no test merges loaded onto the server.
-		                  </div>"}
-		return
-
-	var/list/out = list("<p>There are currently [test_merges.len] PRs being tested live.</p>",
-		{"<table class="table table-hover">"}
-	)
-
-	for (var/TM in test_merges)
-		out += testmerge_long_oveview(TM)
-
-	out += "</table>"
-
-	greeting_info = out.Join()
-
 /datum/getrev/proc/testmerge_initialize()
 	var/datum/tgs_api/api = TGS_READ_GLOBAL(tgs)
 
 	if (api)
-		log_debug("GETREV: TGS API found.")
+		LOG_DEBUG("GETREV: TGS API found.")
 		test_merges = api.TestMerges()
-		log_debug("GETREV: [test_merges.len] test merges found.")
+		LOG_DEBUG("GETREV: [test_merges.len] test merges found.")
 	else
-		log_debug("GETREV: No TGS API found.")
+		LOG_DEBUG("GETREV: No TGS API found.")
 		test_merges = list()
-
-	generate_greeting_info()
 
 /datum/getrev/proc/testmerge_short_overview(datum/tgs_revision_information/test_merge/tm)
 	. = list()
@@ -106,8 +88,8 @@ client/verb/showrevinfo()
 	. += "<hr><p>PR #[tm.number]: \"[html_encode(tm.title)]\""
 	. += "<br>\tAuthor: [html_encode(tm.author)]"
 
-	if (config.githuburl)
-		. += "<br>\t<a href='[config.githuburl]pull/[tm.number]'>\[Details...\]</a>"
+	if (GLOB.config.githuburl)
+		. += "<br>\t<a href='[GLOB.config.githuburl]pull/[tm.number]'>\[Details...\]</a>"
 
 	. += "</p>"
 
@@ -120,10 +102,11 @@ client/verb/showrevinfo()
 	. += {"</tr><tr><td class="hiddenRow"><div id="[divid]" class="collapse">"}
 	. += {"<table class="table">"}
 	. += {"<tr><th>Author:</th><td>[html_encode(tm.author)]</td></tr>"}
-	. += {"<tr><th>Merged:</th><td>[tm.time_merged]</td></tr>"}
 
-	if (config.githuburl)
-		. += {"<tr><td colspan="2"><a href="?JSlink=github;pr=[tm.number]">Link to Github</a></td></tr>"}
+	if (GLOB.config.githuburl)
+		. += {"<tr><td colspan="2"><a href="byond://?JSlink=github;pr=[tm.number]">Link to GitHub</a></td></tr>"}
 
 	. += {"<tr><th>Description:</th><td>[html_encode(tm.body)]</td></tr>"}
+	if(tm.comment)
+		. += {"<tr><th>Comment:</th><td>[html_encode(tm.comment)]</td></tr>"}
 	. += {"</table></div></td></tr>"}

@@ -1,20 +1,18 @@
 //TODO: Convert this over for languages.
-/mob/living/carbon/brain/say(var/message)
+/mob/living/carbon/brain/say(var/text, var/datum/language/speaking = null, var/verb="says", var/alt_name="", var/ghost_hearing = GHOSTS_ALL_HEAR, var/whisper = FALSE, var/skip_edit = FALSE)
 	if (silent)
 		return
 
-	message = sanitize(message)
-
-	if(!(container && istype(container, /obj/item/device/mmi)))
+	if(!(container && istype(container, /obj/item/mmi)))
 		return //No MMI, can't speak, bucko./N
 	else
-		var/datum/language/speaking = parse_language(message)
+		speaking = parse_language(text)
 		if(speaking)
-			message = copytext(message, 2+length(speaking.key))
-		var/verb = "says"
-		var/ending = copytext(message, length(message))
+			text = copytext(text, 2+length(speaking.key))
+		var/ending = copytext(text, length(text))
+		var/pre_ending = copytext(text, length(text) - 1, length(text))
 		if (speaking)
-			verb = speaking.get_spoken_verb(ending)
+			verb = speaking.get_spoken_verb(ending, pre_ending)
 		else
 			if(ending=="!")
 				verb=pick("exclaims","shouts","yells")
@@ -25,14 +23,14 @@
 			if(prob(10))//10% chane to drop the message entirely
 				return
 			else
-				message = Gibberish(message, (emp_damage*6))//scrambles the message, gets worse when emp_damage is higher
+				text = Gibberish(text, (emp_damage*6))//scrambles the message, gets worse when emp_damage is higher
 
 		if(speaking && speaking.flags & HIVEMIND)
-			speaking.broadcast(src,trim(message))
+			speaking.broadcast(src,trim(text))
 			return
 
-		if(istype(container, /obj/item/device/mmi/radio_enabled))
-			var/obj/item/device/mmi/radio_enabled/R = container
+		if(istype(container, /obj/item/mmi/radio_enabled))
+			var/obj/item/mmi/radio_enabled/R = container
 			if(R.radio)
-				spawn(0) R.radio.hear_talk(src, sanitize(message), verb, speaking)
-		..(trim(message), speaking, verb)
+				R.radio.hear_talk(src, sanitize(text), verb, speaking)
+		..(trim(text), speaking, verb)

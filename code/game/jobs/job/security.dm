@@ -1,209 +1,336 @@
 /datum/job/hos
 	title = "Head of Security"
 	flag = HOS
-	head_position = 1
-	department = "Security"
+	departments = list(DEPARTMENT_SECURITY = JOBROLE_SUPERVISOR, DEPARTMENT_COMMAND)
 	department_flag = ENGSEC
 	faction = "Station"
 	total_positions = 1
 	spawn_positions = 1
+	intro_prefix = "the"
 	supervisors = "the captain"
-	selection_color = "#ffdddd"
-	idtype = /obj/item/weapon/card/id/silver
-	req_admin_notify = 1
+	selection_color = "#991818"
 	economic_modifier = 10
-	access = list(access_security, access_eva, access_sec_doors, access_brig, access_armory,
-			            access_forensics_lockers, access_morgue, access_maint_tunnels, access_all_personal_lockers,
-			            access_research, access_engine, access_mining, access_medical, access_construction, access_mailsorting,
-			            access_heads, access_hos, access_RC_announce, access_keycard_auth, access_gateway, access_external_airlocks,
-				    access_detective, access_weapons)
-	minimal_access = list(access_security, access_eva, access_sec_doors, access_brig, access_armory,
-			            access_forensics_lockers, access_morgue, access_maint_tunnels, access_all_personal_lockers,
-			            access_research, access_engine, access_mining, access_medical, access_construction, access_mailsorting,
-			            access_heads, access_hos, access_RC_announce, access_keycard_auth, access_gateway, access_external_airlocks,
-				    access_detective, access_weapons)
+
+	minimum_character_age = list(
+		SPECIES_HUMAN = 30,
+		SPECIES_SKRELL = 80,
+		SPECIES_SKRELL_AXIORI = 80
+	)
+
+	job_access = list(
+		/datum/access/security::id, /datum/access/eva::id, /datum/access/sec_doors::id, /datum/access/holding::id, /datum/access/armory::id, /datum/access/forensics_lockers::id, /datum/access/morgue::id,
+		/datum/access/maint_tunnels::id, /datum/access/all_personal_lockers::id, /datum/access/research::id, /datum/access/engine::id, /datum/access/ship_weapons::id, /datum/access/mining::id,
+		/datum/access/medical::id, /datum/access/construction::id, /datum/access/mailsorting::id, /datum/access/heads::id, /datum/access/hos::id, /datum/access/RC_announce::id, /datum/access/keycard_auth::id,
+		/datum/access/gateway::id, /datum/access/external_airlocks::id, /datum/access/weapons::id, /datum/access/intrepid::id, /datum/access/spark::id, /datum/access/quark::id, /datum/access/canary::id, /datum/access/teleporter::id
+	)
 	minimal_player_age = 14
+	outfit = /obj/outfit/job/hos
 
-	bag_type = /obj/item/weapon/storage/backpack/security
-	satchel_type = /obj/item/weapon/storage/backpack/satchel_sec
-	duffel_type = /obj/item/weapon/storage/backpack/duffel/sec
-	messenger_bag_type = /obj/item/weapon/storage/backpack/messenger/sec
+	blacklisted_species = list(SPECIES_TAJARA_ZHAN, SPECIES_DIONA, SPECIES_DIONA_COEUS, SPECIES_IPC_G1, SPECIES_IPC_G2, SPECIES_IPC_XION, SPECIES_VAURCA_WORKER, SPECIES_VAURCA_WARRIOR, SPECIES_VAURCA_ATTENDANT, SPECIES_VAURCA_BULWARK, SPECIES_VAURCA_BREEDER)
 
-	equip(var/mob/living/carbon/human/H)
-		if(!H)
-			return FALSE
-		H.equip_to_slot_or_del(new /obj/item/device/radio/headset/heads/hos(H), slot_l_ear)
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/head_of_security(H), slot_w_uniform)
+/obj/outfit/job/hos
+	name = "Head of Security"
+	jobtype = /datum/job/hos
+
+	uniform = /obj/item/clothing/under/rank/head_of_security
+	head = /obj/item/clothing/head/hos
+	id = /obj/item/card/id/scc/silver
+	shoes = null
+	glasses = /obj/item/clothing/glasses/sunglasses/sechud/head
+
+	headset = /obj/item/radio/headset/heads/hos
+	bowman = /obj/item/radio/headset/heads/hos/alt
+	double_headset = /obj/item/radio/headset/alt/double/hos
+	wrist_radio = /obj/item/radio/headset/wrist/hos
+	clipon_radio = /obj/item/radio/headset/wrist/clip/hos
+
+	tab_pda = /obj/item/modular_computer/handheld/pda/security/hos
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/security/hos
+	tablet = /obj/item/modular_computer/handheld/preset/security/hos
+
+	implants = list(
+		/obj/item/implant/mindshield
+	)
+
+	backpack = /obj/item/storage/backpack/hos
+	satchel = /obj/item/storage/backpack/satchel/hos
+	dufflebag = /obj/item/storage/backpack/duffel/hos
+	messengerbag = /obj/item/storage/backpack/messenger/hos
+
+/obj/outfit/job/hos/post_equip(mob/living/carbon/human/H, visualsOnly = FALSE)
+	. = ..()
+	if(istajara(H))
+		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/jackboots/toeless(H), slot_shoes)
+		H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black_leather/tajara(H), slot_gloves)
+	else if(isunathi(H))
+		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/jackboots/toeless(H), slot_shoes)
+		H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black_leather/unathi(H), slot_gloves)
+	else
 		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/jackboots(H), slot_shoes)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/heads/hos(H), slot_belt)
-		if(istajara(H))
-			H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black/tajara(H), slot_gloves)
-		else if(isunathi(H))
-			H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black/unathi(H), slot_gloves)
-		else
-			H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black(H), slot_gloves)
-		H.equip_to_slot_or_del(new /obj/item/clothing/glasses/sunglasses/sechud/head(H), slot_glasses)
-		if(H.backbag == 1)
-			H.equip_to_slot_or_del(new /obj/item/weapon/handcuffs(H), slot_l_store)
-		else
-			H.equip_to_slot_or_del(new /obj/item/weapon/handcuffs(H), slot_in_backpack)
-		H.implant_loyalty(H)
-		return TRUE
-
+		H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black_leather(H), slot_gloves)
 
 /datum/job/warden
 	title = "Warden"
 	flag = WARDEN
-	department = "Security"
+	departments = SIMPLEDEPT(DEPARTMENT_SECURITY)
 	department_flag = ENGSEC
 	faction = "Station"
 	total_positions = 1
 	spawn_positions = 1
 	supervisors = "the head of security"
-	selection_color = "#ffeeee"
+	selection_color = "#991818"
 	economic_modifier = 5
-	access = list(access_security, access_eva, access_sec_doors, access_brig, access_armory, access_maint_tunnels, access_morgue, access_external_airlocks, access_weapons)
-	minimal_access = list(access_security, access_eva, access_sec_doors, access_brig, access_armory, access_maint_tunnels, access_external_airlocks, access_weapons)
+
+	minimum_character_age = list(
+		SPECIES_HUMAN = 25,
+		SPECIES_SKRELL = 60,
+		SPECIES_SKRELL_AXIORI = 60
+	)
+
+	job_access = list(/datum/access/security::id, /datum/access/eva::id, /datum/access/sec_doors::id, /datum/access/holding::id, /datum/access/armory::id, /datum/access/external_airlocks::id, /datum/access/weapons::id)
 	minimal_player_age = 7
+	outfit = /obj/outfit/job/warden
 
-	bag_type = /obj/item/weapon/storage/backpack/security
-	satchel_type = /obj/item/weapon/storage/backpack/satchel_sec
-	duffel_type = /obj/item/weapon/storage/backpack/duffel/sec
-	messenger_bag_type = /obj/item/weapon/storage/backpack/messenger/sec
+	blacklisted_species = list(SPECIES_IPC_XION_REMOTE, SPECIES_VAURCA_BULWARK, SPECIES_DIONA_COEUS, SPECIES_VAURCA_BREEDER)
 
-	equip(var/mob/living/carbon/human/H)
-		if(!H)
-			return FALSE
-		H.equip_to_slot_or_del(new /obj/item/device/radio/headset/headset_sec(H), slot_l_ear)
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/warden(H), slot_w_uniform)
+/obj/outfit/job/warden
+	name = "Warden"
+	jobtype = /datum/job/warden
+
+	uniform = /obj/item/clothing/under/rank/warden
+	suit = /obj/item/clothing/suit/storage/toggle/warden
+	glasses = /obj/item/clothing/glasses/sunglasses/sechud/aviator
+	shoes = null
+
+	headset = /obj/item/radio/headset/headset_warden
+	bowman = /obj/item/radio/headset/headset_warden/alt
+	double_headset = /obj/item/radio/headset/alt/double/sec/warden
+	wrist_radio = /obj/item/radio/headset/wrist/sec/warden
+	clipon_radio = /obj/item/radio/headset/wrist/clip/sec/warden
+
+	tab_pda = /obj/item/modular_computer/handheld/pda/security
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/security
+	tablet = /obj/item/modular_computer/handheld/preset/security
+
+	backpack = /obj/item/storage/backpack/security
+	satchel = /obj/item/storage/backpack/satchel/sec
+	dufflebag = /obj/item/storage/backpack/duffel/sec
+	messengerbag = /obj/item/storage/backpack/messenger/sec
+
+/obj/outfit/job/warden/post_equip(mob/living/carbon/human/H, visualsOnly = FALSE)
+	. = ..()
+	if(istajara(H))
+		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/jackboots/toeless(H), slot_shoes)
+		H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black_leather/tajara(H), slot_gloves)
+	else if(isunathi(H))
+		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/jackboots/toeless(H), slot_shoes)
+		H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black_leather/unathi(H), slot_gloves)
+	else
 		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/jackboots(H), slot_shoes)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/warden(H), slot_belt)
-		if(istajara(H))
-			H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black/tajara(H), slot_gloves)
-		else if(isunathi(H))
-			H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black/unathi(H), slot_gloves)
-		else
-			H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black(H), slot_gloves)
-		H.equip_to_slot_or_del(new /obj/item/clothing/glasses/sunglasses/sechud(H), slot_glasses)
-//		H.equip_to_slot_or_del(new /obj/item/clothing/mask/gas(H), slot_wear_mask) //Grab one from the armory you donk
-		H.equip_to_slot_or_del(new /obj/item/device/flash(H), slot_l_store)
-		if(H.backbag == 1)
-			H.equip_to_slot_or_del(new /obj/item/weapon/handcuffs(H), slot_l_hand)
-		else
-			H.equip_to_slot_or_del(new /obj/item/weapon/handcuffs(H), slot_in_backpack)
+		H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black_leather(H), slot_gloves)
 
-		return TRUE
-
-
-
-/datum/job/detective
-	title = "Detective"
-	flag = DETECTIVE
-	department = "Security"
-	department_flag = ENGSEC
-	faction = "Station"
-	total_positions = 1
-	spawn_positions = 1
-	supervisors = "the head of security"
-	selection_color = "#ffeeee"
-	economic_modifier = 5
-	access = list(access_security, access_sec_doors, access_forensics_lockers, access_morgue, access_maint_tunnels, access_detective, access_weapons)
-	minimal_access = list(access_security, access_sec_doors, access_morgue, access_maint_tunnels, access_detective, access_weapons)
-	minimal_player_age = 7
-
-
-	equip(var/mob/living/carbon/human/H)
-		if(!H)
-			return FALSE
-		H.equip_to_slot_or_del(new /obj/item/device/radio/headset/headset_sec(H), slot_l_ear)
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/det(H), slot_w_uniform)
-		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/laceup(H), slot_shoes)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/detective(H), slot_belt)
-		if(istajara(H))
-			H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black/tajara(H), slot_gloves)
-		else if(isunathi(H))
-			H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black/unathi(H), slot_gloves)
-		else
-			H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black(H), slot_gloves)
-		if(H.backbag == 1)
-			H.equip_to_slot_or_del(new /obj/item/weapon/storage/box/evidence(H), slot_l_hand)
-		else
-			H.equip_to_slot_or_del(new /obj/item/weapon/storage/box/evidence(H), slot_in_backpack)
-
-		return TRUE
-
-/datum/job/forensics
-	title = "Forensic Technician"
+/datum/job/investigator
+	title = "Investigator"
 	flag = FORENSICS
+	departments = SIMPLEDEPT(DEPARTMENT_SECURITY)
 	department_flag = ENGSEC
 	faction = "Station"
-	total_positions = 1
-	spawn_positions = 1
+	total_positions = 2
+	spawn_positions = 2
 	supervisors = "the head of security"
-	selection_color = "#ffeeee"
+	selection_color = "#991818"
 	economic_modifier = 5
-	access = list(access_security, access_sec_doors, access_forensics_lockers, access_morgue, access_maint_tunnels, access_weapons)
-	minimal_access = list(access_security, access_sec_doors, access_forensics_lockers, access_morgue, access_maint_tunnels, access_weapons)
-	alt_titles = list("Crime Scene Investigator")
+
+	minimum_character_age = list(
+		SPECIES_HUMAN = 25,
+		SPECIES_SKRELL = 60,
+		SPECIES_SKRELL_AXIORI = 60
+	)
+
+	job_access = list(
+		/datum/access/security::id, /datum/access/sec_doors::id, /datum/access/forensics_lockers::id, /datum/access/morgue::id, /datum/access/weapons::id
+	)
 	minimal_player_age = 3
+	outfit = /obj/outfit/job/forensics
+	blacklisted_species = list(SPECIES_IPC_XION_REMOTE, SPECIES_VAURCA_BULWARK, SPECIES_VAURCA_BREEDER)
+	skill_requirements = alist(
+		/singleton/skill/surgery = SKILL_LEVEL_TRAINED
+	)
 
-	equip(var/mob/living/carbon/human/H, var/alt_title)
-		if(!H)
-			return FALSE
-		H.equip_to_slot_or_del(new /obj/item/device/radio/headset/headset_sec(H), slot_l_ear)
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/det/slob(H), slot_w_uniform)
-		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/laceup(H), slot_shoes)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/detective(H), slot_belt)
-		if(istajara(H))
-			H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black/tajara(H), slot_gloves)
-		else if(isunathi(H))
-			H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black/unathi(H), slot_gloves)
-		else
-			H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black(H), slot_gloves)
-		if(has_alt_title(H, alt_title,"Crime Scene Investigator"))
-			H.equip_to_slot_or_del(new /obj/item/clothing/suit/storage/vest/csi(H), slot_wear_suit)
-		else
-			H.equip_to_slot_or_del(new /obj/item/clothing/suit/storage/toggle/labcoat(H), slot_wear_suit)
+/obj/outfit/job/forensics
+	name = "Investigator"
+	jobtype = /datum/job/investigator
 
-		if(H.backbag == 1)
-			H.equip_to_slot_or_del(new /obj/item/weapon/storage/box/evidence(H), slot_l_hand)
-		else
-			H.equip_to_slot_or_del(new /obj/item/weapon/storage/box/evidence(H), slot_in_backpack)
+	uniform = /obj/item/clothing/under/det
+	shoes = /obj/item/clothing/shoes/laceup
 
-		return TRUE
+	headset = /obj/item/radio/headset/headset_sec
+	bowman = /obj/item/radio/headset/headset_sec/alt
+	double_headset = /obj/item/radio/headset/alt/double/sec
+	wrist_radio = /obj/item/radio/headset/wrist/sec
+	clipon_radio = /obj/item/radio/headset/wrist/clip/sec
+
+	tab_pda = /obj/item/modular_computer/handheld/pda/security/detective
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/security/detective
+	tablet = /obj/item/modular_computer/handheld/preset/security/detective
+
+	backpack = /obj/item/storage/backpack/security
+	satchel = /obj/item/storage/backpack/satchel/sec
+	dufflebag = /obj/item/storage/backpack/duffel/sec
+	messengerbag = /obj/item/storage/backpack/messenger/sec
+
+	backpack_contents = list(
+		/obj/item/storage/box/evidence = 1
+	)
+
+/obj/outfit/job/forensics/post_equip(mob/living/carbon/human/H, visualsOnly = FALSE)
+	. = ..()
+	H.equip_or_collect(new /obj/item/clothing/gloves/black/forensic(H), slot_gloves)
 
 /datum/job/officer
 	title = "Security Officer"
 	flag = OFFICER
-	department = "Security"
+	departments = SIMPLEDEPT(DEPARTMENT_SECURITY)
 	department_flag = ENGSEC
 	faction = "Station"
 	total_positions = 4
 	spawn_positions = 4
 	supervisors = "the head of security"
-	selection_color = "#ffeeee"
-//	alt_titles = list("Junior Officer") //aurora already has security cadets
+	selection_color = "#991818"
 	economic_modifier = 4
-	access = list(access_security, access_eva, access_sec_doors, access_brig, access_maint_tunnels, access_morgue, access_external_airlocks, access_weapons)
-	minimal_access = list(access_security, access_eva, access_sec_doors, access_brig, access_maint_tunnels, access_external_airlocks, access_weapons)
+
+	minimum_character_age = list(
+		SPECIES_HUMAN = 18,
+		SPECIES_SKRELL = 50,
+		SPECIES_SKRELL_AXIORI = 50
+	)
+
+	job_access = list(
+		/datum/access/security::id, /datum/access/eva::id, /datum/access/sec_doors::id, /datum/access/holding::id, /datum/access/external_airlocks::id, /datum/access/weapons::id
+	)
 	minimal_player_age = 7
+	outfit = /obj/outfit/job/officer
 
-	bag_type = /obj/item/weapon/storage/backpack/security
-	satchel_type = /obj/item/weapon/storage/backpack/satchel_sec
-	duffel_type = /obj/item/weapon/storage/backpack/duffel/sec
-	messenger_bag_type = /obj/item/weapon/storage/backpack/messenger/sec
+	blacklisted_species = list(SPECIES_IPC_XION_REMOTE, SPECIES_VAURCA_BULWARK, SPECIES_DIONA_COEUS, SPECIES_VAURCA_BREEDER)
 
-	equip(var/mob/living/carbon/human/H)
-		if(!H)
-			return FALSE
-		H.equip_to_slot_or_del(new /obj/item/device/radio/headset/headset_sec(H), slot_l_ear)
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/security(H), slot_w_uniform)
+/obj/outfit/job/officer
+	name = "Security Officer"
+	jobtype = /datum/job/officer
+
+	uniform = /obj/item/clothing/under/rank/security
+	shoes = null
+
+	headset = /obj/item/radio/headset/headset_sec
+	bowman = /obj/item/radio/headset/headset_sec/alt
+	double_headset = /obj/item/radio/headset/alt/double/sec
+	wrist_radio = /obj/item/radio/headset/wrist/sec
+	clipon_radio = /obj/item/radio/headset/wrist/clip/sec
+
+	tab_pda = /obj/item/modular_computer/handheld/pda/security
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/security
+	tablet = /obj/item/modular_computer/handheld/preset/security
+
+	backpack = /obj/item/storage/backpack/security
+	satchel = /obj/item/storage/backpack/satchel/sec
+	dufflebag = /obj/item/storage/backpack/duffel/sec
+	messengerbag = /obj/item/storage/backpack/messenger/sec
+
+/obj/outfit/job/officer/post_equip(mob/living/carbon/human/H, visualsOnly = FALSE)
+	. = ..()
+	if(istajara(H))
+		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/jackboots/toeless(H), slot_shoes)
+		H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black_leather/tajara(H), slot_gloves)
+	else if(isunathi(H))
+		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/jackboots/toeless(H), slot_shoes)
+		H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black_leather/unathi(H), slot_gloves)
+	else
 		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/jackboots(H), slot_shoes)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/security(H), slot_belt)
-		H.equip_to_slot_or_del(new /obj/item/weapon/handcuffs(H), slot_s_store)
-		H.equip_to_slot_or_del(new /obj/item/device/flash(H), slot_l_store)
-		if(H.backbag == 1)
-			H.equip_to_slot_or_del(new /obj/item/weapon/handcuffs(H), slot_l_hand)
-		else
-			H.equip_to_slot_or_del(new /obj/item/weapon/handcuffs(H), slot_in_backpack)
-		return TRUE
+		H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black_leather(H), slot_gloves)
+
+/datum/job/intern_sec
+	title = "Security Cadet"
+	flag = INTERN_SEC
+	departments = SIMPLEDEPT(DEPARTMENT_SECURITY)
+	department_flag = ENGSEC
+	faction = "Station"
+	alt_titles = list("Investigator Intern", "Warden Cadet")
+	alt_outfits = list("Investigator Intern" = /obj/outfit/job/intern_sec/forensics)
+	alt_ages = list("Investigator Intern" = list(
+		SPECIES_HUMAN = 24,
+		SPECIES_SKRELL = 58,
+		SPECIES_SKRELL_AXIORI = 58
+	),
+	"Warden Cadet" = list(
+		SPECIES_HUMAN = 24,
+		SPECIES_SKRELL = 58,
+		SPECIES_SKRELL_AXIORI = 58
+	))
+	total_positions = 2
+	spawn_positions = 2
+	supervisors = "the Head of Security"
+	selection_color = "#991818"
+
+	job_access = list(/datum/access/security::id, /datum/access/sec_doors::id)
+	outfit = /obj/outfit/job/intern_sec/officer
+	minimum_character_age = list(
+		SPECIES_HUMAN = 18,
+		SPECIES_SKRELL = 50,
+		SPECIES_SKRELL_AXIORI = 50
+	)
+
+	blacklisted_species = list(SPECIES_IPC_XION_REMOTE, SPECIES_VAURCA_BULWARK, SPECIES_DIONA_COEUS, SPECIES_VAURCA_BREEDER)
+
+/obj/outfit/job/intern_sec
+	name = "Security Cadet"
+	jobtype = /datum/job/intern_sec
+
+	uniform = /obj/item/clothing/under/rank/cadet
+	suit = /obj/item/clothing/suit/storage/hazardvest/security
+	head = /obj/item/clothing/head/beret/security
+
+	headset = /obj/item/radio/headset/headset_sec
+	bowman = /obj/item/radio/headset/headset_sec/alt
+	double_headset = /obj/item/radio/headset/alt/double/sec
+	wrist_radio = /obj/item/radio/headset/wrist/sec
+	clipon_radio = /obj/item/radio/headset/wrist/clip/sec
+
+	backpack = /obj/item/storage/backpack/security
+	satchel = /obj/item/storage/backpack/satchel/sec
+	dufflebag = /obj/item/storage/backpack/duffel/sec
+	messengerbag = /obj/item/storage/backpack/messenger/sec
+
+	tab_pda = /obj/item/modular_computer/handheld/pda/security
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/security
+	tablet = /obj/item/modular_computer/handheld/preset/security
+
+/obj/outfit/job/intern_sec/post_equip(mob/living/carbon/human/H, visualsOnly = FALSE)
+	. = ..()
+
+/obj/outfit/job/intern_sec/officer
+	name = "Security Cadet"
+	jobtype = /datum/job/intern_sec
+
+	shoes = null
+
+/obj/outfit/job/intern_sec/officer/post_equip(mob/living/carbon/human/H, visualsOnly = FALSE)
+	. = ..()
+	if(istajara(H))
+		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/jackboots/toeless(H), slot_shoes)
+		H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black_leather/tajara(H), slot_gloves)
+	else if(isunathi(H))
+		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/jackboots/toeless(H), slot_shoes)
+		H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black_leather/unathi(H), slot_gloves)
+	else
+		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/jackboots(H), slot_shoes)
+		H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black_leather(H), slot_gloves)
+
+/obj/outfit/job/intern_sec/forensics
+	name = "Investigator Intern"
+	jobtype = /datum/job/intern_sec
+
+	shoes = /obj/item/clothing/shoes/laceup
+
+/obj/outfit/job/intern_sec/forensics/post_equip(mob/living/carbon/human/H, visualsOnly = FALSE)
+	. = ..()
+	H.equip_or_collect(new /obj/item/clothing/gloves/black/forensic(H), slot_gloves)
+

@@ -1,14 +1,72 @@
-//Zlevel where overmap objects should be
-#define OVERMAP_ZLEVEL 1
-//How far from the edge of overmap zlevel could randomly placed objects spawn
-#define OVERMAP_EDGE 7
 
-//list used to track which zlevels are being 'moved' by the proc below
-var/list/moving_levels = list()
+//How far from the edge of overmap zlevel could randomly placed objects spawn
+#define OVERMAP_EDGE 4
+
+/// All sector overmap objects.
+/// Assoc list of stringified zlevel integer value (like `"1"` or `"42"` etc)
+/// to an instance of `/obj/effect/overmap/visitable`.
+/// Prefer to use the `get_map_template` proc instead of accessing this list directly.
+GLOBAL_LIST_EMPTY(map_sectors)
+
+/// All sector map templates. Analogous to the list above.
+/// Assoc list of stringified zlevel integer value
+/// to an instance of `/datum/map_template`.
+/// Prefer to use the `get_map_sector` proc instead of accessing this list directly.
+GLOBAL_LIST_EMPTY(map_templates)
+
+/area/overmap
+	name = "System Map"
+	icon_state = "start"
+	requires_power = 0
+	base_turf = /turf/unsimulated/map
+	base_lighting_alpha = 255
+
+/turf/unsimulated/map
+	icon = 'icons/obj/overmap/overmap.dmi'
+	icon_state = "map"
+
+/turf/unsimulated/map/edge
+	opacity = 1
+	density = 1
+
+/turf/unsimulated/map/Initialize(mapload)
+	. = ..()
+
+	icon_state = "map_[rand(1,6)]"
+
+	name = "[x]-[y]"
+	var/list/numbers = list()
+
+	if(x == 1 || x == SSatlas.current_map.overmap_size)
+		numbers += list("[round(y/10)]","[round(y%10)]")
+		if(y == 1 || y == SSatlas.current_map.overmap_size)
+			numbers += "-"
+	if(y == 1 || y == SSatlas.current_map.overmap_size)
+		numbers += list("[round(x/10)]","[round(x%10)]")
+
+	for(var/i = 1 to numbers.len)
+		var/image/I = image('icons/effects/numbers.dmi',numbers[i])
+		I.pixel_x = 5*i - 2
+		I.pixel_y = world.icon_size/2 - 3
+		if(y == 1)
+			I.pixel_y = 3
+			I.pixel_x = 5*i + 4
+		if(y == SSatlas.current_map.overmap_size)
+			I.pixel_y = world.icon_size - 9
+			I.pixel_x = 5*i + 4
+		if(x == 1)
+			I.pixel_x = 5*i - 2
+		if(x == SSatlas.current_map.overmap_size)
+			I.pixel_x = 5*i + 2
+		overlays += I
+
+///list used to track which zlevels are being 'moved' by the `toggle_move_stars` proc
+GLOBAL_LIST_EMPTY(moving_levels)
+
 //Proc to 'move' stars in spess
 //yes it looks ugly, but it should only fire when state actually change.
 //null direction stops movement
-proc/toggle_move_stars(zlevel, direction)
+/proc/toggle_move_stars(zlevel, direction)
 	if(!zlevel)
 		return
 
@@ -20,82 +78,57 @@ proc/toggle_move_stars(zlevel, direction)
 	if(!direction)
 		gen_dir = null
 
-	if (moving_levels["zlevel"] != gen_dir)
-		moving_levels["zlevel"] = gen_dir
-		for(var/x = 1 to world.maxx)
-			for(var/y = 1 to world.maxy)
-				var/turf/space/T = locate(x,y,zlevel)
-				if (istype(T))
-					if(!gen_dir)
-						T.icon_state = "[((T.x + T.y) ^ ~(T.x * T.y) + T.z) % 25]"
-					else
-						T.icon_state = "speedspace_[gen_dir]_[rand(1,15)]"
-						for(var/atom/movable/AM in T)
-							if (!AM.anchored)
-								AM.throw_at(get_step(T,reverse_direction(direction)), 5, 1)
+	if (GLOB.moving_levels["[zlevel]"] != gen_dir)
+		GLOB.moving_levels["[zlevel]"] = gen_dir
 
+		var/list/spaceturfs = block(locate(1, 1, zlevel), locate(world.maxx, world.maxy, zlevel))
+		for(var/turf/space/T in spaceturfs)
+			if(!gen_dir)
+				T.icon_state = "white"
+			else
+				T.icon_state = "speedspace_[gen_dir]_[rand(1,15)]"
+				for(var/atom/movable/AM in T)
+					if (AM.simulated && !AM.anchored)
+						AM.throw_at(get_step(T,REVERSE_DIR(direction)), 5, 1)
+						CHECK_TICK
+			CHECK_TICK
 
-//list used to cache empty zlevels to avoid nedless map bloat
-var/list/cached_space = list()
+/// Returns the map_template.
+/// Arg must be the z-level number or atom instance.
+/// Arg must be a valid z-level: no null or out-of-bounds z-levels.
+/// Returns the corresponding `/datum/map_template` instance.
+/proc/get_map_template(z_or_atom)
+	dbg_assert(!isnull(z_or_atom), "Argument cannot be null")
+	dbg_assert(isnum(z_or_atom) || isatom(z_or_atom), "Expected atom or number, got [ispath(z_or_atom) ? "[z_or_atom] (path)" : "[z_or_atom]"]")
 
-proc/overmap_spacetravel(var/turf/space/T, var/atom/movable/A)
-	var/obj/effect/map/M = map_sectors["[T.z]"]
-	if (!M)
-		return
-	var/mapx = M.x
-	var/mapy = M.y
-	var/nx = 1
-	var/ny = 1
-	var/nz = M.map_z
+	var/resolved_z = z_or_atom
 
-	if(T.x <= TRANSITIONEDGE)
-		nx = world.maxx - TRANSITIONEDGE - 2
-		ny = rand(TRANSITIONEDGE + 2, world.maxy - TRANSITIONEDGE - 2)
-		mapx = max(1, mapx-1)
+	if(isatom(z_or_atom))
+		var/turf/T = get_turf(z_or_atom)
+		dbg_assert(isturf(T) && T.z > 0, "Atom [z_or_atom] is in nullspace or unplaced")
+		resolved_z = T ? T.z : null
 
-	else if (A.x >= (world.maxx - TRANSITIONEDGE - 1))
-		nx = TRANSITIONEDGE + 2
-		ny = rand(TRANSITIONEDGE + 2, world.maxy - TRANSITIONEDGE - 2)
-		mapx = min(world.maxx, mapx+1)
+	dbg_assert(isnum(resolved_z) && resolved_z > 0 && resolved_z <= world.maxz, "Target z-level [resolved_z] out of bounds (1..[world.maxz])")
+	dbg_assert(round(resolved_z) == resolved_z, "Z-level must be an integer, got [resolved_z]")
 
-	else if (T.y <= TRANSITIONEDGE)
-		ny = world.maxy - TRANSITIONEDGE -2
-		nx = rand(TRANSITIONEDGE + 2, world.maxx - TRANSITIONEDGE - 2)
-		mapy = max(1, mapy-1)
+	return GLOB.map_templates["[resolved_z]"]
 
-	else if (A.y >= (world.maxy - TRANSITIONEDGE - 1))
-		ny = TRANSITIONEDGE + 2
-		nx = rand(TRANSITIONEDGE + 2, world.maxx - TRANSITIONEDGE - 2)
-		mapy = min(world.maxy, mapy+1)
+/// Returns the map sector.
+/// Arg must be the z-level number or atom instance.
+/// Arg must be a valid z-level: no null or out-of-bounds z-levels.
+/// Returns the corresponding `/obj/effect/overmap/visitable` instance.
+/proc/get_map_sector(z_or_atom)
+	dbg_assert(!isnull(z_or_atom), "Argument cannot be null")
+	dbg_assert(isnum(z_or_atom) || isatom(z_or_atom), "Expected atom or number, got [ispath(z_or_atom) ? "[z_or_atom] (path)" : "[z_or_atom]"]")
 
-	testing("[A] moving from [M] ([M.x], [M.y]) to ([mapx],[mapy]).")
+	var/resolved_z = z_or_atom
 
-	var/turf/map = locate(mapx,mapy,OVERMAP_ZLEVEL)
-	var/obj/effect/map/TM = locate() in map
-	if(TM)
-		nz = TM.map_z
-		testing("Destination: [TM]")
-	else
-		if(cached_space.len)
-			var/obj/effect/map/sector/temporary/cache = cached_space[cached_space.len]
-			cached_space -= cache
-			nz = cache.map_z
-			cache.x = mapx
-			cache.y = mapy
-			testing("Destination: *cached* [TM]")
-		else
-			world.maxz++
-			nz = world.maxz
-			TM = new /obj/effect/map/sector/temporary(mapx, mapy, nz)
-			testing("Destination: *new* [TM]")
+	if(isatom(z_or_atom))
+		var/turf/T = get_turf(z_or_atom)
+		dbg_assert(isturf(T) && T.z > 0, "Atom [z_or_atom] is in nullspace or unplaced")
+		resolved_z = T ? T.z : null
 
-	var/turf/dest = locate(nx,ny,nz)
-	if(dest)
-		A.forceMove(dest)
+	dbg_assert(isnum(resolved_z) && resolved_z > 0 && resolved_z <= world.maxz, "Target z-level [resolved_z] out of bounds (1..[world.maxz])")
+	dbg_assert(round(resolved_z) == resolved_z, "Z-level must be an integer, got [resolved_z]")
 
-	if(istype(M, /obj/effect/map/sector/temporary))
-		var/obj/effect/map/sector/temporary/source = M
-		if (source.can_die())
-			testing("Catching [M] for future use")
-			source.forceMove(null)
-			cached_space += source
+	return GLOB.map_sectors["[resolved_z]"]

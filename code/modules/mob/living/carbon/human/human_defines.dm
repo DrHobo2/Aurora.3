@@ -1,9 +1,18 @@
 /mob/living/carbon/human
+	// Tail Style
+	var/tail_style = null
+
 	//Hair colour and style
 	var/r_hair = 0
 	var/g_hair = 0
 	var/b_hair = 0
 	var/h_style = "Bald"
+
+	//Hair gradient color and style
+	var/r_grad = 0
+	var/g_grad = 0
+	var/b_grad = 0
+	var/g_style = "None"
 
 	//Facial hair colour and style
 	var/r_facial = 0
@@ -25,25 +34,29 @@
 
 	var/size_multiplier = 1 //multiplier for the mob's icon size
 	var/damage_multiplier = 1 //multiplies melee combat damage
-	var/icon_update = 1 //whether icon updating shall take place
 
-	var/lip_style = null	//no lipstick by default- arguably misleading, as it could be used for general makeup
+	var/default_lighting_alpha = LIGHTING_PLANE_ALPHA_VISIBLE
+
+	var/lipstick_color = null	//no lipstick by default
 
 	var/age = 30		//Player's age (pure fluff)
 	var/b_type = "A+"	//Player's bloodtype
 
-	var/underwear = 1	//Which underwear the player wants
-	var/undershirt = 0	//Which undershirt the player wants.
-	var/socks = 0		//Which socks the player wants.
-	var/backbag = 2		//Which backpack type the player has chosen. Nothing, Satchel or Backpack.
-	var/backbag_style = 1
+	var/list/all_underwear = list()
+	var/list/all_underwear_metadata = list()
+	var/list/hide_underwear = list()
+	var/backbag = OUTFIT_BACKPACK		//Which backpack type the player has chosen. Nothing, Satchel or Backpack.
+	var/backbag_style = OUTFIT_JOBSPECIFIC
+	var/backbag_color = OUTFIT_NOTHING
+	var/backbag_strap = TRUE
+	var/pda_choice = OUTFIT_TAB_PDA
+	var/headset_choice = OUTFIT_HEADSET
 
 	var/last_chew = 0 // Used for hand chewing
 
 	// General information
-	var/home_system = ""
 	var/citizenship = ""
-	var/personal_faction = ""
+	var/employer_faction = ""
 	var/religion = ""
 
 	//Equipment slots
@@ -60,17 +73,13 @@
 	var/obj/item/r_store = null
 	var/obj/item/l_store = null
 	var/obj/item/s_store = null
-
-	var/used_skillpoints = 0
-	var/skill_specialization = null
-	var/list/skills = list()
+	var/obj/item/wrists = null
+	var/obj/item/pants = null
 
 	var/icon/stand_icon = null
 	var/icon/lying_icon = null
 
 	var/voice = ""	//Instead of new say code calling GetVoice() over and over and over, we're just going to ask this variable, which gets updated in Life()
-
-	var/speech_problem_flag = 0
 
 	var/miming = null //Toggle for the mime's abilities.
 	var/special_voice = "" // For changing our voice. Used by a symptom.
@@ -87,12 +96,8 @@
 	var/hand_blood_color
 
 	var/list/flavor_texts = list()
-	var/gunshot_residue
+	var/list/gunshot_residue
 	var/pulling_punches // Are you trying not to hurt your opponent?
-
-	mob_bump_flag = HUMAN
-	mob_push_flags = ~HEAVY
-	mob_swap_flags = ~HEAVY
 
 	var/flash_protection = 0				// Total level of flash protection
 	var/equipment_tint_total = 0			// Total level of visualy impairing items
@@ -103,8 +108,21 @@
 	var/list/equipment_overlays = list()	// Extra overlays from equipped items
 
 	var/is_noisy = FALSE		// if TRUE, movement should make sound.
+	var/bodyfall_sound = SFX_BODYFALL
+	var/footsound = SFX_FOOTSTEP_BLANK
+
 	var/last_x = 0
 	var/last_y = 0
+	/// TRUE while this mob deliberately crawls beneath a table.
+	var/crawling_under_table = FALSE
+	/// Used during Move() so table entry effects know this is a crawl, rather than a fall or forced move.
+	var/attempting_table_crawl = FALSE
+	/// The mob's layer before crawling beneath a table, restored when they emerge.
+	var/table_crawl_old_layer = MOB_LAYER
+	/// Client-only silhouettes created by the Search Nearby maneuver.
+	var/list/table_search_silhouettes
+	/// Cooldown for searching nearby hiding places.
+	var/next_table_search = 0
 
 	var/cached_bodytype
 
@@ -112,4 +130,67 @@
 
 	var/datum/unarmed_attack/default_attack	//default unarmed attack
 
-	var/datum/martial_art/martial_art = null
+	var/datum/martial_art/primary_martial_art = null
+	var/list/datum/martial_art/known_martial_arts = null
+
+	var/triage_tag = TRIAGE_NONE
+
+	var/lobotomized = FALSE //additional check for isAdvancedToolUser that can be set manually by things
+
+	var/list/organs = list()
+
+	///Container for blood and BLOOD ONLY. Do not transfer other chems here.
+	var/datum/reagents/vessel
+
+	/// Used for cryo to free up a slot when a ghost cryos.
+	var/datum/weakref/ghost_spawner
+
+	var/next_stance_collapse = 0
+
+	var/datum/dionastats/DS
+
+	var/oxygen_alert = 0
+	var/phoron_alert = 0
+	var/co2_alert = 0
+	var/fire_alert = 0
+	var/pressure_alert = 0
+	var/temperature_alert = 0
+
+	var/datum/weakref/srom_pulled_by
+	var/datum/weakref/srom_pulling
+
+	/// Our set of "raw" overlays that can be modified, but cannot be directly applied to the mob without preprocessing.
+	var/list/overlays_raw[TOTAL_LAYERS]
+	/// store what the body last looked like, so we only have to update it if something changed
+	var/previous_damage_appearance
+
+	var/singleton/origin_item/culture/culture
+	var/singleton/origin_item/origin/origin
+
+	var/tmp/centcomm_despawn_timer
+
+	var/pronouns = NEUTER
+
+	/// Used so species that need special items (autoinhalers for vaurca/RMT for offworlders) don't get them twice when they shouldn't.
+	var/species_items_equipped
+
+	var/list/hud_list[11]
+	/// To check if we've need to roll for damage on movement while an item is imbedded in us.
+	var/embedded_flag
+	/// This is very not good, but it's much much better than calling get_rig() every update_canmove() call.
+	var/obj/item/rig/wearing_rig
+	/// Pref holder for the speech bubble style.
+	var/speech_bubble_type
+
+	// Some player characters are of type human and some are of type ../carbon
+	// Confusingly human includes most (but not all) aliens.
+	// For redundancy I'm stating this here as well as in /carbon
+	mass = REFERENCE_MASS_HUMAN
+
+	var/med_record = ""
+	var/sec_record = ""
+	var/list/incidents = list()
+	var/gen_record = ""
+	var/ccia_record = ""
+	var/list/ccia_actions = list()
+	var/exploit_record = ""

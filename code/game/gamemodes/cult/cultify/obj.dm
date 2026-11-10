@@ -1,4 +1,6 @@
-/obj/proc/cultify()
+/obj/proc/cultify(var/check_only = FALSE)
+	if(check_only)
+		return
 	qdel(src)
 
 /obj/effect/decal/cleanable/blood/cultify()
@@ -10,29 +12,40 @@
 /obj/effect/overlay/cultify()
 	return
 
-/obj/item/device/flashlight/lamp/cultify()
-	new /obj/structure/cult/pylon(loc)
-	..()
+/obj/item/flashlight/lamp/cultify()
+	new /obj/structure/cult/pylon(get_turf(src))
+	qdel(src)
+	return "As you cast \the [src] into the forge, a great pylon grows beneath your feet, achieving its form in seconds."
 
 /obj/item/stack/material/wood/cultify()
 	return
 
-/obj/item/weapon/book/cultify()
-	new /obj/item/weapon/book/tome(loc)
-	..()
+/obj/item/book/cultify()
+	var/obj/item/book/tome/T = new /obj/item/book/tome(get_turf(src))
+	qdel(src)
+	return T
 
-/obj/item/weapon/material/sword/cultify()
-	new /obj/item/weapon/melee/cultblade(loc)
-	..()
+/obj/item/tank/emergency_oxygen/cultify()
+	var/obj/item/tank/oxygen/brown/B = new /obj/item/tank/oxygen/brown(get_turf(src))
+	qdel(src)
+	return B
 
-/obj/item/weapon/storage/backpack/cultify()
-	new /obj/item/weapon/storage/backpack/cultpack(loc)
-	..()
+/obj/item/material/sword/cultify()
+	var/obj/item/melee/cultblade/A = new /obj/item/melee/cultblade(get_turf(src))
+	qdel(src)
+	return A
 
-/obj/item/weapon/storage/backpack/cultpack/cultify()
+/obj/item/storage/backpack/cultify()
+	var/obj/item/storage/backpack/cultpack/CP = new /obj/item/storage/backpack/cultpack(get_turf(src))
+	for(var/obj/O in src)
+		CP.handle_item_insertion(O)
+	qdel(src)
+	return CP
+
+/obj/item/storage/backpack/cultpack/cultify()
 	return
 
-/obj/machinery/cultify()
+/obj/structure/machinery/cultify()
 	// We keep the number of cultified machines down by only converting those that are dense
 	// The alternative is to keep a separate file of exceptions.
 	if(density)
@@ -42,57 +55,59 @@
 			/obj/structure/cult/tome
 			)
 		var/I = pick(random_structure)
-		new I(loc)
-	..()
-
-/obj/machinery/atmospherics/cultify()
-	if(src.invisibility != INVISIBILITY_MAXIMUM)
-		src.invisibility = INVISIBILITY_MAXIMUM
-		density = 0
-
-/obj/machinery/cooker/cultify()
-	new /obj/structure/cult/talisman(loc)
+		new I(get_turf(src))
 	qdel(src)
 
-/obj/machinery/computer/cultify()
-	new /obj/structure/cult/tome(loc)
-	qdel(src)
-
-/obj/machinery/door/airlock/external/cultify()
-	new /obj/structure/simple_door/wood(loc)
-	..()
-
-/obj/machinery/door/cultify()
+/obj/structure/machinery/atmospherics/cultify()
 	if(invisibility != INVISIBILITY_MAXIMUM)
-		invisibility = INVISIBILITY_MAXIMUM
-		density = 0
-		anim(target = src, a_icon = 'icons/effects/effects.dmi', a_icon_state = "breakdoor", sleeptime = 10)
-		qdel(src)
+		set_invisibility(INVISIBILITY_MAXIMUM)
+		density = FALSE
 
-/obj/machinery/door/firedoor/cultify()
+/obj/structure/machinery/cooker/cultify()
+	new /obj/structure/cult/talisman(get_turf(src))
 	qdel(src)
 
-/obj/machinery/light/cultify()
-	new /obj/structure/cult/pylon(loc)
+/obj/structure/machinery/computer/cultify()
+	new /obj/structure/cult/tome(get_turf(src))
 	qdel(src)
 
-/obj/machinery/mech_sensor/cultify()
+/obj/structure/machinery/door/cultify()
+	new /obj/structure/simple_door/cult(get_turf(src))
 	qdel(src)
 
-/obj/machinery/power/apc/cultify()
-	if(src.invisibility != INVISIBILITY_MAXIMUM)
-		src.invisibility = INVISIBILITY_MAXIMUM
-
-/obj/machinery/vending/cultify()
-	new /obj/structure/cult/forge(loc)
+/obj/structure/machinery/door/airlock/cultify()
+	if(secured_wires)
+		return
+	new /obj/structure/simple_door/cult(get_turf(src))
 	qdel(src)
 
-/obj/structure/bed/chair/cultify()
-	var/obj/structure/bed/chair/wood/wings/I = new(loc)
+/obj/structure/machinery/door/airlock/lift/cultify()
+	return
+
+/obj/structure/machinery/door/firedoor/cultify()
+	qdel(src)
+
+/obj/structure/machinery/light/cultify()
+	new /obj/structure/cult/pylon(get_turf(src))
+	qdel(src)
+
+/obj/structure/machinery/mech_sensor/cultify()
+	qdel(src)
+
+/obj/structure/machinery/power/apc/cultify()
+	if(invisibility != INVISIBILITY_MAXIMUM)
+		set_invisibility(INVISIBILITY_MAXIMUM)
+
+/obj/structure/machinery/vending/cultify()
+	new /obj/structure/cult/forge(get_turf(src))
+	qdel(src)
+
+/obj/structure/bed/stool/chair/cultify()
+	var/obj/structure/bed/stool/chair/wood/wings/I = new /obj/structure/bed/stool/chair/wood/wings(get_turf(src))
 	I.dir = dir
-	..()
+	qdel(src)
 
-/obj/structure/bed/chair/wood/cultify()
+/obj/structure/bed/stool/chair/wood/wings/cultify()
 	return
 
 /obj/structure/bookcase/cultify()
@@ -100,16 +115,16 @@
 
 /obj/structure/grille/cultify()
 	new /obj/structure/grille/cult(get_turf(src))
-	..()
+	qdel(src)
 
 /obj/structure/grille/cult/cultify()
 	return
 
 /obj/structure/simple_door/cultify()
-	new /obj/structure/simple_door/wood(loc)
-	..()
+	new /obj/structure/simple_door/cult(get_turf(src))
+	qdel(src)
 
-/obj/structure/simple_door/wood/cultify()
+/obj/structure/simple_door/cult/cultify()
 	return
 
 /obj/singularity/cultify()
@@ -118,21 +133,20 @@
 	qdel(src)
 
 /obj/structure/shuttle/engine/heater/cultify()
-	new /obj/structure/cult/pylon(loc)
-	..()
+	new /obj/structure/cult/pylon(get_turf(src))
+	qdel(src)
 
 /obj/structure/shuttle/engine/propulsion/cultify()
 	var/turf/T = get_turf(src)
 	if(T)
 		T.ChangeTurf(/turf/simulated/wall/cult)
-	..()
+	qdel(src)
 
 /obj/structure/table/cultify()
-	// Make it a wood-reinforced wooden table.
-	// There are cult materials available, but it'd make the table non-deconstructable with how holotables work.
-	// Could possibly use a new material var for holographic-ness?
-	material = get_material_by_name("wood")
-	reinforced = get_material_by_name("wood")
+	if(material == GET_SINGLETON(MATERIAL_CULT) || reinforced == GET_SINGLETON(MATERIAL_CULT))
+		return
+	material = GET_SINGLETON(MATERIAL_CULT)
+	reinforced = GET_SINGLETON(MATERIAL_CULT)
 	update_desc()
 	update_connections(1)
 	update_icon()

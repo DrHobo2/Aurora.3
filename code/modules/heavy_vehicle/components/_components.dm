@@ -1,0 +1,216 @@
+/obj/item/mech_component
+	icon = 'icons/mecha/mech_parts.dmi'
+	w_class = WEIGHT_CLASS_HUGE
+	mass = 100
+	mass_based_slowdown = TRUE
+	pixel_x = -8
+	gender = PLURAL
+	var/on_mech_icon = 'icons/mecha/mech_parts.dmi'
+	var/decal
+	var/exosuit_desc_string
+	var/total_damage = 0
+	var/brute_damage = 0
+	var/burn_damage = 0
+
+	/// The maximum combined brute and burn damage that the mech component can take before becoming completely broken.
+	var/max_damage = 120
+
+	var/damage_state = 1
+	var/list/has_hardpoints = list()
+	var/power_use = 0
+	matter = list(MATERIAL_STEEL = 15000, MATERIAL_PLASTIC = 1000, MATERIAL_OSMIUM = 500)
+	dir = SOUTH
+
+	/// Half of the baseline chance that attempting to use these arms will create sparks. Actual chance is twice this since the motivator damage contributes to the ratio.
+	var/spark_chance_ratio = 50
+
+/obj/item/mech_component/feedback_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	if(ready_to_install())
+		. += SPAN_NOTICE("It is ready for installation.")
+	else
+		. += get_missing_parts_text(user)
+
+/obj/item/mech_component/pickup(mob/user)
+	. = ..()
+	pixel_x = initial(pixel_x)
+	pixel_y = initial(pixel_y)
+
+/obj/item/mech_component/do_additional_pickup_checks(mob/user)
+	return do_mass_based_pickup_delay(user)
+
+/obj/item/mech_component/get_effective_mass()
+	. = ..()
+	for(var/atom/movable/installed_part in contents)
+		if(!installed_part.anchored)
+			. += installed_part.get_effective_mass()
+
+/obj/item/mech_component/proc/set_colour(new_colour)
+	var/last_colour = color
+	color = new_colour
+	return color != last_colour
+
+/obj/item/mech_component/emp_act(severity)
+	. = ..()
+
+	take_burn_damage(rand((10 - (severity*3)),15-(severity*4)))
+	for(var/obj/item/thing in contents)
+		thing.emp_act(severity)
+
+/obj/item/mech_component/set_dir()
+	..(SOUTH)
+
+/**
+ * Get a list of missing parts text, each line is one element of the list
+ *
+ * Used by the `get_examine_text` proc to display missing parts
+ *
+ * All implementations must append (**NOT** overwrite or manipulate, only append) to the return of the parent proc
+ *
+ * Returns a `/list` of strings
+ */
+/obj/item/mech_component/proc/get_missing_parts_text()
+	SHOULD_CALL_PARENT(TRUE)
+	SHOULD_NOT_SLEEP(TRUE)
+
+	. = list()
+
+/obj/item/mech_component/proc/return_diagnostics(var/mob/user)
+	. = list()
+	to_chat(user, SPAN_NOTICE("[capitalize_first_letters(src.name)]:"))
+	to_chat(user, SPAN_NOTICE(" - Integrity: <b>[round(((max_damage - total_damage) / max_damage) * 100, 0.1)]%</b>" ))
+
+/obj/item/mech_component/proc/prebuild()
+	return
+
+/obj/item/mech_component/proc/install_component(var/obj/item/thing, var/mob/user)
+	user.drop_from_inventory(thing)
+	thing.forceMove(src)
+	user.visible_message(SPAN_NOTICE("\The [user] installs \the [thing] in \the [src]."))
+	return 1
+
+/obj/item/mech_component/proc/update_component_damage()
+	total_damage = brute_damage + burn_damage
+	if(total_damage > max_damage) total_damage = max_damage
+	damage_state = clamp(round((total_damage/max_damage) * 4), MECH_COMPONENT_DAMAGE_UNDAMAGED, MECH_COMPONENT_DAMAGE_DAMAGED_TOTAL)
+
+/obj/item/mech_component/proc/ready_to_install()
+	return 1
+
+/obj/item/mech_component/proc/repair_brute_damage(var/amt)
+	take_brute_damage(-amt)
+
+/obj/item/mech_component/proc/repair_burn_damage(var/amt)
+	take_burn_damage(-amt)
+
+/obj/item/mech_component/proc/take_brute_damage(var/amt)
+	brute_damage = max(0, brute_damage + amt)
+	update_component_damage()
+	if(total_damage == max_damage)
+		take_component_damage(amt,0)
+
+/obj/item/mech_component/proc/take_burn_damage(var/amt)
+	burn_damage = max(0, burn_damage + amt)
+	update_component_damage()
+	if(total_damage == max_damage)
+		take_component_damage(0,amt)
+
+/obj/item/mech_component/proc/take_component_damage(var/brute, var/burn)
+	var/list/damageable_components = list()
+	for(var/obj/item/robot_parts/robot_component/RC in contents)
+		damageable_components += RC
+	if(!damageable_components.len) return
+	var/obj/item/robot_parts/robot_component/RC = pick(damageable_components)
+	if(RC.take_damage(brute, burn))
+		playsound(src, 'sound/mecha/internaldmgalarm.ogg', 100, 0, falloff_exponent = (SOUND_FALLOFF_EXPONENT+4))
+		playsound(src, 'sound/mecha/critdestr.ogg', 100, 0, falloff_exponent = (SOUND_FALLOFF_EXPONENT+4))
+		spark(src, 8)
+		qdel(RC)
+		update_components()
+
+/obj/item/mech_component/attackby(obj/item/attacking_item, mob/user)
+	if(attacking_item.tool_behaviour == TOOL_SCREWDRIVER)
+		if(contents.len)
+			var/obj/item/removed = pick(contents)
+			user.visible_message(SPAN_NOTICE("\The [user] removes \the [removed] from \the [src]."))
+			removed.forceMove(user.loc)
+			playsound(user.loc, 'sound/effects/pop.ogg', 50, 0)
+			update_components()
+		else
+			to_chat(user, SPAN_WARNING("There is nothing to remove."))
+		return
+	if(attacking_item.tool_behaviour == TOOL_WELDER)
+		repair_brute_generic(attacking_item, user)
+		return
+	if(attacking_item.tool_behaviour == TOOL_CABLECOIL)
+		repair_burn_generic(attacking_item, user)
+		return
+	return ..()
+
+/obj/item/mech_component/proc/update_components()
+	return
+
+/obj/item/mech_component/proc/repair_brute_generic(obj/item/weldingtool/WT, var/mob/user)
+	if(!istype(WT))
+		return
+	if(!brute_damage)
+		to_chat(user, SPAN_NOTICE("You inspect \the [src] but find nothing to weld."))
+		return
+	if(!WT.isOn())
+		to_chat(user, SPAN_WARNING("Turn \the [WT] on, first."))
+		return
+
+	var/do_after_time = 5 SECONDS
+	var/repair_value = 5
+	// Get modifiers only once before entering the loop.
+	SEND_SIGNAL(user, COMSIG_GET_MECH_WELD_MODIFIERS, src, &do_after_time, &repair_value)
+	if (repair_value <= 0) // Sanity check just in case to prevent an infinite loop after we start.
+		to_chat(user, SPAN_NOTICE("You can't repair \the [src]"))
+		return
+
+	to_chat(user, SPAN_NOTICE("You start welding \the [src]"))
+	playsound(user.loc, 'sound/items/Welder.ogg', 25, 1)
+
+	// Loop until finished fixing it.
+	while (TRUE)
+		if (!src || !WT || !user) // Any one of the three failed to exist.
+			return
+
+		if (!brute_damage) // Check damage both before and after do_after
+			to_chat(user, SPAN_NOTICE("You finish welding \the [src]."))
+			return
+
+		if (!do_after(user, do_after_time, src, DO_DEFAULT | DO_USER_UNIQUE_ACT | DO_SHOW_PROGRESS))
+			to_chat(user, SPAN_NOTICE("You were interrupted while welding \the [src]"))
+			return
+
+		if (!brute_damage || !WT.use(0, user))
+			to_chat(user, SPAN_NOTICE("You finish welding \the [src]."))
+			return
+
+		repair_brute_damage(repair_value)
+		to_chat(user, SPAN_NOTICE("You mend the damage to \the [src]."))
+		playsound(user.loc, 'sound/items/Welder.ogg', 25, 1)
+
+/obj/item/mech_component/proc/repair_burn_generic(var/obj/item/stack/cable_coil/CC, var/mob/user)
+	if(!istype(CC))
+		return
+	if(!burn_damage)
+		to_chat(user, SPAN_NOTICE("\The [src]'s wiring doesn't need replacing."))
+		return
+
+	var/needed_amount = 3
+	if(CC.get_amount() < needed_amount)
+		to_chat(user, SPAN_WARNING("You need at least [needed_amount] unit\s of cable to repair this section."))
+		return
+
+	user.visible_message("\The [user] begins replacing the wiring of \the [src]...")
+
+	if(burn_damage)
+		if(QDELETED(CC) || QDELETED(src) || !CC.use(needed_amount))
+			return
+
+		repair_burn_damage(25)
+		to_chat(user, SPAN_NOTICE("You mend the damage to \the [src]'s wiring."))
+		playsound(user.loc, 'sound/items/Deconstruct.ogg', 25, 1)
+	return

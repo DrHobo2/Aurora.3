@@ -6,45 +6,22 @@
 	if(stat == DEAD || paralysis || weakened || stunned || restrained())
 		return
 
-	if (layer != 2.45)
-		layer = 2.45 //Just above cables with their 2.44
-		src << text("<span class='notice'>You are now hiding.</span>")
+	if (layer != HIDING_MOB_LAYER)
+		layer = HIDING_MOB_LAYER //Just above cables with their 2.44
+		to_chat(src, SPAN_NOTICE("You are now hiding."))
 	else
 		layer = MOB_LAYER
-		src << text("<span class='notice'>You have stopped hiding.</span>")
-
-/mob/living/proc/devour()
-	set category = "Abilities"
-	set name = "Devour Creature"
-	set desc = "Attempt to eat a nearby creature, swallowing it whole if small enough, or eating it piece by piece otherwise"
-	var/list/choices = list()
-
-	for(var/mob/living/C in view(1,src))
-
-		if((!(src.Adjacent(C)) || C == src)) continue//cant steal nymphs right out of other gestalts
-
-		if (C.is_diona() == DIONA_NYMPH)
-			var/mob/living/carbon/alien/diona/D = C
-			if (D.gestalt)
-				continue
-
-		if (C in src)	// Just no.
-			continue
-
-		choices += C
-
-	var/mob/living/L = input(src,"Which creature do you wish to consume?") in null|choices
-
-	attempt_devour(L, eat_types, mouth_size)
+		to_chat(src, SPAN_NOTICE("You have stopped hiding."))
+	SEND_SIGNAL(src, COMSIG_MOB_ON_HIDE)
 
 /mob/living/verb/set_walk_speed()
-	set category = "IC"
+	set category = "IC.Maneuver"
 	set name = "Adjust walk speed"
 	set desc = "Allows you to adjust your walking speed to a slower value than normal, or reset it. Does not make you faster."
 
 
 	//First a quick block of code to calculate our normal/best movedelay
-	var/delay = config.walk_speed + movement_delay()
+	var/delay = GLOB.config.walk_speed + movement_delay()
 	var/speed = 1 / (delay/10)
 	var/newspeed
 	var/list/options = list("No limit",speed*0.95,speed*0.9,speed*0.85,speed*0.8,speed*0.7,speed*0.6,speed*0.5, "Custom")
@@ -55,7 +32,7 @@
 	if (isnull(response))
 		return
 	else if (response == "No limit")
-		src << "Movement speed has now been set to normal, limits removed."
+		to_chat(src, "Movement speed has now been set to normal, limits removed.")
 		src.min_walk_delay = 0
 		return
 	else if (response == "Custom")
@@ -65,9 +42,9 @@
 		newspeed = text2num(response)
 
 	if (!newspeed || newspeed >= speed || newspeed <= 0.2)
-		src << "Error, invalid value entered. Walk speed has not been changed"
+		to_chat(src, "Error, invalid value entered. Walk speed has not been changed")
 		return
 
 
-	src << "Walking speed has now been limited to [newspeed] tiles per second, which is [(newspeed/speed)*100]% of your normal walking speed."
+	to_chat(src, "Walking speed has now been limited to [newspeed] tiles per second, which is [(newspeed/speed)*100]% of your normal walking speed.")
 	src.min_walk_delay = (10 / newspeed)

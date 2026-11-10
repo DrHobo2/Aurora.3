@@ -1,81 +1,127 @@
-/obj/item/weapon/plastique
+/obj/item/plastique
 	name = "plastic explosives"
 	desc = "Used to put holes in specific areas without too much extra hole."
 	gender = PLURAL
 	icon = 'icons/obj/assemblies.dmi'
 	icon_state = "plastic-explosive0"
 	item_state = "plasticx"
-	flags = NOBLUDGEON
-	w_class = 2.0
+	contained_sprite = TRUE
+	item_flags = ITEM_FLAG_NO_BLUDGEON
+	w_class = WEIGHT_CLASS_SMALL
 	origin_tech = list(TECH_ILLEGAL = 2)
 	var/datum/wires/explosive/c4/wires = null
-	var/timer = 10
+	var/detonate_time = 0
+	/// Default timer is 30 seconds, but can be configured for anything from 10s to 20m.
+	var/timer = 300
 	var/atom/target = null
 	var/open_panel = 0
-	var/image_overlay = null
 
-/obj/item/weapon/plastique/Initialize()
+	/// Type of plastic explosive effect created on the obj we attack.
+	var/plastic_explosive_type = /obj/effect/plastic_explosive
+	/// Devastation range for the explosion.
+	var/devastation_range = -1
+	/// Heavy range for the explosion.
+	var/heavy_impact_range = -1
+	/// Light range for the explosion.
+	var/light_impact_range = 2
+
+/obj/item/plastique/mechanics_hints()
+	. += ..()
+	. += "This can be planted on ANY type of target except for open turfs (floors), and items with built-in storage (boxes, jackets, webbings, etc.)."
+	. += "This cannot be planted on playable characters (carbons), but any other mob type (department pets, maint drones, schlorrgos, borgs, rats, cleanbots, etc.) are fair game."
+	. += "Use this on yourself to set the timer."
+	. += "There is a wiring panel on it affixed by <b>screws</b>."
+
+/obj/item/plastique/antagonist_hints()
+	. += ..()
+	. += "This can easily be converted into a remote-triggered bomb by attaching a signaller to all 5 wires on the same frequency. Pulse that frequency with another signaller to immediately detonate the bomb."
+	. += "Everyone loves an exploding cake or pizza."
+	. += "Everyone loves an exploding hat."
+	. += "Everyone loves an exploding coffeemaker."
+	. += "Everyone loves an exploding beer keg."
+	. += "Everyone loves an exploding object you just dropped in the disposals."
+
+/obj/item/plastique/Initialize()
 	. = ..()
 	wires = new(src)
-	image_overlay = image('icons/obj/assemblies.dmi', "plastic-explosive2")
 
-/obj/item/weapon/plastique/Destroy()
+/obj/item/plastique/Destroy()
 	qdel(wires)
 	wires = null
+	target = null
 	return ..()
 
-/obj/item/weapon/plastique/attackby(var/obj/item/I, var/mob/user)
-	if(I.isscrewdriver())
+/obj/item/plastique/attackby(obj/item/attacking_item, mob/user)
+	if(attacking_item.tool_behaviour == TOOL_SCREWDRIVER)
 		open_panel = !open_panel
-		user << "<span class='notice'>You [open_panel ? "open" : "close"] the wire panel.</span>"
-	else if(I.iswirecutter() || I.ismultitool() || istype(I, /obj/item/device/assembly/signaler ))
-		wires.Interact(user)
+		to_chat(user, SPAN_NOTICE("You [open_panel ? "open" : "close"] the wire panel."))
+		return TRUE
+	else if(open_panel)
+		wires.interact(user)
+		return TRUE
 	else
-		..()
+		return ..()
 
-/obj/item/weapon/plastique/attack_self(mob/user as mob)
-	var/newtime = input(usr, "Please set the timer.", "Timer", 10) as num
+/obj/item/plastique/attack_self(mob/user as mob)
 	if(user.get_active_hand() == src)
-		newtime = Clamp(newtime, 10, 60000)
-		timer = newtime
-		user << "Timer set for [timer] seconds."
+		timer = setTimer(user)
+		if(timer)
+			to_chat(user, SPAN_NOTICE("Timer set for [DisplayTimeText(timer)] seconds."))
 
-/obj/item/weapon/plastique/afterattack(atom/movable/target, mob/user, flag)
+/obj/item/plastique/proc/setTimer(mob/user as mob)
+	var/newtime = tgui_input_number(
+		user = user,
+		message = "Please set the timer (in seconds).",
+		title = "Timer",
+		default = 30, // 30 second default
+		max_value = 300, // 5 minute maximum
+		min_value = 10, // 10 second minimum
+		timeout = 30 SECONDS
+	)
+	if(!newtime)
+		return FALSE
+
+	// Convert player input to deciseconds.
+	return newtime * 10
+
+/obj/item/plastique/afterattack(atom/movable/target, mob/user, flag)
 	if (!flag)
-		return
-	if (ismob(target) || istype(target, /turf/unsimulated) || istype(target, /turf/simulated/shuttle)|| isopenturf(target) || istype(target, /obj/item/weapon/storage/) || istype(target, /obj/item/clothing/accessory/storage/) || istype(target, /obj/item/clothing/under))
-		return
-	user << "Planting explosives..."
-	user.do_attack_animation(target)
+		return FALSE
+	if(iscarbon(target) || istype(target, /turf/unsimulated) || isopenturf(target) || istype(target, /obj/item/storage/) || istype(target, /obj/item/clothing/accessory/storage/) || istype(target, /obj/item/clothing/under))
+		return FALSE
+	if(!deploy_check(user))
+		return FALSE
+	to_chat(user, SPAN_NOTICE("Planting explosives..."))
 
-	if(do_after(user, 50) && in_range(user, target))
-		user.drop_item() //TODO: Look into this
-		src.target = target
-		loc = null
+	if(do_after(user, 5 SECONDS, target, DO_UNIQUE))
+		user.do_attack_animation(target)
+		deploy_c4(target, user)
+		return TRUE
+	return FALSE
 
-		if (ismob(target))
-			add_logs(user, target, "planted [name] on")
-			user.visible_message("<span class='danger'>[user.name] finished planting an explosive on [target.name]!</span>")
-			message_admins("[key_name(user, user.client)](<A HREF='?_src_=holder;adminmoreinfo=\ref[user]'>?</A>) planted [src.name] on [key_name(target)](<A HREF='?_src_=holder;adminmoreinfo=\ref[target]'>?</A>) with [timer] second fuse",0,1)
-			log_game("[key_name(user)] planted [src.name] on [key_name(target)] with [timer] second fuse",ckey=key_name(user))
+/obj/item/plastique/proc/deploy_check(var/mob/user)
+	return TRUE
 
-		else
-			message_admins("[key_name(user, user.client)](<A HREF='?_src_=holder;adminmoreinfo=\ref[user]'>?</A>) planted [src.name] on [target.name] at ([target.x],[target.y],[target.z] - <A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[target.x];Y=[target.y];Z=[target.z]'>JMP</a>) with [timer] second fuse",0,1)
-			log_game("[key_name(user)] planted [src.name] on [target.name] at ([target.x],[target.y],[target.z]) with [timer] second fuse",ckey=key_name(user))
+/obj/item/plastique/proc/deploy_c4(var/atom/movable/explode_target, mob/user)
+	user.drop_from_inventory(src, get_turf(user))
+	src.target = explode_target
+	var/timetext = DisplayTimeText(timer)
 
-		target.add_overlay(image_overlay, TRUE)
-		user << "Bomb has been planted. Timer counting down from [timer]."
+	log_and_message_admins("planted [src.name] on [target.name] with [timetext] fuse", user, get_turf(target))
 
-		addtimer(CALLBACK(src, .proc/explode, get_turf(target)), timer * 10)
+	new plastic_explosive_type(get_turf(user), target, src)
+	to_chat(user, SPAN_WARNING("Bomb has been planted. Timer counting down from [timetext]."))
 
-/obj/item/weapon/plastique/proc/explode(turf/location)
+	detonate_time = world.time + (timer)
+	addtimer(CALLBACK(src, PROC_REF(explode), get_turf(target)), timer)
+
+/obj/item/plastique/proc/explode(turf/location)
 	if(!target)
 		target = get_atom_on_turf(src)
 	if(!target)
 		target = src
-	target.cut_overlay(image_overlay, TRUE)
 	if(location)
-		explosion(location, -1, -1, 2, 3, spreading = 0)
+		explosion(location, devastation_range, heavy_impact_range, light_impact_range, 3, spreading = 0)
 
 	if(target)
 		if (istype(target, /turf/simulated/wall))
@@ -86,7 +132,111 @@
 		else
 			target.ex_act(1)
 
+	var/obj/effect/plastic_explosive/effect = locate(/obj/effect/plastic_explosive) in get_turf(src)
+	if(effect)
+		qdel(effect)
 	qdel(src)
 
-/obj/item/weapon/plastique/attack(mob/M as mob, mob/user as mob, def_zone)
+/obj/item/plastique/attack(mob/living/target_mob, mob/living/user, target_zone)
 	return
+
+/obj/item/plastique/cyborg
+	name = "plastic explosives dispenser"
+	desc = "A stationbound-mounted C4 dispenser, how thrilling!"
+	var/can_deploy = TRUE
+	var/recharge_time = 5 MINUTES
+	maptext_x = 3
+	maptext_y = 2
+
+/obj/item/plastique/cyborg/antagonist_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	. += "When used, this dispenser will deploy C4 on a target, upon which it will enter a charging state. After five minutes, it will restock a new C4 bundle."
+
+/obj/item/plastique/cyborg/Initialize()
+	. = ..()
+	maptext = "<span style=\"font-family: 'Small Fonts'; -dm-text-outline: 1 black; font-size: 7px;\">Ready</span>"
+
+/obj/item/plastique/cyborg/attackby()
+	return
+
+/obj/item/plastique/cyborg/deploy_check(mob/user)
+	if(!can_deploy)
+		to_chat(user, SPAN_WARNING("\The [src] hasn't recharged yet!"))
+		return FALSE
+	..()
+
+/obj/item/plastique/cyborg/deploy_c4(atom/movable/target, mob/user)
+	var/obj/item/plastique/C4 = new /obj/item/plastique(target)
+	C4.timer = src.timer
+	var/timetext = DisplayTimeText(timer)
+	C4.target = target
+	log_and_message_admins("planted [C4.name] on [target.name] with [timetext] fuse", user, get_turf(target))
+
+	new /obj/effect/plastic_explosive(get_turf(user), target, C4)
+	to_chat(user, SPAN_NOTICE("Bomb has been planted. Timer counting down from [timetext].."))
+
+	C4.detonate_time = world.time + (timer)
+	addtimer(CALLBACK(C4, PROC_REF(explode), get_turf(target)), timer)
+	addtimer(CALLBACK(src, PROC_REF(recharge)), recharge_time)
+	can_deploy = FALSE
+	maptext = "<span style=\"font-family: 'Small Fonts'; -dm-text-outline: 1 black; font-size: 6px;\">Charging</span>"
+
+/obj/item/plastique/cyborg/proc/recharge()
+	if(isrobot(loc))
+		var/mob/living/silicon/robot/R = loc
+		if(R?.cell)
+			R.cell.use(1000)
+	can_deploy = TRUE
+	maptext = "<span style=\"font-family: 'Small Fonts'; -dm-text-outline: 1 black; font-size: 7px;\">Ready</span>"
+
+/obj/item/plastique/dirty
+	name = "dirty bomb"
+	desc = "A small explosive laced with radium. The explosion is small, but the radioactive material will remain for a fair while."
+	timer = 30 SECONDS
+
+/obj/item/plastique/dirty/explode(turf/location) //Does not call parent because we need a different order of operations.
+	if(!target)
+		target = get_atom_on_turf(src)
+	if(!target)
+		target = src
+	if(target)
+		if (istype(target, /turf/simulated/wall))
+			var/turf/simulated/wall/W = target
+			W.dismantle_wall(1, no_product = TRUE)
+		else if(istype(target, /mob/living))
+			target.ex_act(2) // c4 can't gib mobs anymore.
+			target.rad_act(800) //A dirty bomb going off on top of you completely irradiates you, radsuit or not.
+		else
+			target.ex_act(1)
+
+	if(location)
+		explosion(location, devastation_range, heavy_impact_range, light_impact_range, 3, spreading = 0)
+		SSradiation.radiate(location, 250)
+		new /obj/effect/decal/cleanable/greenglow/radioactive/extreme(location)
+
+		for(var/turf/T in RANGE_TURFS(4, location))
+			if(T == location)
+				continue
+
+			if(T in RANGE_TURFS(1, location)) //High radioactive puddles 1 tile from the epicenter, medium up to 4 tiles away.
+				if(prob(75))
+					new /obj/effect/decal/cleanable/greenglow/radioactive/high(T)
+			else if(prob(25))
+				new /obj/effect/decal/cleanable/greenglow/radioactive/medium(T)
+
+	var/obj/effect/plastic_explosive/effect = locate(/obj/effect/plastic_explosive) in get_turf(src)
+	if(effect)
+		qdel(effect)
+	qdel(src)
+
+/obj/item/plastique/strong
+	name = "bundled plastic explosives"
+	desc = "Used to put big holes in specific areas with a lot of extra hole."
+	icon_state = "plastic-explosive-big0"
+	item_state = "plasticx-big"
+	w_class = WEIGHT_CLASS_NORMAL
+
+	plastic_explosive_type = /obj/effect/plastic_explosive/big
+	devastation_range = 2
+	heavy_impact_range = 4
+	light_impact_range = 6

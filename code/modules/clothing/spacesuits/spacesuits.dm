@@ -1,90 +1,85 @@
-//Spacesuit
-//Note: Everything in modules/clothing/spacesuits should have the entire suit grouped together.
-//      Meaning the the suit is defined directly after the corrisponding helmet. Just like below!
+// Softsuits
+// Everything in modules/clothing/spacesuits should have the entire suit grouped together.
+// Meaning the the suit is defined directly after the corresponding helmet.
 
 /obj/item/clothing/head/helmet/space
-	name = "space helmet"
-	icon_state = "space"
+	name = "softsuit helmet"
 	desc = "A special helmet designed for work in a hazardous, low-pressure environment."
-	item_flags = STOPPRESSUREDAMAGE | THICKMATERIAL | AIRTIGHT
-	flags_inv = BLOCKHAIR
-	item_state_slots = list(
-		slot_l_hand_str = "s_helmet",
-		slot_r_hand_str = "s_helmet"
-		)
+	icon = 'icons/obj/item/clothing/softsuits/softsuit.dmi'
+	icon_state = "softsuit_helmet"
+	item_state = "softsuit_helmet"
+	contained_sprite = TRUE
+	item_flags = ITEM_FLAG_THICK_MATERIAL | ITEM_FLAG_INJECTION_PORT | ITEM_FLAG_AIRTIGHT
 	permeability_coefficient = 0.01
-	armor = list(melee = 0, bullet = 0, laser = 0,energy = 0, bomb = 0, bio = 100, rad = 50)
+	armor = list(
+		BIO = ARMOR_BIO_SHIELDED,
+		RAD = ARMOR_RAD_SMALL
+	)
 	flags_inv = HIDEMASK|HIDEEARS|HIDEEYES|HIDEFACE|BLOCKHAIR
 	body_parts_covered = HEAD|FACE|EYES
 	cold_protection = HEAD
 	min_cold_protection_temperature = SPACE_HELMET_MIN_COLD_PROTECTION_TEMPERATURE
-	siemens_coefficient = 0.9
-	species_restricted = list("exclude","Diona","Xenomorph","Vox","Golem")
+	min_pressure_protection = 0
+	max_pressure_protection = SPACE_SUIT_MAX_PRESSURE
+	siemens_coefficient = 0.5
+	species_restricted = list("exclude",BODYTYPE_DIONA,BODYTYPE_GOLEM,BODYTYPE_VAURCA_BULWARK)
 	flash_protection = FLASH_PROTECTION_MAJOR
 	allow_hair_covering = FALSE
 
-	var/obj/machinery/camera/camera
-	var/list/camera_networks
+	has_storage = FALSE
 
 	action_button_name = "Toggle Helmet Light"
 	light_overlay = "helmet_light"
-	brightness_on = 4
-	light_wedge = LIGHT_WIDE
+	light_range = 4
 	on = 0
 
 /obj/item/clothing/head/helmet/space/Initialize()
 	. = ..()
-	if(camera_networks && camera_networks.len)
-		verbs += /obj/item/clothing/head/helmet/space/proc/toggle_camera
-
-/obj/item/clothing/head/helmet/space/proc/toggle_camera()
-	set name = "Toggle Helmet Camera"
-	set category = "Object"
-	set src in usr
-
-	if(!camera && camera_networks)
-		camera = new /obj/machinery/camera(src)
-		camera.replace_networks(camera_networks)
-		camera.set_status(0)
-
-	if(camera)
-		camera.set_status(!camera.status)
-		if(camera.status)
-			camera.c_tag = FindNameFromID(usr)
-			usr << "<span class='notice'>User scanned as [camera.c_tag]. Camera activated.</span>"
-		else
-			usr << "<span class='notice'>Camera deactivated.</span>"
-
-/obj/item/clothing/head/helmet/space/examine(var/mob/user)
-	if(..(user, 1) && camera_networks && camera_networks.len)
-		user << "This helmet has a built-in camera. It's [camera && camera.status ? "" : "in"]active."
+	if(icon_auto_adapt)
+		build_and_apply_species_adaption()
 
 /obj/item/clothing/suit/space
-	name = "space suit"
-	desc = "A suit that protects against low pressure environments. \"NSS AURORA\" is written in large block letters on the back."
-	icon_state = "space"
-	item_state = "s_suit"
-	w_class = 4//bulky item
+	name = "softsuit"
+	desc = "A suit that protects against low pressure environments."
+	icon = 'icons/obj/item/clothing/softsuits/softsuit.dmi'
+	icon_state = "softsuit"
+	item_state = "softsuit"
+	contained_sprite = TRUE
+	center_of_mass = null
+	w_class = WEIGHT_CLASS_BULKY
 	gas_transfer_coefficient = 0.01
 	permeability_coefficient = 0.02
-	item_flags = STOPPRESSUREDAMAGE | THICKMATERIAL
+	item_flags = ITEM_FLAG_THICK_MATERIAL|ITEM_FLAG_INJECTION_PORT
 	body_parts_covered = UPPER_TORSO|LOWER_TORSO|LEGS|FEET|ARMS|HANDS
-	allowed = list(/obj/item/device/flashlight,/obj/item/weapon/tank/emergency_oxygen,/obj/item/device/suit_cooling_unit)
-	slowdown = 3
-	armor = list(melee = 0, bullet = 0, laser = 0,energy = 0, bomb = 0, bio = 100, rad = 50)
-	flags_inv = HIDEGLOVES|HIDESHOES|HIDEJUMPSUIT|HIDETAIL
+	allowed = list(/obj/item/flashlight, /obj/item/tank/emergency_oxygen, /obj/item/suit_cooling_unit, /obj/item/tank)
+	slowdown = 0.4
+	armor = list(
+		BIO = ARMOR_BIO_SHIELDED,
+		RAD = ARMOR_RAD_SMALL
+	)
+	flags_inv = HIDEWRISTS|HIDEGLOVES|HIDESHOES|HIDEJUMPSUIT|HIDETAIL
 	cold_protection = UPPER_TORSO | LOWER_TORSO | LEGS | FEET | ARMS | HANDS
 	min_cold_protection_temperature = SPACE_SUIT_MIN_COLD_PROTECTION_TEMPERATURE
-	siemens_coefficient = 0.9
-	species_restricted = list("exclude","Diona","Xenomorph","Vox","Golem")
+	min_pressure_protection = 0
+	max_pressure_protection = SPACE_SUIT_MAX_PRESSURE
+	siemens_coefficient = 0.5
+	species_restricted = list("exclude",BODYTYPE_DIONA,BODYTYPE_GOLEM,BODYTYPE_VAURCA_BULWARK)
+	protects_against_weather = TRUE
 
 	var/list/supporting_limbs //If not-null, automatically splints breaks. Checked when removing the suit.
+
+/obj/item/clothing/suit/space/Initialize()
+	. = ..()
+	base_name = name
+
+	if(icon_auto_adapt)
+		build_and_apply_species_adaption()
 
 /obj/item/clothing/suit/space/equipped(mob/M)
 	check_limb_support()
 	..()
 
-/obj/item/clothing/suit/space/dropped(var/mob/user)
+/obj/item/clothing/suit/space/dropped(mob/user)
 	check_limb_support(user)
 	..()
 
@@ -92,12 +87,7 @@
 	check_limb_support(user)
 	..()
 
-// Some space suits are equipped with reactive membranes that support
-// broken limbs - at the time of writing, only the ninja suit, but
-// I can see it being useful for other suits as we expand them. ~ Z
-// The actual splinting occurs in /obj/item/organ/external/proc/fracture()
 /obj/item/clothing/suit/space/proc/check_limb_support(var/mob/living/carbon/human/user)
-
 	// If this isn't set, then we don't need to care.
 	if(!supporting_limbs || !supporting_limbs.len)
 		return
@@ -108,5 +98,32 @@
 	// Otherwise, remove the splints.
 	for(var/obj/item/organ/external/E in supporting_limbs)
 		E.status &= ~ ORGAN_SPLINTED
-		user << "The suit stops supporting your [E.name]."
+		to_chat(user, "The suit stops supporting your [E.name].")
 	supporting_limbs = list()
+
+/obj/item/clothing/head/helmet/space/emergency
+	name = "emergency softsuit helmet"
+	desc = "A simple helmet with a built in light. Smells like mothballs."
+	icon = 'icons/obj/item/clothing/softsuits/softsuit_emergency.dmi'
+	icon_state = "softsuit_emergency_helmet"
+	item_state = "softsuit_emergency_helmet"
+	contained_sprite = TRUE
+	flags_inv = HIDEMASK | HIDEEARS | BLOCKHAIR
+	flash_protection = FLASH_PROTECTION_NONE
+
+/obj/item/clothing/head/helmet/space/emergency/marooning_equipment
+	name = "marooning softsuit helmet"
+	desc = "A simple, cheap helmet with a built in light, designed for issuing to marooned personnel."
+
+/obj/item/clothing/suit/space/emergency
+	name = "emergency softsuit"
+	desc = "A thin, ungainly softsuit colored in blaze orange for rescuers to easily locate. It looks pretty fragile."
+	icon = 'icons/obj/item/clothing/softsuits/softsuit_emergency.dmi'
+	icon_state = "softsuit_emergency"
+	item_state = "softsuit_emergency"
+	contained_sprite = TRUE
+	slowdown = 1
+
+/obj/item/clothing/suit/space/emergency/marooning_equipment
+	name = "marooning softsuit"
+	desc = "A thin, ungainly softsuit colored in blaze orange for rescuers to easily locate. Designed for issuing to marooned personnel and it looks pretty fragile."

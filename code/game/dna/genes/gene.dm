@@ -27,7 +27,7 @@
 * Is the gene active in this mob's DNA?
 */
 /datum/dna/gene/proc/is_active(var/mob/M)
-	return M.active_genes && type in M.active_genes
+	return M.active_genes && (type in M.active_genes)
 
 // Return 1 if we can activate.
 // HANDLE MUTCHK_FORCED HERE!
@@ -110,13 +110,13 @@
 	return probinj(activation_prob,(flags&MUTCHK_FORCED))
 
 /datum/dna/gene/basic/activate(var/mob/M)
-	M.mutations.Add(mutation)
+	M.mutations |= mutation
 	if(activation_messages.len)
 		var/msg = pick(activation_messages)
-		M << "<span class='notice'>[msg]</span>"
+		to_chat(M, SPAN_NOTICE(msg))
 
 /datum/dna/gene/basic/deactivate(var/mob/M)
-	M.mutations.Remove(mutation)
+	M.mutations &= ~mutation
 	if(deactivation_messages.len)
 		var/msg = pick(deactivation_messages)
-		M << "<span class='warning'>[msg]</span>"
+		to_chat(M, SPAN_WARNING(msg))

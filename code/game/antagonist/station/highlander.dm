@@ -1,20 +1,22 @@
-var/datum/antagonist/highlander/highlanders
+GLOBAL_DATUM(highlanders, /datum/antagonist/highlander)
 
 /datum/antagonist/highlander
 	role_text = "Highlander"
 	role_text_plural = "Highlanders"
 	welcome_text = "There can be only one."
 	id = MODE_HIGHLANDER
-	flags = ANTAG_SUSPICIOUS | ANTAG_IMPLANT_IMMUNE
+	flags = ANTAG_SUSPICIOUS | ANTAG_IMPLANT_IMMUNE | ANTAG_NO_ROUNDSTART_SPAWN
 
 	hard_cap = 5
 	hard_cap_round = 7
 	initial_spawn_req = 3
 	initial_spawn_target = 5
 
+	bantype = "highlander"
+
 /datum/antagonist/highlander/New()
 	..()
-	highlanders = src
+	GLOB.highlanders = src
 
 /datum/antagonist/highlander/create_objectives(var/datum/mind/player)
 
@@ -30,41 +32,31 @@ var/datum/antagonist/highlander/highlanders
 /datum/antagonist/highlander/equip(var/mob/living/carbon/human/player)
 
 	if(!..())
-		return
+		return FALSE
 
 	for (var/obj/item/I in player)
-		if (istype(I, /obj/item/weapon/implant))
+		if (istype(I, /obj/item/implant))
 			continue
-		if (istype(I, /obj/item/organ))
-			continue
-		qdel(I)
+		player.drop_from_inventory(I)
+		if(I.loc != player)
+			qdel(I)
 
-	player.equip_to_slot_or_del(new /obj/item/clothing/under/kilt(player), slot_w_uniform)
-	player.equip_to_slot_or_del(new /obj/item/device/radio/headset/heads/captain(player), slot_l_ear)
-	player.equip_to_slot_or_del(new /obj/item/clothing/head/beret(player), slot_head)
-	player.equip_to_slot_or_del(new /obj/item/weapon/material/sword(player), slot_l_hand)
-	player.equip_to_slot_or_del(new /obj/item/clothing/shoes/combat(player), slot_shoes)
-	player.equip_to_slot_or_del(new /obj/item/weapon/pinpointer(get_turf(player)), slot_l_store)
-
-	var/obj/item/weapon/card/id/W = new(player)
-	W.name = "[player.real_name]'s ID Card"
-	W.icon_state = "centcom"
-	W.access = get_all_station_access()
-	W.access += get_all_centcom_access()
-	W.assignment = "Highlander"
-	W.registered_name = player.real_name
-	player.equip_to_slot_or_del(W, slot_wear_id)
+	player.preEquipOutfit(/obj/outfit/admin/highlander, FALSE)
+	player.equipOutfit(/obj/outfit/admin/highlander, FALSE)
+	player.force_update_limbs()
+	player.update_eyes()
+	player.regenerate_icons()
 
 /proc/only_one()
 
 	if(!ROUND_IS_STARTED)
-		alert("The game hasn't started yet!")
+		tgui_alert(usr, "The game hasn't started yet!")
 		return
 
-	for(var/mob/living/carbon/human/H in player_list)
+	for(var/mob/living/carbon/human/H in GLOB.player_list)
 		if(H.stat == 2 || !(H.client)) continue
 		if(is_special_character(H)) continue
-		highlanders.add_antagonist(H.mind)
+		GLOB.highlanders.add_antagonist(H.mind)
 
-	message_admins("<span class='notice'>[key_name_admin(usr)] used THERE CAN BE ONLY ONE!</span>", 1)
-	log_admin("[key_name(usr)] used there can be only one.", admin_key=key_name(usr))
+	message_admins(SPAN_NOTICE("[key_name_admin(usr)] used THERE CAN BE ONLY ONE!"), 1)
+	log_admin("[key_name(usr)] used there can be only one.")

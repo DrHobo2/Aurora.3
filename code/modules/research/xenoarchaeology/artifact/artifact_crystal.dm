@@ -7,8 +7,7 @@
 
 /obj/structure/crystal/New()
 	..()
-
-	icon_state = pick("ano70","ano80")
+	icon_state = "crystal[rand(1, 3)]"
 
 	desc = pick(\
 	"It shines faintly as it catches the light.",\
@@ -18,19 +17,19 @@
 	"It's mesmerizing to behold.")
 
 /obj/structure/crystal/Destroy()
-	src.visible_message("<span class='danger'>[src] shatters!</span>")
+	src.visible_message(SPAN_DANGER("[src] shatters!"))
 	if(prob(75))
-		new /obj/item/weapon/material/shard/phoron(src.loc)
+		new /obj/item/material/shard/phoron(src.loc)
 	if(prob(50))
-		new /obj/item/weapon/material/shard/phoron(src.loc)
+		new /obj/item/material/shard/phoron(src.loc)
 	if(prob(25))
-		new /obj/item/weapon/material/shard/phoron(src.loc)
+		new /obj/item/material/shard/phoron(src.loc)
 	if(prob(75))
-		new /obj/item/weapon/material/shard(src.loc)
+		new /obj/item/material/shard(src.loc)
 	if(prob(50))
-		new /obj/item/weapon/material/shard(src.loc)
+		new /obj/item/material/shard(src.loc)
 	if(prob(25))
-		new /obj/item/weapon/material/shard(src.loc)
+		new /obj/item/material/shard(src.loc)
 	return ..()
 
 //todo: laser_act

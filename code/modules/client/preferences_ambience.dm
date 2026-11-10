@@ -1,63 +1,162 @@
-/var/global/asfx_togs = list(
-//	/client/proc/Toggle_asfx,
-//	/client/proc/Toggle_footsteps,
-	/client/proc/Toggle_asfx_vote,
-	/client/proc/toggle_vox_voice
-)
+//
+// ASFX Toggles
+//
 
-/client/verb/asf_toggle()
-	set name = "Open ASFX Tab"
-	set category = "Preferences"
-	set desc = "Open the ambiance sound effects toggle tab"
+// Ambience plays on channel 2.
+// Ambient hum plays on channel 3.
+// Music plays on channel 4.
 
-	verbs ^= asfx_togs
-	return
+// ASFX Toggles List
+GLOBAL_LIST_INIT(sfx_toggles, list(
+	/client/proc/toggle_footsteps,
+	/client/proc/toggle_asfx_vote,
+	/client/proc/toggle_messagesounds,
+	/client/proc/toggle_dropsounds,
+	/client/proc/toggle_arcadesounds,
+	/client/proc/toggle_radiosounds,
+	/client/proc/toggle_instrumentsounds,
+	/client/proc/toggle_looping_sounds
+))
 
-/client/verb/Toggle_asfx() //Allgnew ambience should be added here so it works with this verb until someone better at things comes up with a fix that isn't awful
-	set name = "Hear/Silence Ambience"
-//	set category = "SoundFx Prefs"
-	set category = "Preferences"
-	set desc = "Toggles hearing ambient sound effects"
-	prefs.asfx_togs ^= ASFX_AMBIENCE
-	prefs.save_preferences()
-	if(prefs.asfx_togs & ASFX_AMBIENCE)
-		src << "You will now hear ambient sounds."
+/client/var/has_sfx_verbs = FALSE
+// ASFX Tab Toggle
+/client/verb/toggle_asfx_tab()
+	set name = "Toggle SFX Preferences Tab"
+	set category = "Preferences.Sound"
+	set desc = "Toggle the SFX preferences tab"
+
+	if(!has_sfx_verbs)
+		add_verb(src, GLOB.sfx_toggles)
+		has_sfx_verbs = TRUE
 	else
-		src << "<font color='red'>You will no longer hear ambient sounds.</font>"
-		src << sound(null, repeat = 0, wait = 0, volume = 0, channel = 1)
-		src << sound(null, repeat = 0, wait = 0, volume = 0, channel = 2)
-	feedback_add_details("admin_verb","TSFXAmbi") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+		remove_verb(src, GLOB.sfx_toggles)
+		has_sfx_verbs = FALSE
 
-/client/proc/Toggle_footsteps()
-	set name = "Hear/Silence Footsteps"
-	set category = "SoundFx Prefs"
+// Ambience Toggle
+/client/verb/toggle_asfx()
+	set name = "Toggle Ambience SFX"
+	set category = "Preferences.Sound"
+	set desc = "Toggles hearing ambient sound effects"
+
+	prefs.sfx_toggles ^= ASFX_AMBIENCE
+	prefs.save_preferences()
+	if(prefs.sfx_toggles & ASFX_AMBIENCE)
+		to_chat(src, SPAN_INFO("You will now hear ambient sounds."))
+	else
+		to_chat(src, SPAN_INFO("You will no longer hear ambient sounds."))
+		src << sound(null, repeat = 0, wait = 0, volume = 0, channel = 2) // Ambience plays on channel 2.
+
+// Ambient Hum Toggle
+/client/verb/toggle_asfx_hum()
+	set name = "Toggle Ambient Hum SFX"
+	set category = "Preferences.Sound"
+	set desc = "Toggles hearing the ambient hum sound effect"
+
+	prefs.sfx_toggles ^= ASFX_HUM
+	prefs.save_preferences()
+	if(prefs.sfx_toggles & ASFX_HUM)
+		to_chat(src, SPAN_INFO("You will now hear the ambient hum sound."))
+	else
+		to_chat(src, SPAN_INFO("You will no longer hear the ambient hum sound."))
+		src << sound(null, repeat = 0, wait = 0, volume = 0, channel = 3) // Ambient hum plays on channel 3.
+		ambient_hum_playing = FALSE
+
+/client/verb/toggle_sfx_music()
+	set name = "Toggle Music SFX"
+	set category = "Preferences.Sound"
+	set desc = "Toggles hearing music"
+
+	prefs.sfx_toggles ^= ASFX_MUSIC
+	prefs.save_preferences()
+	src << sound(null, repeat = 0, wait = 0, volume = 0, channel = 4) // Music plays on channel 4.
+	to_chat(src, SPAN_INFO("You will [(prefs.sfx_toggles & ASFX_MUSIC) ? "now" : "no longer"] hear music (such as from jukeboxes)."))
+
+/client/verb/toggle_asfx_console()
+	set name = "Toggle Console Ambience SFX"
+	set category = "Preferences.Sound"
+	set desc = "Toggles hearing ambient sound effects from consoles"
+
+	prefs.sfx_toggles ^= ASFX_CONSOLE_AMBIENCE
+	prefs.save_preferences()
+	if(prefs.sfx_toggles & ASFX_CONSOLE_AMBIENCE)
+		to_chat(src, SPAN_INFO("You will now hear ambient sounds from consoles."))
+	else
+		to_chat(src, SPAN_INFO("You will no longer hear ambient sounds from consoles."))
+//
+// SFX Toggles
+//
+
+/client/proc/toggle_footsteps()
+	set name = "Toggle Footsteps SFX"
+	set category = "SFX Preferences"
 	set desc = "Toggles hearing footstep sound effects"
 
-	prefs.asfx_togs ^= ASFX_FOOTSTEPS
+	prefs.sfx_toggles ^= ASFX_FOOTSTEPS
 	prefs.save_preferences()
-	if(prefs.asfx_togs & ASFX_FOOTSTEPS)
-		src << "You will now hear footstep sounds."
-	else
-		src << "<font color='red'>You will no longer hear footstep sounds.</font>"
-	feedback_add_details("admin_verb","TSFXFS") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+	to_chat(src, SPAN_INFO("You will [(prefs.sfx_toggles & ASFX_FOOTSTEPS) ? "now" : "no longer"] hear footstep sounds."))
 
-/client/proc/Toggle_asfx_vote()
-	set name = "Hear/Silence Vote Alarm"
-	set category = "SoundFx Prefs"
+/client/proc/toggle_asfx_vote()
+	set name = "Toggle Vote Alarm SFX"
+	set category = "SFX Preferences"
 	set desc = "Toggles hearing of the vote alarm"
-	prefs.asfx_togs ^= ASFX_VOTE
-	prefs.save_preferences()
-	if(prefs.asfx_togs & ASFX_VOTE)
-		src << "You will now hear the vote alarm."
-	else
-		src << "<font color='red'>You will no longer hear the vote alarm.</font>"
-	feedback_add_details("admin_verb","TSFXFV") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
-/client/proc/toggle_vox_voice()
-	set name = "Toggle VOX Voice"
-	set category = "SoundFx Prefs"
-	set desc = "Toggles the announcement voice."
-
-	prefs.asfx_togs ^= ASFX_VOX
+	prefs.sfx_toggles ^= ASFX_VOTE
 	prefs.save_preferences()
-	src << "You will [(prefs.asfx_togs & ASFX_VOX) ? "now" : "no longer"] hear the VOX voice."
+	to_chat(src, SPAN_INFO("You will [(prefs.sfx_toggles & ASFX_VOTE) ? "now" : "no longer"] hear the vote alarm."))
+
+/client/proc/toggle_messagesounds()
+	set name = "Toggle Message SFX"
+	set category = "SFX Preferences"
+	set desc = "Toggles the message sounds"
+
+	prefs.sfx_toggles ^= ASFX_VOX
+	prefs.save_preferences()
+	to_chat(src, SPAN_INFO("You will [(prefs.sfx_toggles & ASFX_VOX) ? "now" : "no longer"] hear chat voices."))
+
+/client/proc/toggle_dropsounds()
+	set name = "Toggle Item Dropping SFX"
+	set category = "SFX Preferences"
+	set desc = "Toggles hearing dropping and throwing sound effects"
+
+	prefs.sfx_toggles ^= ASFX_DROPSOUND
+	prefs.save_preferences()
+	to_chat(src, SPAN_INFO("You will [(prefs.sfx_toggles & ASFX_DROPSOUND) ? "now" : "no longer"] hear dropping and throwing sounds."))
+
+/client/proc/toggle_arcadesounds()
+	set name = "Toggle Arcade SFX"
+	set category = "SFX Preferences"
+	set desc = "Toggles hearing noises made by arcades"
+
+	prefs.sfx_toggles ^= ASFX_ARCADE
+	prefs.save_preferences()
+	to_chat(src, SPAN_INFO("You will [(prefs.sfx_toggles & ASFX_ARCADE) ? "now" : "no longer"] hear arcade sounds."))
+
+/client/proc/toggle_radiosounds()
+	set name = "Toggle Radio SFX"
+	set category = "SFX Preferences"
+	set desc = "Toggles hearing noises made by radios"
+
+	prefs.sfx_toggles ^= ASFX_RADIO
+	prefs.save_preferences()
+	to_chat(src, SPAN_INFO("You will [(prefs.sfx_toggles & ASFX_RADIO) ? "now" : "no longer"] hear radio sounds."))
+
+/client/proc/toggle_instrumentsounds()
+	set name = "Toggle Instrument SFX"
+	set category = "SFX Preferences"
+	set desc = "Toggles hearing noises made by instruments"
+
+	prefs.sfx_toggles ^= ASFX_INSTRUMENT
+	prefs.save_preferences()
+	to_chat(src, SPAN_INFO("You will [(prefs.sfx_toggles & ASFX_INSTRUMENT) ? "now" : "no longer"] hear instrument sounds."))
+
+/client/proc/toggle_looping_sounds()
+	set name = "Set Looping SFX Volume"
+	set category = "SFX Preferences"
+	set desc = "Sets the volume of looping sound effects"
+
+	var/new_volume = tgui_input_number(src, "Choose looping sound effect volume, 0 to mute", "Looping SFX Volume", prefs.looping_sound_volume, 100, 0, 0, TRUE)
+	if(isnull(new_volume))
+		return
+	prefs.looping_sound_volume = new_volume
+	prefs.save_preferences()
+	to_chat(src, SPAN_INFO("Looping sound effect volume set to [new_volume]%."))

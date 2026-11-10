@@ -13,24 +13,35 @@
 
 	var/active_engines = 0
 	var/train_length = 0
+	/// Largest mob this train can run over. Bulwarks (size 28) and larger mobs are excluded.
+	var/max_runover_size = 27
 
 	var/obj/vehicle/train/lead
 	var/obj/vehicle/train/tow
+	/// Whether this vehicle can be connected to the ordinary train hitch system.
+	var/train_hitch_compatible = TRUE
 
 	can_hold_mob = TRUE
 
+/obj/vehicle/train/feedback_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	if(lead)
+		. += SPAN_NOTICE("It is being towed by \the [lead] in the [dir2text(get_dir(src, lead))].")
+	if(tow)
+		. += SPAN_NOTICE("It towing \the [tow] in the [dir2text(get_dir(src, tow))].")
 
 //-------------------------------------------
 // Standard procs
 //-------------------------------------------
-/obj/vehicle/train/Initialize()
-	. = ..()
+/obj/vehicle/train/setup_vehicle()
+	..()
 	for(var/obj/vehicle/train/T in orange(1, src))
 		latch(T)
 
 /obj/vehicle/train/Move()
 	var/old_loc = get_turf(src)
-	if(..())
+	. = ..()
+	if(.)
 		if(tow)
 			tow.Move(old_loc)
 		return 1
@@ -39,28 +50,73 @@
 			unattach()
 		return 0
 
+/// Trains need to recursively recalculate their glide size for all their towed objects.
+/obj/vehicle/train/recalculate_glide_size(old_move_delay, move_delay, direction)
+	var/new_glide_size = glide_size
+
+	if(old_move_delay + world.tick_lag > world.time)
+		new_glide_size = DELAY_TO_GLIDE_SIZE((move_delay - old_move_delay) * ( (NSCOMPONENT(direction) && EWCOMPONENT(direction)) ? sqrt(2) : 1 ) )
+	else
+		new_glide_size = DELAY_TO_GLIDE_SIZE((move_delay - world.time) * ( (NSCOMPONENT(direction) && EWCOMPONENT(direction)) ? sqrt(2) : 1 ) )
+
+	recurse_glide_size(new_glide_size) // set it now in case of pulled objects
+	return new_glide_size
+
+/// Sets the glide size of the entire train.
+/obj/vehicle/train/proc/recurse_glide_size(var/glide_size)
+	set_glide_size(glide_size)
+	if (!tow)
+		return
+
+	tow.recurse_glide_size(glide_size)
+
 /obj/vehicle/train/Collide(atom/Obstacle)
 	. = ..()
 	if(!istype(Obstacle, /atom/movable))
 		return
 	var/atom/movable/A = Obstacle
+	if(isliving(A))
+		var/mob/living/target_mob = A
+		if(target_mob.mob_size > max_runover_size)
+			collide_with_oversized_mob(target_mob)
+			return
 
 	if(!A.anchored)
 		var/turf/T = get_step(A, dir)
 		if(isturf(T))
 			A.Move(T)	//bump things away when hit
 
-	if(emagged)
-		if(istype(A, /mob/living))
+	var/mob/living/driver = get_driver()
+	if(driver?.m_intent == M_RUN)
+		if(isliving(A))
 			var/mob/living/M = A
-			visible_message("<span class='warning'>[src] knocks over [M]!</span>")
+			visible_message(SPAN_WARNING("[src] knocks over [M]!"))
 			var/def_zone = ran_zone()
 			M.apply_effects(5, 5)				//knock people down if you hit them
-			M.apply_damage(22 / move_delay, BRUTE, def_zone, M.run_armor_check(def_zone, "melee"))	// and do damage according to how fast the train is going
-			if(istype(load, /mob/living/carbon/human))
-				var/mob/living/D = load
-				D << "<span class='warning'>You hit [M]!</span>"
-				msg_admin_attack("[D.name] ([D.ckey]) hit [M.name] ([M.ckey]) with [src]. (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[src.x];Y=[src.y];Z=[src.z]'>JMP</a>)",ckey=key_name(D),ckey_target=key_name(M))
+			// Keep fractional movement delays; instantaneous movement uses one tick for damage scaling.
+			var/collision_delay = move_delay > 0 ? move_delay : world.tick_lag
+			M.apply_damage(22 / collision_delay, DAMAGE_BRUTE, def_zone,)	// and do damage according to how fast the train is going
+			to_chat(driver, SPAN_WARNING("You hit [M]!"))
+			msg_admin_attack("[driver.name] ([driver.ckey]) hit [M.name] ([M.ckey]) with [src]. (<A href='byond://?_src_=holder;adminplayerobservecoodjump=1;X=[src.x];Y=[src.y];Z=[src.z]'>JMP</a>)",ckey=key_name(driver),ckey_target=key_name(M))
+
+/obj/vehicle/train/proc/get_driver()
+	var/obj/vehicle/train/train_head = src
+	while(train_head.lead)
+		train_head = train_head.lead
+	if(isliving(train_head.load))
+		return train_head.load
+
+/obj/vehicle/train/proc/collide_with_oversized_mob(mob/living/target_mob)
+	var/mob/living/driver = get_driver()
+	if(driver?.m_intent != M_RUN)
+		return
+	visible_message(SPAN_WARNING("\The [src] collides with \the [target_mob], jolting its driver!"))
+	to_chat(driver, SPAN_WARNING("You collide with \the [target_mob]! They are too big to run over."))
+	driver.apply_damage(10, DAMAGE_PAIN)
+	driver.Stun(1)
+	driver.setMoveCooldown(1 SECONDS)
+	target_mob.apply_damage(10, DAMAGE_PAIN)
+	msg_admin_attack("[driver.name] ([driver.ckey]) collided with [target_mob.name] ([target_mob.ckey]) in [src]. (<A href='byond://?_src_=holder;adminplayerobservecoodjump=1;X=[src.x];Y=[src.y];Z=[src.z]'>JMP</a>)", ckey = key_name(driver), ckey_target = key_name(target_mob))
 
 
 //-------------------------------------------
@@ -76,60 +132,31 @@
 //-------------------------------------------
 // Interaction procs
 //-------------------------------------------
-/obj/vehicle/train/relaymove(mob/user, direction)
-	var/turf/T = get_step_to(src, get_step(src, direction))
-	if(!T)
-		user << "You can't find a clear area to step onto."
-		return 0
 
-	if(user != load)
-		if(user in src)		//for handling players stuck in src - this shouldn't happen - but just in case it does
-			user.forceMove(T)
-			return 1
-		return 0
-
-	unload(user, direction)
-
-	user << "<span class='notice'>You climb down from [src].</span>"
-
-	return 1
-
-/obj/vehicle/train/MouseDrop_T(var/atom/movable/C, mob/user as mob)
-	if(user.buckled || user.stat || user.restrained() || !Adjacent(user) || !user.Adjacent(C) || !istype(C) || (user == C && !user.canmove))
+/obj/vehicle/train/mouse_drop_receive(atom/dropped, mob/user, params)
+	if(use_check_and_message(user))
 		return
-	if(istype(C,/obj/vehicle/train))
-		latch(C, user)
+	if(istype(dropped, /obj/vehicle/train))
+		latch(dropped, user)
 	else
-		if(!load(C))
-			user << "<span class='warning'>You were unable to load [C] on [src].</span>"
+		if(!load(dropped))
+			to_chat(user, SPAN_WARNING("You were unable to load \the [dropped] on \the [src]."))
 
 /obj/vehicle/train/attack_hand(mob/user as mob)
-	if(user.stat || user.restrained() || !Adjacent(user))
+	if(use_check_and_message(user))
 		return 0
 
 	if(user != load && (user in src))
 		user.forceMove(loc)			//for handling players stuck in src
 	else if(load)
 		unload(user)			//unload if loaded
-	else if(!load && !user.buckled)
-		load(user)				//else try climbing on board
-	else
-		return 0
 
-/obj/vehicle/train/verb/unlatch_v()
-	set name = "Unlatch"
-	set desc = "Unhitches this train from the one in front of it."
-	set category = "Vehicle"
-	set src in view(1)
-
-	if(!istype(usr, /mob/living/carbon/human))
+/obj/vehicle/train/attackby(obj/item/attacking_item, mob/user)
+	if(attacking_item.tool_behaviour == TOOL_WRENCH)
+		attacking_item.play_tool_sound(get_turf(src), 70)
+		unattach(user)
 		return
-
-	if(!usr.canmove || usr.stat || usr.restrained() || !Adjacent(usr))
-		return
-
-	unattach(usr)
-
+	return ..()
 
 //-------------------------------------------
 // Latching/unlatching procs
@@ -139,32 +166,34 @@
 //Note: there is a modified version of this in code\modules\vehicles\cargo_train.dm specifically for cargo train engines
 /obj/vehicle/train/proc/attach_to(obj/vehicle/train/T, mob/user)
 	if (get_dist(src, T) > 1)
-		user << "<span class='warning'>[src] is too far away from [T] to hitch them together.</span>"
+		to_chat(user, SPAN_WARNING("\The [src] is too far away from \the [T] to hitch them together."))
+		return
+	if (!train_hitch_compatible || !T.train_hitch_compatible)
+		to_chat(user, SPAN_WARNING("\The [src] and \the [T] do not have compatible hitches."))
 		return
 
 	if (lead)
-		user << "<span class='warning'>[src] is already hitched to something.</span>"
+		to_chat(user, SPAN_WARNING("\The [src] is already hitched to something."))
 		return
 
 	if (T.tow)
-		user << "<span class='warning'>[T] is already towing something.</span>"
+		to_chat(user, SPAN_WARNING("\The [T] is already towing something."))
 		return
 
 	//check for cycles.
 	var/obj/vehicle/train/next_car = T
 	while (next_car)
 		if (next_car == src)
-			user << "<span class='warning'>That seems very silly.</span>"
+			to_chat(user, SPAN_WARNING("That seems very silly."))
 			return
 		next_car = next_car.lead
 
 	//latch with src as the follower
-	lead = T
+	src.lead = T
 	T.tow = src
-	set_dir(lead.dir)
-
-	if(user)
-		user << "<span class='notice'>You hitch [src] to [T].</span>"
+	set_dir(get_dir(src, lead))
+	to_chat(user, SPAN_NOTICE("You hitch \the [src] to \the [T]."))
+	playsound(loc, 'sound/items/wrench.ogg', 70, TRUE)
 
 	update_stats()
 
@@ -172,27 +201,36 @@
 //detaches the train from whatever is towing it
 /obj/vehicle/train/proc/unattach(mob/user)
 	if (!lead)
-		user << "<span class='warning'>[src] is not hitched to anything.</span>"
+		to_chat(user, SPAN_WARNING("\The [src] is not hitched to anything."))
 		return
 
 	lead.tow = null
 	lead.update_stats()
 
-	user << "<span class='notice'>You unhitch [src] from [lead].</span>"
+	to_chat(user, SPAN_NOTICE("You unhitch \the [src] from \the [lead]."))
 	lead = null
 
 	update_stats()
+
+//-------------------------------------------
+// Latching/unlatching procs
+//-------------------------------------------
 
 /obj/vehicle/train/proc/latch(obj/vehicle/train/T, mob/user)
 	if(!istype(T) || !Adjacent(T))
 		return 0
 
-	var/T_dir = get_dir(src, T)	//figure out where T is wrt src
-
-	if(dir == T_dir) 	//if car is ahead
+	//if we are attaching a trolley to an engine we don't care what direction
+	// it is in and it should probably be attached with the engine in the lead
+	if(istype(T, /obj/vehicle/train/cargo/engine))
 		src.attach_to(T, user)
-	else if(reverse_direction(dir) == T_dir)	//else if car is behind
-		T.attach_to(src, user)
+	else
+		var/T_dir = get_dir(src, T)	//figure out where T is wrt src
+
+		if(dir == T_dir) 	//if car is ahead
+			src.attach_to(T, user)
+		else if(REVERSE_DIR(dir) == T_dir)	//else if car is behind
+			T.attach_to(src, user)
 
 //returns 1 if this is the lead car of the train
 /obj/vehicle/train/proc/is_train_head()

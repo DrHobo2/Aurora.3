@@ -1,107 +1,100 @@
-/obj/item/weapon/paper_bin
+/obj/item/paper_bin
 	name = "paper bin"
 	icon = 'icons/obj/bureaucracy.dmi'
 	icon_state = "paper_bin1"
 	item_state = "sheet-metal"
+	drop_sound = 'sound/items/drop/cardboardbox.ogg'
+	pickup_sound = 'sound/items/pickup/cardboardbox.ogg'
 	throwforce = 1
-	w_class = 5
+	w_class = WEIGHT_CLASS_HUGE
 	throw_speed = 3
 	throw_range = 7
-	layer = OBJ_LAYER - 0.1
-	var/amount = 30					//How much paper is in the bin.
-	var/list/papers = new/list()	//List of papers put in the bin for reference.
+	layer = BELOW_OBJ_LAYER
+	/// How much generic paper stock is in the bin.
+	var/amount = 30
+	/// The of physical papers put in the bin for reference.
+	var/list/papers = new/list()
 
+/obj/item/paper_bin/feedback_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	if(is_adjacent)
+		var/total_papers = amount + papers.len
+		if(total_papers)
+			. += SPAN_NOTICE("There " + (total_papers > 1 ? "are [total_papers] papers" : "is one paper") + " in the bin.")
+		else
+			. += SPAN_NOTICE("There are no papers in the bin.")
 
-/obj/item/weapon/paper_bin/MouseDrop(mob/user as mob)
-	if((user == usr && (!( usr.restrained() ) && (!( usr.stat ) && (usr.contents.Find(src) || in_range(src, usr))))))
-		if(!istype(usr, /mob/living/carbon/slime) && !istype(usr, /mob/living/simple_animal))
-			if( !usr.get_active_hand() )		//if active hand is empty
-				var/mob/living/carbon/human/H = user
-				var/obj/item/organ/external/temp = H.organs_by_name["r_hand"]
+/obj/item/paper_bin/mouse_drop_dragged(atom/over, mob/user, src_location, over_location, params)
+	if((over == user && (!( user.restrained() ) && (!( user.stat ) && (user.contents.Find(src) || in_range(src, user))))))
+		if(!istype(user, /mob/living/carbon/slime) && !istype(user, /mob/living/simple_animal))
+			if( !user.get_active_hand() )		//if active hand is empty
+				var/mob/living/carbon/human/H = over
+				var/obj/item/organ/external/temp = H.organs_by_name[BP_R_HAND]
 
 				if (H.hand)
-					temp = H.organs_by_name["l_hand"]
+					temp = H.organs_by_name[BP_L_HAND]
 				if(temp && !temp.is_usable())
-					user << "<span class='notice'>You try to move your [temp.name], but cannot!</span>"
+					to_chat(H, SPAN_NOTICE("You try to move your [temp.name], but cannot!"))
 					return
 
-				user << "<span class='notice'>You pick up the [src].</span>"
-				user.put_in_hands(src)
-
+				to_chat(H, SPAN_NOTICE("You pick up the [src]."))
+				H.put_in_hands(src)
 	return
 
-/obj/item/weapon/paper_bin/attack_hand(mob/user as mob)
+/obj/item/paper_bin/attack_hand(mob/user as mob)
 	if(ishuman(user))
 		var/mob/living/carbon/human/H = user
-		var/obj/item/organ/external/temp = H.organs_by_name["r_hand"]
+		var/obj/item/organ/external/temp = H.organs_by_name[BP_R_HAND]
 		if (H.hand)
-			temp = H.organs_by_name["l_hand"]
+			temp = H.organs_by_name[BP_L_HAND]
 		if(temp && !temp.is_usable())
-			user << "<span class='notice'>You try to move your [temp.name], but cannot!</span>"
+			to_chat(user, SPAN_NOTICE("You try to move your [temp.name], but cannot!"))
 			return
-	var/response = ""
-	if(!papers.len > 0)
-		response = alert(user, "Do you take regular paper, or Carbon copy paper?", "Paper type request", "Regular", "Carbon-Copy", "Cancel")
-		if (response != "Regular" && response != "Carbon-Copy")
-			add_fingerprint(user)
+	var/obj/item/paper/P
+	// Any inserted paper is used before making a generic blank one.
+	if(papers.len)
+		P = papers[papers.len]
+		papers.Remove(P)
+	else if(amount)
+		var/response = tgui_alert(user, "Do you take regular paper, or Carbon copy paper?", "Paper type request", list("Regular", "Carbon-Copy", "Cancel"))
+		if(response != "Regular" && response != "Carbon-Copy")
 			return
-	if(amount >= 1)
 		amount--
-		if(amount==0)
-			update_icon()
-
-		var/obj/item/weapon/paper/P
-		if(papers.len > 0)	//If there's any custom paper on the stack, use that instead of creating a new paper.
-			P = papers[papers.len]
-			papers.Remove(P)
+		if(response == "Regular")
+			P = new /obj/item/paper
 		else
-			if(response == "Regular")
-				P = new /obj/item/weapon/paper
-				if(Holiday == "April Fool's Day")
-					if(prob(30))
-						P.info = "<font face=\"[P.crayonfont]\" color=\"red\"><b>HONK HONK HONK HONK HONK HONK HONK<br>HOOOOOOOOOOOOOOOOOOOOOONK<br>APRIL FOOLS</b></font>"
-						P.rigged = 1
-						P.updateinfolinks()
-			else if (response == "Carbon-Copy")
-				P = new /obj/item/weapon/paper/carbon
-
-		P.forceMove(user.loc)
-		user.put_in_hands(P)
-		user << "<span class='notice'>You take [P] out of the [src].</span>"
+			P = new /obj/item/paper/carbon
 	else
-		user << "<span class='notice'>[src] is empty!</span>"
+		to_chat(user, SPAN_NOTICE("[src] is empty!"))
+		return
+
+	P.forceMove(user.loc)
+	user.put_in_hands(P)
+	to_chat(user, SPAN_NOTICE("You take [P] out of the [src]."))
+	update_icon()
 
 	add_fingerprint(user)
 	return
 
-
-/obj/item/weapon/paper_bin/attackby(obj/item/weapon/O as obj, mob/user as mob)
-	if(istype(O, /obj/item/weapon/paper))
-		var/obj/item/weapon/paper/i = O
+/obj/item/paper_bin/attackby(obj/item/attacking_item, mob/user)
+	if(istype(attacking_item, /obj/item/paper))
+		var/obj/item/paper/i = attacking_item
 		user.drop_from_inventory(i,src)
-		user << "<span class='notice'>You put [i] in [src].</span>"
+		to_chat(user, SPAN_NOTICE("You put [i] in [src]."))
 		papers.Add(i)
-		amount++
- /*	if(istype(O, /obj/item/weapon/paper_pack))	WIP written in.
- 		var/obj/item/weapon/paper_bundle/j = O
- 		amount += j.amount
- 		user << "<span class='notice'>You add paper from [j] into [src].</span>"
- 		user.drop_from_inventory(j,get_turf(src))
-		qdel(j)
- */
+		update_icon()
 
+/obj/item/paper_bin/proc/consume_generic_paper(amount_to_consume)
+	amount_to_consume = min(amount_to_consume, amount)
+	if(amount_to_consume <= 0)
+		return 0
 
-/obj/item/weapon/paper_bin/examine(mob/user)
-	if(get_dist(src, user) <= 1)
-		if(amount)
-			user << "<span class='notice'>There " + (amount > 1 ? "are [amount] papers" : "is one paper") + " in the bin.</span>"
-		else
-			user << "<span class='notice'>There are no papers in the bin.</span>"
-	return
+	amount -= amount_to_consume
+	update_icon()
+	return amount_to_consume
 
-
-/obj/item/weapon/paper_bin/update_icon()
-	if(amount < 1)
+/obj/item/paper_bin/update_icon()
+	if(amount <= 0 && !papers.len)
 		icon_state = "paper_bin0"
 	else
 		icon_state = "paper_bin1"

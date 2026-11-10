@@ -1,6 +1,6 @@
 /*
 	Pins both hold data for circuits, as well move data between them.  Some also cause circuits to do their function.  DATA_CHANNEL pins are the data holding/moving kind,
-where as PULSE_CHANNEL causes circuits to work() when their pulse hits them.
+whereas PULSE_CHANNEL causes circuits to work() when their pulse hits them.
 
 
 A visualization of how pins work is below.  Imagine the below image involves an addition circuit.
@@ -12,8 +12,8 @@ A [2]\      /[8] result
 B [1]-\|++|/
 C [4]-/|++|
 D [1]/  ||
-        ||
-     Activator
+		||
+	Activator
 
 
 
@@ -33,7 +33,7 @@ D [1]/  ||
 	holder = newloc
 	if(!istype(holder))
 		message_admins("ERROR: An integrated_io ([src.name]) spawned without a valid holder!  This is a bug.")
-		log_debug("ERROR: An integrated_io ([src.name]) spawned without a valid holder!  This is a bug.")
+		LOG_DEBUG("ERROR: An integrated_io ([src.name]) spawned without a valid holder!  This is a bug.")
 
 /datum/integrated_io/Destroy()
 	disconnect()
@@ -68,14 +68,15 @@ list[](
 
 	if(islist(input))
 		var/list/my_list = input
-		var/result = "list\[[my_list.len]\]("
-		if(my_list.len)
+		var/list_length = length(my_list)
+		var/result = "list\[[list_length]\]("
+		if(list_length)
 			result += "<br>"
 			var/pos = 0
 			for(var/line in my_list)
 				result += "[display_data(line)]"
 				pos++
-				if(pos != my_list.len)
+				if(pos != list_length)
 					result += ",<br>"
 			result += "<br>"
 		result += ")"
@@ -85,7 +86,7 @@ list[](
 		var/datum/weakref/w = input
 		var/atom/A = w.resolve()
 		//return A ? "([A.name] \[Ref\])" : "(null)" // For refs, we want just the name displayed.
-		return A ? "(\ref[A] \[Ref\])" : "(null)"
+		return A ? "([REF(A)] \[Ref\])" : "(null)"
 
 	return "([input])" // Nothing special needed for numbers or other stuff.
 
@@ -111,7 +112,7 @@ list[](
 	push_data()
 
 /datum/integrated_io/proc/write_data_to_pin(var/new_data)
-	if(isnull(new_data) || isnum(new_data) || istext(new_data) || isweakref(new_data)) // Anything else is a type we don't want.
+	if(isnull(new_data) || isnum(new_data) || istext(new_data) || isweakref(new_data) || islist(new_data)) // Anything else is a type we don't want.
 		data = new_data
 		holder.on_data_written()
 
@@ -121,7 +122,7 @@ list[](
 
 /datum/integrated_io/activate/push_data()
 	for(var/datum/integrated_io/io in linked)
-		io.holder.check_then_do_work()
+		io.holder.check_then_do_work(FALSE)
 
 /datum/integrated_io/proc/pull_data()
 	for(var/datum/integrated_io/io in linked)
@@ -144,27 +145,27 @@ list[](
 		linked -= their_io
 
 /datum/integrated_io/proc/ask_for_data_type(mob/user, var/default, var/list/allowed_data_types = list("string","number","null"))
-	var/type_to_use = input("Please choose a type to use.","[src] type setting") as null|anything in allowed_data_types
+	var/type_to_use = tgui_input_list(user, "Please choose a type to use.", "[src] type setting", allowed_data_types)
 	if(!holder.check_interactivity(user))
 		return
 
 	var/new_data = null
 	switch(type_to_use)
 		if("string")
-			new_data = sanitize(input("Now type in a string.","[src] string writing", istext(default) ? default : null) as null|text, MAX_MESSAGE_LEN, 1, 0, 1)
+			new_data = tgui_input_text(user, "Now type in a string.", "[src] string writing", istext(default) ? default : "", MAX_MESSAGE_LEN)
 			if(istext(new_data) && holder.check_interactivity(user) )
-				to_chat(user, "<span class='notice'>You input [new_data] into the pin.</span>")
+				to_chat(user, SPAN_NOTICE("You input [new_data] into the pin."))
 				return new_data
 
 		if("number")
-			new_data = input("Now type in a number.","[src] number writing", isnum(default) ? default : null) as null|num
+			new_data = tgui_input_number(user, "Now type in a number.", "[src] number writing", isnum(default) ? default : 0)
 			if(isnum(new_data) && holder.check_interactivity(user) )
-				to_chat(user, "<span class='notice'>You input [new_data] into the pin.</span>")
+				to_chat(user, SPAN_NOTICE("You input [new_data] into the pin."))
 				return new_data
 
 		if("null")
 			if(holder.check_interactivity(user))
-				to_chat(user, "<span class='notice'>You clear the pin's memory.</span>")
+				to_chat(user, SPAN_NOTICE("You clear the pin's memory."))
 				return new_data
 
 // Basically a null check
@@ -178,7 +179,7 @@ list[](
 
 /datum/integrated_io/activate/ask_for_pin_data(mob/user) // This just pulses the pin.
 	holder.check_then_do_work(ignore_power = TRUE)
-	to_chat(user, "<span class='notice'>You pulse \the [holder]'s [src] pin.</span>")
+	to_chat(user, SPAN_NOTICE("You pulse \the [holder]'s [src] pin."))
 
 /datum/integrated_io/activate
 	name = "activation pin"

@@ -1,34 +1,44 @@
-var/global/file_uid = 0
+GLOBAL_VAR_INIT(file_uid, 0)
 
-/datum/computer_file/
-	var/filename = "NewFile" 								// Placeholder. No spacebars
-	var/filetype = "XXX" 									// File full names are [filename].[filetype] so like NewFile.XXX in this case
-	var/size = 1											// File size in GQ. Integers only!
-	var/obj/item/weapon/computer_hardware/hard_drive/holder	// Holder that contains this file.
-	var/unsendable = 0										// Whether the file may be sent to someone via NTNet transfer or other means.
-	var/undeletable = 0                                     // Whether the file may be deleted. Setting to 1 prevents deletion/renaming/etc.
-	var/password = ""                                       // Placeholder for password protected files.
-	var/uid													// UID of this file
+/datum/computer_file
+	/// Placehard_drive. No spacebars
+	var/filename = "NewFile"
+	/// File full names are [filename].[filetype] so like NewFile.XXX in this case
+	var/filetype = "XXX"
+	/// Description of the file, shown in file browser.
+	var/filedesc = null
+	/// File size in GQ. Integers only!
+	var/size = 1
+	/// Harddrive that contains this file.
+	var/obj/item/computer_hardware/hard_drive/hard_drive
+	/// Whether the file may be sent to someone via NTNet transfer or other means.
+	var/unsendable = FALSE
+	/// Whether the file may be deleted. Setting to 1 prevents deletion/renaming/etc.
+	var/undeletable = FALSE
+	/// Placeholder for password protected files.
+	var/password = ""
+	/// UID of this file
+	var/uid
 
 /datum/computer_file/New()
 	..()
-	uid = file_uid
-	file_uid++
+	uid = GLOB.file_uid
+	GLOB.file_uid++
 
 /datum/computer_file/Destroy()
-	if(!holder)
+	if(!hard_drive)
 		return ..()
 
-	holder.remove_file(src)
-	// holder.holder is the computer that has drive installed. If we are Destroy()ing program that's currently running kill it.
-	if(holder.holder2 && holder.holder2.active_program == src)
-		holder.holder2.kill_program(1)
-	holder = null
+	hard_drive.remove_file(src, TRUE)
+	// hard_drive.hard_drive is the computer that has drive installed. If we are Destroy()ing program that's currently running kill it.
+	if(hard_drive.parent_computer?.active_program == src)
+		hard_drive.parent_computer.kill_program(TRUE)
+	hard_drive = null
 	return ..()
 
 // Returns independent copy of this file.
-/datum/computer_file/proc/clone(var/rename = 0)
-	var/datum/computer_file/temp = new type
+/datum/computer_file/proc/clone(var/rename = FALSE, var/computer)
+	var/datum/computer_file/temp = new type(computer)
 	temp.unsendable = unsendable
 	temp.undeletable = undeletable
 	temp.size = size
@@ -37,6 +47,8 @@ var/global/file_uid = 0
 		temp.filename = filename + "(Copy)"
 	else
 		temp.filename = filename
+	if(filedesc)
+		temp.filedesc = filedesc
 	temp.filetype = filetype
 	return temp
 
@@ -44,9 +56,9 @@ var/global/file_uid = 0
 	if(!password)
 		return TRUE
 	else
-		if (!input_password)
+		if(!input_password)
 			input_password = sanitize(input(user, "Please enter a password to access file '[filename]':"))
-		if (input_password == password)
+		if(input_password == password)
 			return TRUE
 		else
 			return FALSE

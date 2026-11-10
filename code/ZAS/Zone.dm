@@ -8,6 +8,7 @@ Class Vars:
 	name - A name of the format "Zone [#]", used for debugging.
 	invalid - True if the zone has been erased and is no longer eligible for processing.
 	needs_update - True if the zone has been added to the update list.
+	update_revision - Incremented when needs_update flips on, and retained after needs_update is cleared.
 	edges - A list of edges that connect to this zone.
 	air - The gas mixture that any turfs in this zone will return. Values are per-tile with a group multiplier.
 
@@ -45,16 +46,17 @@ Class Procs:
 	var/invalid = 0
 	var/list/contents = list()
 	var/list/fire_tiles
-	var/list/fuel_objs
 
 	var/needs_update = 0
+	/// Counter incremented when zone is dirtied for processing.
+	var/update_revision = 0
 
-	var/list/edges
+	var/list/connection_edge/edges
 
 	var/datum/gas_mixture/air = new
 
-	var/list/graphic_add
-	var/list/graphic_remove
+	var/list/graphic_add = list()
+	var/list/graphic_remove = list()
 
 /zone/New()
 	SSair.add_zone(src)
@@ -72,12 +74,9 @@ Class Procs:
 	add_tile_air(turf_air)
 	T.zone = src
 	contents += T
-	if(T.fire)
-		var/obj/effect/decal/cleanable/liquid_fuel/fuel = locate() in T
+	if(T.hotspot)
 		LAZYADD(fire_tiles, T)
 		SSair.active_fire_zones |= src
-		if (fuel)
-			LAZYADD(fuel_objs, fuel)
 	T.update_graphic(air.graphic)
 
 /zone/proc/remove(turf/simulated/T)
@@ -89,9 +88,6 @@ Class Procs:
 #endif
 	contents -= T
 	LAZYREMOVE(fire_tiles, T)
-	if(T.fire)
-		var/obj/effect/decal/cleanable/liquid_fuel/fuel = locate() in T
-		LAZYREMOVE(fuel_objs, fuel)
 	T.zone = null
 	T.update_graphic(graphic_remove = air.graphic)
 	if(contents.len)
@@ -111,7 +107,7 @@ Class Procs:
 		into.add(T)
 		T.update_graphic(graphic_remove = air.graphic)
 		#ifdef ZASDBG
-		T.dbg(merged)
+		T.dbg(GLOB.merged)
 		#endif
 
 	//rebuild the old zone's edges so that they will be possessed by the new zone
@@ -127,7 +123,7 @@ Class Procs:
 	SSair.remove_zone(src)
 	#ifdef ZASDBG
 	for(var/turf/simulated/T in contents)
-		T.dbg(invalid_zone)
+		T.dbg(GLOB.invalid_zone)
 	#endif
 
 /zone/proc/rebuild()
@@ -151,36 +147,38 @@ Class Procs:
 	air.group_multiplier = contents.len+1
 
 /zone/proc/tick()
-	if(air.temperature >= PHORON_FLASHPOINT && !(src in SSair.active_fire_zones) && air.check_combustability() && contents.len)
-		var/turf/T = pick(contents)
-		if(istype(T))
-			T.create_fire(vsc.fire_firelevel_multiplier)
+	// Update fires.
+	if(air.temperature >= PHORON_FLASHPOINT && !(src in SSair.active_fire_zones) && contents.len)
+		var/is_cmb = 0
+		CHECK_COMBUSTIBLE(is_cmb, air)
+		if(is_cmb)
+			var/turf/T = pick(contents)
+			if(istype(T))
+				T.create_fire(GLOB.vsc.fire_firelevel_multiplier)
 
-	LAZYINITLIST(graphic_add)
-	LAZYINITLIST(graphic_remove)
+	// Update gas overlays.
 	if(air.check_tile_graphic(graphic_add, graphic_remove))
 		for(var/turf/simulated/T in contents)
 			T.update_graphic(graphic_add, graphic_remove)
+		graphic_add.Cut()
+		graphic_remove.Cut()
 
-		LAZYCLEARLIST(graphic_add)
-		LAZYCLEARLIST(graphic_remove)
-		UNSETEMPTY(graphic_add)
-		UNSETEMPTY(graphic_remove)
-
+	// Update connected edges.
 	for(var/connection_edge/E in edges)
 		if(E.sleeping)
 			E.recheck()
 
 /zone/proc/dbg_data(mob/M)
-	M << name
+	to_chat(M, name)
 	for(var/g in air.gas)
-		M << "[gas_data.name[g]]: [air.gas[g]]"
-	M << "P: [air.return_pressure()] kPa V: [air.volume]L T: [air.temperature]�K ([air.temperature - T0C]�C)"
-	M << "O2 per N2: [(air.gas["nitrogen"] ? air.gas["oxygen"]/air.gas["nitrogen"] : "N/A")] Moles: [air.total_moles]"
-	M << "Simulated: [contents.len] ([air.group_multiplier])"
-	//M << "Unsimulated: [unsimulated_contents.len]"
-	//M << "Edges: [LAZYLEN(edges)]"
-	if(invalid) M << "Invalid!"
+		to_chat(M, "[gas_data.name[g]]: [air.gas[g]]")
+	to_chat(M, "P: [XGM_PRESSURE(air)] kPa V: [air.volume]L T: [air.temperature]�K ([air.temperature - T0C]�C)")
+	to_chat(M, "O2 per N2: [(air.gas[GAS_NITROGEN] ? air.gas[GAS_OXYGEN]/air.gas[GAS_NITROGEN] : "N/A")] Moles: [air.total_moles]")
+	to_chat(M, "Simulated: [contents.len] ([air.group_multiplier])")
+	to_chat(M, "Update Revision: [update_revision]")
+	//to_chat(M, "Unsimulated: [unsimulated_contents.len]")
+	//to_chat(M, "Edges: [LAZYLEN(edges)]")
+	if(invalid) to_chat(M, "Invalid!")
 	var/zone_edges = 0
 	var/space_edges = 0
 	var/space_coefficient = 0
@@ -190,10 +188,10 @@ Class Procs:
 		else
 			space_edges++
 			space_coefficient += E.coefficient
-			M << "[E:air:return_pressure()]kPa"
+			to_chat(M, "[XGM_PRESSURE(air)]kPa")
 
-	M << "Zone Edges: [zone_edges]"
-	M << "Space Edges: [space_edges] ([space_coefficient] connections)"
+	to_chat(M, "Zone Edges: [zone_edges]")
+	to_chat(M, "Space Edges: [space_edges] ([space_coefficient] connections)")
 
 	//for(var/turf/T in unsimulated_contents)
-	//	M << "[T] at ([T.x],[T.y])"
+	//	to_chat(M, "[T] at ([T.x],[T.y])")

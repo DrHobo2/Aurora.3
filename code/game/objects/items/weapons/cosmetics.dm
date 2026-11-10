@@ -1,186 +1,261 @@
-/obj/item/weapon/lipstick
+/obj/item/lipstick
 	gender = PLURAL
 	name = "red lipstick"
 	desc = "A generic brand of lipstick."
-	icon = 'icons/obj/items.dmi'
+	icon = 'icons/obj/cosmetics.dmi'
 	icon_state = "lipstick"
-	w_class = 1.0
+	item_state = "lipstick"
+	build_from_parts = TRUE
+	contained_sprite = TRUE
+	w_class = WEIGHT_CLASS_TINY
 	slot_flags = SLOT_EARS
-	var/colour = "red"
+	update_icon_on_init = TRUE
+	var/lipstick_color = "#DC253A"
 	var/open = 0
+	drop_sound = 'sound/items/drop/screwdriver.ogg'
+	pickup_sound = 'sound/items/pickup/screwdriver.ogg'
 
-
-/obj/item/weapon/lipstick/purple
-	name = "purple lipstick"
-	colour = "purple"
-
-/obj/item/weapon/lipstick/jade
-	name = "jade lipstick"
-	colour = "jade"
-
-/obj/item/weapon/lipstick/black
-	name = "black lipstick"
-	colour = "black"
-
-/obj/item/weapon/lipstick/pink
-	name = "pink lipstick"
-	colour = "pink"
-
-/obj/item/weapon/lipstick/random
-	name = "lipstick"
-
-/obj/item/weapon/lipstick/random/New()
-	colour = pick("red","purple","jade","pink","black")
-	name = "[colour] lipstick"
-
-
-/obj/item/weapon/lipstick/attack_self(mob/user as mob)
-	user << "<span class='notice'>You twist \the [src] [open ? "closed" : "open"].</span>"
-	open = !open
+/obj/item/lipstick/update_icon()
+	ClearOverlays()
 	if(open)
-		icon_state = "[initial(icon_state)]_[colour]"
+		worn_overlay = "open_overlay"
+		worn_overlay_color = lipstick_color
+		icon_state = "[initial(icon_state)]_open"
+		var/image/stick_overlay = image('icons/obj/cosmetics.dmi', null, "[initial(icon_state)]_open_overlay")
+		stick_overlay.color = lipstick_color
+		AddOverlays(stick_overlay)
 	else
 		icon_state = initial(icon_state)
+		worn_overlay = initial(worn_overlay)
 
-/obj/item/weapon/lipstick/attack(mob/M as mob, mob/user as mob)
-	if(!open)	return
+/obj/item/lipstick/purple
+	name = "purple lipstick"
+	lipstick_color = "#9471C9"
 
-	if(!istype(M, /mob))	return
+/obj/item/lipstick/jade
+	name = "jade lipstick"
+	lipstick_color = "#3EB776"
 
-	if(ishuman(M))
-		var/mob/living/carbon/human/H = M
-		if(H.lip_style)	//if they already have lipstick on
-			user << "<span class='notice'>You need to wipe off the old lipstick first!</span>"
+/obj/item/lipstick/black
+	name = "black lipstick"
+	lipstick_color = "#56352F"
+
+/obj/item/lipstick/amberred
+	name = "amberred lipstick"
+	lipstick_color = "#BA2E2A"
+
+/obj/item/lipstick/cherry
+	name = "cherry lipstick"
+	lipstick_color = "#BD1E35"
+
+/obj/item/lipstick/orange
+	name = "orange lipstick"
+	lipstick_color = "#F75F51"
+
+/obj/item/lipstick/gold
+	name = "gold lipstick"
+	lipstick_color = "#DA8118"
+
+/obj/item/lipstick/deepred
+	name = "deepred lipstick"
+	lipstick_color = "#850A1C"
+
+/obj/item/lipstick/pink
+	name = "pink lipstick"
+	lipstick_color = "#E84272"
+
+/obj/item/lipstick/rosepink
+	name = "rosepink lipstick"
+	lipstick_color = "#E2A4B1"
+
+/obj/item/lipstick/nude
+	name = "nude lipstick"
+	lipstick_color = "#E7A097"
+
+/obj/item/lipstick/wine
+	name = "wine lipstick"
+	lipstick_color = "#D25674"
+
+/obj/item/lipstick/peach
+	name = "peach lipstick"
+	lipstick_color = "#D05049"
+
+/obj/item/lipstick/forestgreen
+	name = "forestgreen lipstick"
+	lipstick_color = "#82B33B"
+
+/obj/item/lipstick/skyblue
+	name = "skyblue lipstick"
+	lipstick_color = "#60C2C5"
+
+/obj/item/lipstick/teal
+	name = "teal lipstick"
+	lipstick_color = "#0A857C"
+
+/obj/item/lipstick/custom
+	name = "lipstick"
+
+/obj/item/lipstick/random
+	name = "lipstick"
+
+/obj/item/lipstick/random/Initialize()
+	var/list/lipstick_subtypes = subtypesof(/obj/item/lipstick) - /obj/item/lipstick/random
+	var/obj/item/lipstick/chosen_lipstick = pick(lipstick_subtypes)
+	name = initial(chosen_lipstick.name)
+	lipstick_color = initial(chosen_lipstick.lipstick_color)
+	return ..()
+
+
+/obj/item/lipstick/attack_self(mob/user as mob)
+	to_chat(user, SPAN_NOTICE("You twist \the [src] [open ? "closed" : "open"]."))
+	open = !open
+	update_icon()
+
+/obj/item/lipstick/attack(mob/living/target_mob, mob/living/user, target_zone)
+	if(!open)
+		return
+
+	if(!istype(target_mob))
+		return
+
+	if(ishuman(target_mob))
+		var/mob/living/carbon/human/H = target_mob
+		if(H.lipstick_color)	//if they already have lipstick on
+			to_chat(user, SPAN_NOTICE("You need to wipe off the old lipstick first!"))
 			return
 		if(H == user)
-			user.visible_message("<span class='notice'>[user] does their lips with \the [src].</span>", \
-								 "<span class='notice'>You take a moment to apply \the [src]. Perfect!</span>")
-			H.lip_style = colour
+			user.visible_message(SPAN_NOTICE("[user] does their lips with \the [src]."), \
+									SPAN_NOTICE("You take a moment to apply \the [src]. Perfect!"))
+			H.lipstick_color = lipstick_color
 			H.update_body()
 		else
-			user.visible_message("<span class='warning'>[user] begins to do [H]'s lips with \the [src].</span>", \
-								 "<span class='notice'>You begin to apply \the [src].</span>")
-			if(do_after(user, 20) && do_after(H, 20, 0))	//user needs to keep their active hand, H does not.
-				user.visible_message("<span class='notice'>[user] does [H]'s lips with \the [src].</span>", \
-									 "<span class='notice'>You apply \the [src].</span>")
-				H.lip_style = colour
+			user.visible_message(SPAN_WARNING("[user] begins to do [H]'s lips with \the [src]."), \
+									SPAN_NOTICE("You begin to apply \the [src]."))
+			if(do_after(user, 4 SECONDS, H, do_flags = DO_DEFAULT & ~DO_SHOW_PROGRESS & ~DO_BOTH_CAN_TURN))
+				user.visible_message(SPAN_NOTICE("[user] does [H]'s lips with \the [src]."), \
+										SPAN_NOTICE("You apply \the [src]."))
+				H.lipstick_color = lipstick_color
 				H.update_body()
 	else
-		user << "<span class='notice'>Where are the lips on that?</span>"
+		to_chat(user, SPAN_NOTICE("Where are the lips on that?"))
 
 //you can wipe off lipstick with paper! see code/modules/paperwork/paper.dm, paper/attack()
 
 
-/obj/item/weapon/haircomb //sparklysheep's comb
-	name = "purple comb"
-	desc = "A pristine purple comb made from flexible plastic."
-	w_class = 1.0
+/obj/item/haircomb //sparklysheep's comb
+	name = "plastic comb"
+	desc = "A pristine comb made from flexible plastic."
+	w_class = WEIGHT_CLASS_TINY
 	slot_flags = SLOT_EARS
-	icon = 'icons/obj/items.dmi'
-	icon_state = "purplecomb"
-	item_state = "purplecomb"
+	icon = 'icons/obj/cosmetics.dmi'
+	icon_state = "comb"
+	item_state = "comb"
 
-/obj/item/weapon/haircomb/attack_self(mob/user)
-	user.visible_message("<span class='notice'>[user] uses [src] to comb their hair with incredible style and sophistication. What a [user.gender == FEMALE ? "lady" : "guy"].</span>")
+/obj/item/haircomb/random/Initialize()
+	. = ..()
+	color = get_random_colour(lower = 150)
 
-/obj/item/weapon/razor
+/obj/item/haircomb/attack_self(mob/user)
+	user.visible_message(SPAN_NOTICE("[user] uses [src] to comb their hair with incredible style and sophistication. What a [user.gender == FEMALE ? "lady" : "guy"]."))
+
+/obj/item/razor
 	name = "electric razor"
 	desc = "The latest and greatest power razor born from the science of shaving."
 	icon = 'icons/obj/weapons.dmi'
 	icon_state = "razor"
-	w_class = 2
+	w_class = WEIGHT_CLASS_SMALL
 
-/obj/item/weapon/razor/proc/shave(mob/living/carbon/human/H, location)
-	if(location == "head")
+/obj/item/razor/proc/shave(mob/living/carbon/human/H, location)
+	if(location == BP_HEAD)
 		H.h_style = H.species.default_h_style
 	else
 		H.f_style = H.species.default_f_style
 
 	H.update_hair()
-	playsound(H, 'sound/items/welder2.ogg', 20, 1)
+	playsound(H, 'sound/items/welder_pry.ogg', 20, 1)
 
 
-/obj/item/weapon/razor/attack(mob/M, mob/user, var/target_zone)
-	if(!ishuman(M))
+/obj/item/razor/attack(mob/living/target_mob, mob/living/user, target_zone)
+	if(!ishuman(target_mob))
 		return ..()
 
-	var/mob/living/carbon/human/H = M
+	var/mob/living/carbon/human/H = target_mob
 	var/obj/item/organ/external/E = H.get_organ(target_zone)
 
 	if(!E || E.is_stump())
-		to_chat(user, "<span class='danger'>They are missing that limb!</span>")
+		to_chat(user, SPAN_DANGER("They are missing that limb!"))
 		return FALSE
 
 	if(!ishuman_species(H) && !istajara(H))	//you can only shave humans and tajara for obvious reasons
 		return FALSE
 
 
-	if(target_zone == "head")
+	if(target_zone == BP_HEAD)
 		if(H.head && (H.head.body_parts_covered & HEAD))
-			to_chat(user, "<span class='warning'>\The [H.head] is in the way!</span>")
+			to_chat(user, SPAN_WARNING("\The [H.head] is in the way!"))
 			return FALSE
 
 		if(H.h_style == "Bald" || H.h_style == "Balding Hair" || H.h_style == "Skinhead" || H.h_style == "Tajaran Ears")
-			to_chat(user, "<span class='warning'>There is not enough hair left to shave!</span>")
+			to_chat(user, SPAN_WARNING("There is not enough hair left to shave!"))
 			return FALSE
 
 		if(H == user) //shaving yourself
-			user.visible_message("\The [user] starts to shave \his head with \the [src].", \
-									 "<span class='notice'>You start to shave your head with \the [src].</span>")
+			user.visible_message("\The [user] starts to shave [user.get_pronoun("his")] head with \the [src].", \
+									SPAN_NOTICE("You start to shave your head with \the [src]."))
 			if(do_mob(user, user, 20))
-				user.visible_message("\The [user] shaves \his head with \the [src].", \
-										 "<span class='notice'>You finish shaving with \the [src].</span>")
+				user.visible_message("\The [user] shaves [user.get_pronoun("his")] head with \the [src].", \
+										SPAN_NOTICE("You finish shaving with \the [src]."))
 				shave(H, target_zone)
 
 			return TRUE
 
 		else
-			user.visible_message("<span class='warning'>\The [user] tries to shave \the [H]'s head with \the [src]!</span>", \
-									 "<span class='notice'>You start shaving [H]'s head.</span>")
+			user.visible_message(SPAN_WARNING("\The [user] tries to shave \the [H]'s head with \the [src]!"), \
+									SPAN_NOTICE("You start shaving [H]'s head."))
 			if(do_mob(user, H, 20))
-				user.visible_message("<span class='warning'>\The [user] shaves \the [H]'s head bald with \the [src]!</span>", \
-											 "<span class='notice'>You shave \the [H]'s head bald.</span>")
+				user.visible_message(SPAN_WARNING("\The [user] shaves \the [H]'s head bald with \the [src]!"), \
+										SPAN_NOTICE("You shave \the [H]'s head bald."))
 				shave(H, target_zone)
 
 				return TRUE
 
-	else if(target_zone == "mouth")
+	else if(target_zone == BP_MOUTH)
 
 		if(H.head && (H.head.body_parts_covered & FACE))
-			to_chat(user, "<span class='warning'>\The [H.head] is in the way!</span>")
+			to_chat(user, SPAN_WARNING("\The [H.head] is in the way!"))
 			return FALSE
 
 		if(H.wear_mask && (H.wear_mask.body_parts_covered & FACE))
-			to_chat(user, "<span class='warning'>\The [H.wear_mask] is in the way!</span>")
+			to_chat(user, SPAN_WARNING("\The [H.wear_mask] is in the way!"))
 			return FALSE
 
 		if(H.f_style == "Shaved")
-			to_chat(user, "<span class='warning'>There is not enough facial hair left to shave!</span>")
+			to_chat(user, SPAN_WARNING("There is not enough facial hair left to shave!"))
 			return	FALSE
 
 		if(H == user) //shaving yourself
-			user.visible_message("<span class='warning'>\The [user] starts to shave \his facial hair with \the [src].</span>", \
-									 "<span class='notice'>You take a moment to shave your facial hair with \the [src].</span>")
+			user.visible_message(SPAN_WARNING("\The [user] starts to shave [user.get_pronoun("his")] facial hair with \the [src]."), \
+									SPAN_NOTICE("You take a moment to shave your facial hair with \the [src]."))
 			if(do_mob(user, user, 20))
-				user.visible_message("<span class='warning'>\The [user] shaves \his facial hair clean with \the [src].</span>", \
-										 "<span class='notice'>You finish shaving with \the [src].</span>")
+				user.visible_message(SPAN_WARNING("\The [user] shaves [user.get_pronoun("his")] facial hair clean with \the [src]."), \
+										SPAN_NOTICE("You finish shaving with \the [src]."))
 				shave(H, target_zone)
 
 			return TRUE
 
 		else
-			user.visible_message("<span class='warning'>\The [user] tries to shave \the [H]'s facial hair with \the [src].</span>", \
-									 "<span class='notice'>You start shaving [H]'s facial hair.</span>")
+			user.visible_message(SPAN_WARNING("\The [user] tries to shave \the [H]'s facial hair with \the [src]."), \
+									SPAN_NOTICE("You start shaving [H]'s facial hair."))
 			if(do_mob(user, H, 20))
-				user.visible_message("<span class='warning'>\The [user] shaves off \the [H]'s facial hair with \the [src].</span>", \
-											 "<span class='notice'>You shave [H]'s facial hair clean off.</span>")
+				user.visible_message(SPAN_WARNING("\The [user] shaves off \the [H]'s facial hair with \the [src]."), \
+										SPAN_NOTICE("You shave [H]'s facial hair clean off."))
 				shave(H, target_zone)
 
 				return TRUE
 
 
 	else
-		to_chat(user, "<span class='warning'>You need to target the mouth or head to shave \the [H]!</span>")
+		to_chat(user, SPAN_WARNING("You need to target the mouth or head to shave \the [H]!"))
 		return
 
 

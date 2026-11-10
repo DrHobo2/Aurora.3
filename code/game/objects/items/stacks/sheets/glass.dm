@@ -1,10 +1,11 @@
 /* Glass stack types
  * Contains:
- *		Glass sheets
- *		Reinforced glass sheets
- *		Phoron Glass Sheets
- *		Reinforced Phoron Glass Sheets (AKA Holy fuck strong windows)
- *		Glass shards - TODO: Move this into code/game/object/item/weapons
+ * * Glass sheets
+ * * Reinforced glass sheets
+ * * Wired glass sheets
+ * * Phoron Glass Sheets
+ * * Reinforced Phoron Glass Sheets (AKA Holy fuck strong windows)
+ * * Glass shards - TODO: Move this into code/game/object/item/weapons
  */
 
 /*
@@ -17,41 +18,21 @@
 	var/created_window = /obj/structure/window/basic
 	var/is_reinforced = 0
 	var/list/construction_options = list("One Direction", "Full Window")
-	default_type = "glass"
+	default_type = MATERIAL_GLASS
 	icon_has_variants = TRUE
+	drop_sound = 'sound/items/drop/glass_sheet.ogg'
+	pickup_sound = 'sound/items/pickup/glass_sheet.ogg'
+
+/obj/item/stack/material/glass/mechanics_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	. += "Left-click this item in-hand to view its crafting menu."
+
+/obj/item/stack/material/glass/assembly_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	. += "Combining this item with metal rods will create reinforced glass."
 
 /obj/item/stack/material/glass/attack_self(mob/user as mob)
 	construct_window(user)
-
-/obj/item/stack/material/glass/attackby(obj/item/W, mob/user)
-	..()
-	if(!is_reinforced)
-		if(W.iscoil())
-			var/obj/item/stack/cable_coil/CC = W
-			if (get_amount() < 1 || CC.get_amount() < 5)
-				user << "<span class='warning'>You need five lengths of coil and one sheet of glass to make wired glass.</span>"
-				return
-
-			CC.use(5)
-			use(1)
-			user << "<span class='notice'>You attach wire to the [name].</span>"
-			new /obj/item/stack/light_w(user.loc)
-		else if(istype(W, /obj/item/stack/rods))
-			var/obj/item/stack/rods/V  = W
-			if (V.get_amount() < 1 || get_amount() < 1)
-				user << "<span class='warning'>You need one rod and one sheet of glass to make reinforced glass.</span>"
-				return
-
-			var/obj/item/stack/material/glass/reinforced/RG = new (user.loc)
-			RG.add_fingerprint(user)
-			RG.add_to_stacks(user)
-			var/obj/item/stack/material/glass/G = src
-			src = null
-			var/replace = (user.get_inactive_hand()==G)
-			V.use(1)
-			G.use(1)
-			if (!G && replace)
-				user.put_in_hands(RG)
 
 /obj/item/stack/material/glass/proc/construct_window(mob/user as mob)
 	if(!user || !src)	return 0
@@ -65,16 +46,16 @@
 			if(!src)	return 1
 			if(src.loc != user)	return 1
 
-			var/list/directions = new/list(cardinal)
+			var/list/directions = new/list(GLOB.cardinals)
 			var/i = 0
 			for (var/obj/structure/window/win in user.loc)
 				i++
 				if(i >= 4)
-					user << "<span class='warning'>There are too many windows in this location.</span>"
+					to_chat(user, SPAN_WARNING("There are too many windows in this location."))
 					return 1
 				directions-=win.dir
-				if(!(win.dir in cardinal))
-					user << "<span class='warning'>Can't let you do that.</span>"
+				if(!(win.dir in GLOB.cardinals))
+					to_chat(user, SPAN_WARNING("Can't let you do that."))
 					return 1
 
 			//Determine the direction. It will first check in the direction the person making the window is facing, if it finds an already made window it will try looking at the next cardinal direction, etc.
@@ -93,10 +74,10 @@
 			if(!src)	return 1
 			if(src.loc != user)	return 1
 			if(src.get_amount() < 4)
-				user << "<span class='warning'>You need more glass to do that.</span>"
+				to_chat(user, SPAN_WARNING("You need more glass to do that."))
 				return 1
 			if(locate(/obj/structure/window) in user.loc)
-				user << "<span class='warning'>There is a window in the way.</span>"
+				to_chat(user, SPAN_WARNING("There is a window in the way."))
 				return 1
 			new created_window( user.loc, SOUTHWEST, 1 )
 			src.use(4)
@@ -107,15 +88,15 @@
 			if(!src || src.loc != user) return 1
 
 			if(isturf(user.loc) && locate(/obj/structure/windoor_assembly/, user.loc))
-				user << "<span class='warning'>There is already a windoor assembly in that location.</span>"
+				to_chat(user, SPAN_WARNING("There is already a windoor assembly in that location."))
 				return 1
 
-			if(isturf(user.loc) && locate(/obj/machinery/door/window/, user.loc))
-				user << "<span class='warning'>There is already a windoor in that location.</span>"
+			if(isturf(user.loc) && locate(/obj/structure/machinery/door/window/, user.loc))
+				to_chat(user, SPAN_WARNING("There is already a windoor in that location."))
 				return 1
 
 			if(src.get_amount() < 5)
-				user << "<span class='warning'>You need more glass to do that.</span>"
+				to_chat(user, SPAN_WARNING("You need more glass to do that."))
 				return 1
 
 			new /obj/structure/windoor_assembly(user.loc, user.dir, 1)
@@ -131,10 +112,45 @@
 	name = "reinforced glass"
 	singular_name = "reinforced glass sheet"
 	icon_state = "sheet-rglass"
-	default_type = "reinforced glass"
+	default_type = MATERIAL_GLASS_REINFORCED
 	created_window = /obj/structure/window/reinforced
 	is_reinforced = 1
 	construction_options = list("One Direction", "Full Window", "Windoor")
+
+/*
+ * Wired glass sheets
+ */
+/obj/item/stack/material/glass/wired
+	name = "wired glass tile"
+	singular_name = "wired glass floor tile"
+	desc = "A glass tile, which is wired, somehow."
+	icon = 'icons/obj/item/stacks/tiles.dmi'
+	icon_state = "glass_wire"
+	created_window = null
+	default_type = MATERIAL_GLASS_WIRED
+	construction_options = list()
+	icon_has_variants = FALSE
+
+/obj/item/stack/material/glass/wired/attackby(obj/item/attacking_item, mob/user)
+	if(istype(attacking_item, /obj/item/stack/material/steel))
+		var/obj/item/stack/material/steel/M = attacking_item
+		if (M.use(1))
+			var/obj/item/L = new /obj/item/stack/tile/light
+			user.drop_from_inventory(L, get_turf(src))
+			to_chat(user, SPAN_NOTICE("You make a light tile."))
+			use(1)
+		else
+			to_chat(user, SPAN_WARNING("You need one metal sheet to finish the light tile!"))
+
+	else if(attacking_item.tool_behaviour == TOOL_WIRECUTTER)
+		user.drop_from_inventory(attacking_item, get_turf(src))
+		to_chat(user, SPAN_NOTICE("You detach the wire from the [name]."))
+		playsound(src.loc, 'sound/items/Wirecutter.ogg', 100, 1)
+		new /obj/item/stack/cable_coil(user.loc, 5)
+		new /obj/item/stack/material/glass(user.loc)
+		use(1)
+	else
+		return ..()
 
 /*
  * Phoron Glass sheets
@@ -143,26 +159,9 @@
 	name = "phoron glass"
 	singular_name = "phoron glass sheet"
 	icon_state = "sheet-phoronglass"
-	created_window = /obj/structure/window/phoronbasic
-	default_type = "phoron glass"
+	created_window = /obj/structure/window/borosilicate
+	default_type = MATERIAL_GLASS_PHORON
 	icon_has_variants = FALSE
-
-/obj/item/stack/material/glass/phoronglass/attackby(obj/item/W, mob/user)
-	..()
-	if( istype(W, /obj/item/stack/rods) )
-		var/obj/item/stack/rods/V  = W
-		var/obj/item/stack/material/glass/phoronrglass/RG = new (user.loc)
-		RG.add_fingerprint(user)
-		RG.add_to_stacks(user)
-		V.use(1)
-		var/obj/item/stack/material/glass/G = src
-		src = null
-		var/replace = (user.get_inactive_hand()==G)
-		G.use(1)
-		if (!G && !RG && replace)
-			user.put_in_hands(RG)
-	else
-		return ..()
 
 /*
  * Reinforced phoron glass sheets
@@ -171,7 +170,7 @@
 	name = "reinforced phoron glass"
 	singular_name = "reinforced phoron glass sheet"
 	icon_state = "sheet-phoronrglass"
-	default_type = "reinforced phoron glass"
-	created_window = /obj/structure/window/phoronreinforced
+	default_type = MATERIAL_GLASS_REINFORCED_PHORON
+	created_window = /obj/structure/window/borosilicate/reinforced
 	is_reinforced = 1
 	icon_has_variants = FALSE

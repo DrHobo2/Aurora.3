@@ -1,33 +1,49 @@
-/obj/screen/internals
+/atom/movable/screen/internals
 	name = "internal"
 	screen_loc = ui_internal
 	icon_state = "internal0"
 
-/obj/screen/internals/Click()
+/**
+ * Given how important Internals are, some clarifying comments on their behavior are worthwhile.
+ *
+ * When a character clicks on the Internals button on their UI and so long as they have an appropriate breathing mask, the game will
+ * see what tanks they have available to choose from and try to pick the best one. It will look in the following places:
+ * * suit storage, back, belt, both hands, both pockets, vaurca reserve tank, and hardsuit (if worn on back)
+ * Then it will look at the contents of each tank (by mole) and try to pick the tank with the most breathable gas (for your species) in it.
+ *
+ * However, there are some caveats to this; the game tries to understand whether or not your character would know the contents of a given
+ * tank. It can approximate this thanks to the fact that gas tanks of all types remember who touched them last; if you're the last person to
+ * have pulled it from a canister or scanned it with a gas analyzer, the game assumes that your character knows what's inside it. This will
+ * make your Internals button be a bit more intelligent about how it ranks gas tanks.
+ *
+ * By default, if your character is 'ignorant' of the contents, it will just dump all your available tanks in a list and try to find which
+ * one contains the most moles of gas. It doesn't care what that gas mixture is.
+ *
+ * However, if your character 'knows' what's in a gas tank, it will try to discriminate; only tanks containing your species' breathable gas
+ * (and trying to rule out oxygen + phoron for O2-breathers, though other poisons are not accounted for) will be considered, and sorted by
+ * how many total moles of oxygen are available.
+ *
+ * For this reason, checking the contents of jetpacks and gas tanks with analyzers is probably a wise SOP, or else not equipping a jetpack
+ * until after you're EVA and internals have been enabled.
+ */
+/atom/movable/screen/internals/Click()
 	if(!iscarbon(usr))
 		return
 	var/mob/living/carbon/C = usr
 	if(!C.stat && !C.stunned && !C.paralysis && !C.restrained())
 		if(C.internal)
 			C.internal = null
-			C << "<span class='notice'>No longer running on internals.</span>"
+			to_chat(C, SPAN_NOTICE("No longer running on internals."))
 			if(C.internals)
 				C.internals.icon_state = "internal0"
 		else
-
-			var/no_mask
-			if(!(C.wear_mask && C.wear_mask.item_flags & AIRTIGHT))
-				var/mob/living/carbon/human/H = C
-				if(!(H.head && H.head.item_flags & AIRTIGHT))
-					no_mask = 1
-
-			if(no_mask)
-				C << "<span class='notice'>You are not wearing a suitable mask or helmet.</span>"
+			if(!has_internals_mask(C))
+				to_chat(C, SPAN_NOTICE("You are not wearing a suitable mask or helmet."))
 				return 1
 			else
 				var/list/nicename = null
 				var/list/tankcheck = null
-				var/breathes = "oxygen"    //default, we'll check later
+				var/breathes = GAS_OXYGEN    //default, we'll check later
 				var/list/contents = list()
 				var/from = "on"
 
@@ -36,8 +52,8 @@
 					breathes = H.species.breath_type
 					nicename = list ("suit", "back", "belt", "right hand", "left hand", "left pocket", "right pocket")
 					tankcheck = list (H.s_store, C.back, H.belt, C.r_hand, C.l_hand, H.l_store, H.r_store)
-					if(H.species.has_organ["phoron reserve tank"])
-						var/obj/item/organ/vaurca/preserve/preserve = H.internal_organs_by_name["phoron reserve tank"]
+					if(H.species.has_organ[BP_PHORON_RESERVE])
+						var/obj/item/organ/internal/vaurca/preserve/preserve = H.internal_organs_by_name[BP_PHORON_RESERVE]
 						if(preserve && preserve.air_contents)
 							from = "in"
 							nicename |= "sternum"
@@ -48,81 +64,94 @@
 					tankcheck = list(C.r_hand, C.l_hand, C.back)
 
 				// Rigs are a fucking pain since they keep an air tank in nullspace.
-				if(istype(C.back,/obj/item/weapon/rig))
-					var/obj/item/weapon/rig/rig = C.back
+				if(istype(C.back,/obj/item/rig))
+					var/obj/item/rig/rig = C.back
 					if(rig.air_supply)
 						from = "in"
 						nicename |= "hardsuit"
 						tankcheck |= rig.air_supply
 
 				for(var/i in 1 to tankcheck.len)
-					if(istype(tankcheck[i], /obj/item/weapon/tank))
-						var/obj/item/weapon/tank/t = tankcheck[i]
-						if (!isnull(t.manipulated_by) && t.manipulated_by != C.real_name && findtext(t.desc,breathes))
-							contents.Add(t.air_contents.total_moles)	//Someone messed with the tank and put unknown gasses
-							continue					//in it, so we're going to believe the tank is what it says it is
-						switch(breathes)
-															//These tanks we're sure of their contents
-							if("nitrogen") 							//So we're a bit more picky about them.
+					if(istype(tankcheck[i], /obj/item/tank))
+						var/obj/item/tank/t = tankcheck[i]
+						// This tank has been set to not distribute any gas to internals. Skip it so we don't instantly detonate a pair of lungs.
+						if(t.distribute_pressure == 0)
+							contents.Add(0)
+							continue
 
-								if(t.air_contents.gas["nitrogen"] && !t.air_contents.gas["oxygen"])
-									contents.Add(t.air_contents.gas["nitrogen"])
+						// Someone messed with the tank and put unknown gases in it, so we're going to believe the tank is what it says it is.
+						if(!isnull(t.manipulated_by) && t.manipulated_by != C.real_name && findtext(t.desc,breathes))
+							contents.Add(t.air_contents.total_moles)
+							continue
+
+						// These tanks we're sure of their contents, so we're a bit more picky about them.
+						switch(breathes)
+							if(GAS_NITROGEN)
+								if(t.air_contents.gas[GAS_NITROGEN] && !t.air_contents.gas[GAS_OXYGEN])
+									contents.Add(t.air_contents.gas[GAS_NITROGEN])
 								else
 									contents.Add(0)
 
-							if ("oxygen")
-								if(t.air_contents.gas["oxygen"] && !t.air_contents.gas["phoron"])
-									contents.Add(t.air_contents.gas["oxygen"])
+							if(GAS_OXYGEN)
+								if(t.air_contents.gas[GAS_OXYGEN] && !t.air_contents.gas[GAS_PHORON])
+									contents.Add(t.air_contents.gas[GAS_OXYGEN])
 								else
 									contents.Add(0)
 
 							// No races breath this, but never know about downstream servers.
-							if ("carbon dioxide")
-								if(t.air_contents.gas["carbon_dioxide"] && !t.air_contents.gas["phoron"])
-									contents.Add(t.air_contents.gas["carbon_dioxide"])
+							if(GAS_CO2)
+								if(t.air_contents.gas[GAS_CO2] && !t.air_contents.gas[GAS_PHORON])
+									contents.Add(t.air_contents.gas[GAS_CO2])
 								else
 									contents.Add(0)
 
-							if ("phoron")
-								if(t.air_contents.gas["carbon_dioxide"] && !t.air_contents.gas["nitrogen"])
-									contents.Add(t.air_contents.gas["phoron"])
+							if(GAS_PHORON)
+								if(t.air_contents.gas[GAS_CO2] && !t.air_contents.gas[GAS_NITROGEN])
+									contents.Add(t.air_contents.gas[GAS_PHORON])
 								else
 									contents.Add(0)
 
-					if(istype(tankcheck[i], /obj/item/organ/vaurca/preserve))
-						var/obj/item/organ/vaurca/preserve/t = tankcheck[i]
-						if (!isnull(t.manipulated_by) && t.manipulated_by != C.real_name && findtext(t.desc,breathes))
-							contents.Add(t.air_contents.total_moles)	//Someone messed with the tank and put unknown gasses
-							continue					//in it, so we're going to believe the tank is what it says it is
+					if(istype(tankcheck[i], /obj/item/organ/internal/vaurca/preserve))
+						var/obj/item/organ/internal/vaurca/preserve/t = tankcheck[i]
+
+						// This tank has been set to not distribute any gas to internals. Skip it so we don't instantly detonate a pair of lungs.
+						if(t.distribute_pressure == 0)
+							contents.Add(0)
+							continue
+
+						// Someone messed with the tank and put unknown gases in it, so we're going to believe the tank is what it says it is.
+						if(!isnull(t.manipulated_by) && t.manipulated_by != C.real_name && findtext(t.desc,breathes))
+							contents.Add(t.air_contents.total_moles)
+							continue
+
+						// These tanks we're sure of their contents, so we're a bit more picky about them.
 						switch(breathes)
-															//These tanks we're sure of their contents
-							if("nitrogen") 							//So we're a bit more picky about them.
-
-								if(t.air_contents.gas["nitrogen"] && !t.air_contents.gas["oxygen"])
-									contents.Add(t.air_contents.gas["nitrogen"])
+							if(GAS_NITROGEN)
+								if(t.air_contents.gas[GAS_NITROGEN] && !t.air_contents.gas[GAS_OXYGEN])
+									contents.Add(t.air_contents.gas[GAS_NITROGEN])
 								else
 									contents.Add(0)
 
-							if ("oxygen")
-								if(t.air_contents.gas["oxygen"] && !t.air_contents.gas["phoron"])
-									contents.Add(t.air_contents.gas["oxygen"])
+							if(GAS_OXYGEN)
+								if(t.air_contents.gas[GAS_OXYGEN] && !t.air_contents.gas[GAS_PHORON])
+									contents.Add(t.air_contents.gas[GAS_OXYGEN])
 								else
 									contents.Add(0)
 
 							// No races breath this, but never know about downstream servers.
-							if ("carbon dioxide")
-								if(t.air_contents.gas["carbon_dioxide"] && !t.air_contents.gas["phoron"])
-									contents.Add(t.air_contents.gas["carbon_dioxide"])
+							if(GAS_CO2)
+								if(t.air_contents.gas[GAS_CO2] && !t.air_contents.gas[GAS_PHORON])
+									contents.Add(t.air_contents.gas[GAS_CO2])
 								else
 									contents.Add(0)
 
-							if ("phoron")
-								if(t.air_contents.gas["phoron"] && !t.air_contents.gas["nitrogen"])
-									contents.Add(t.air_contents.gas["phoron"])
+							if(GAS_PHORON)
+								if(t.air_contents.gas[GAS_PHORON] && !t.air_contents.gas[GAS_NITROGEN])
+									contents.Add(t.air_contents.gas[GAS_PHORON])
 								else
 									contents.Add(0)
 
-					if(!(istype(tankcheck[i], /obj/item/organ/vaurca/preserve)) & !(istype(tankcheck[i], /obj/item/weapon/tank)))
+					if(!(istype(tankcheck[i], /obj/item/organ/internal/vaurca/preserve)) && !(istype(tankcheck[i], /obj/item/tank)))
 						//no tank so we set contents to 0
 						contents.Add(0)
 
@@ -140,7 +169,7 @@
 				//We've determined the best container now we set it as our internals
 
 				if(best)
-					C << "<span class='notice'>You are now running on internals from [tankcheck[best]] [from] your [nicename[best]].</span>"
+					to_chat(C, SPAN_NOTICE("You are now running on internals from [tankcheck[best]] [from] your [nicename[best]]."))
 					playsound(usr, 'sound/effects/internals.ogg', 100, 1)
 					C.internal = tankcheck[best]
 
@@ -149,4 +178,15 @@
 					if(C.internals)
 						C.internals.icon_state = "internal1"
 				else
-					C << "<span class='notice'>You don't have a[breathes=="oxygen" ? "n oxygen" : addtext(" ",breathes)] tank.</span>"
+					to_chat(C, SPAN_NOTICE("You don't have a[breathes==GAS_OXYGEN ? "n oxygen" : addtext(" ",breathes)] tank."))
+
+/atom/movable/screen/internals/proc/lose_internals(var/mob/living/carbon/human/user)
+	icon_state = "internal0"
+	user.internal = null
+
+/atom/movable/screen/internals/proc/has_internals_mask(var/mob/living/carbon/human/user)
+	if(user.wear_mask && (user.wear_mask.item_flags & ITEM_FLAG_AIRTIGHT))
+		return TRUE
+	if(user.head && (user.head.item_flags & ITEM_FLAG_AIRTIGHT))
+		return TRUE
+	return FALSE

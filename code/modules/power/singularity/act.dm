@@ -17,7 +17,7 @@
 /mob/living/carbon/human/singularity_act()
 	var/gain = 20
 	if(mind)
-		if((mind.assigned_role == "Station Engineer") || (mind.assigned_role == "Chief Engineer"))
+		if((mind.assigned_role == "Ship Engineer") || (mind.assigned_role == "Chief Engineer"))
 			gain = 100
 		if(mind.assigned_role == "Assistant")
 			gain = rand(0, 300)
@@ -31,10 +31,10 @@
 		for(var/obj/item/hand in handlist)
 			if(prob(current_size*5) && hand.w_class >= ((11-current_size)/2) && u_equip(hand))
 				step_towards(hand, src)
-				src << "<span class = 'warning'>The [S] pulls \the [hand] from your grip!</span>"
-	apply_effect(current_size * 3, IRRADIATE, blocked = getarmor(null, "rad"))
+				to_chat(src, "<span class = 'warning'>The [S] pulls \the [hand] from your grip!</span>")
+	apply_damage(current_size * 3, DAMAGE_RADIATION, damage_flags = DAMAGE_FLAG_DISPERSED)
 	if(shoes)
-		if(shoes.item_flags & NOSLIP) return 0
+		if(shoes.item_flags & ITEM_FLAG_NO_SLIP) return 0
 	..()
 
 /obj/singularity_act()
@@ -69,15 +69,15 @@
 			step_towards(src,S)
 		else ..()
 
-/obj/machinery/atmospherics/pipe/singularity_pull()
+/obj/structure/machinery/atmospherics/pipe/singularity_pull()
 	return
 
-/obj/machinery/power/supermatter/shard/singularity_act()
+/obj/structure/machinery/power/supermatter/shard/singularity_act()
 	src.loc = null
 	qdel(src)
 	return 5000
 
-/obj/machinery/power/supermatter/singularity_act()
+/obj/structure/machinery/power/supermatter/singularity_act()
 	if(!src.loc)
 		return
 
@@ -92,12 +92,12 @@
 	qdel(src)
 	return 50000
 
-/obj/item/projectile/beam/emitter/singularity_pull()
+/obj/projectile/beam/emitter/singularity_pull()
 	return
 
-/obj/item/weapon/storage/backpack/holding/singularity_act(S, current_size)
+/obj/item/storage/backpack/holding/singularity_act(S, current_size)
 	var/dist = max((current_size - 2), 1)
-	explosion(src.loc,(dist),(dist*2),(dist*4))
+	explosion(src.loc, dist, dist * 2, dist * 4, spreading = TRUE)
 	return 1000
 
 /turf/singularity_act(S, current_size, var/go_down = 1, var/go_up = 1)
@@ -108,12 +108,12 @@
 			if(O.invisibility == 101)
 				O.singularity_act(src, current_size)
 	if(go_up && current_size >= STAGE_FIVE)
-		if(HasAbove(src.z))
-			var/turf/A = GetAbove(src)
+		if(GET_TURF_ABOVE(src))
+			var/turf/A = GET_TURF_ABOVE(src)
 			A.singularity_act(S, current_size, 0, 1)
 	if(go_down && current_size >= STAGE_FIVE)
-		if(HasBelow(src.z))
-			var/turf/B = GetBelow(src)
+		if(GET_TURF_BELOW(src))
+			var/turf/B = GET_TURF_BELOW(src)
 			B.singularity_act(S, current_size, 1, 0)
 	if(istype(src,/turf/simulated/mineral))
 		var/turf/simulated/mineral/M = src
@@ -147,3 +147,5 @@
 *******************/
 /atom/proc/singuloCanEat()
 	return 1
+
+#undef I_SINGULO

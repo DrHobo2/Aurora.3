@@ -1,5 +1,5 @@
 /mob/living/carbon/brain/emote(var/act,var/m_type=1,var/message = null)
-	if(!(container && istype(container, /obj/item/device/mmi)))//No MMI, no emotes
+	if(!(container && istype(container, /obj/item/mmi)))//No MMI, no emotes
 		return
 
 	if (findtext(act, "-", 1, null))
@@ -17,7 +17,7 @@
 				return
 			if (src.client)
 				if (client.prefs.muted & MUTE_IC)
-					src << "<span class='warning'>You cannot send IC messages (muted).</span>"
+					to_chat(src, SPAN_WARNING("You cannot send IC messages (muted)."))
 					return
 			if (stat)
 				return
@@ -61,11 +61,11 @@
 			message = "<B>[src]</B> boops."
 			m_type = 2
 		if ("help")
-			src << "alarm,alert,notice,flash,blink,whistle,beep,boop"
+			to_chat(src, "alarm,alert,notice,flash,blink,whistle,beep,boop")
 		else
-			src << "<span class='notice'>Unusable emote '[act]'. Say *help for a list.</span>"
+			to_chat(src, SPAN_NOTICE("Unusable emote '[act]'. Say *help for a list."))
 
 	if (message)
-		log_emote("[name]/[key] : [message]",ckey=key_name(key))
+		log_emote("[name]/[key] : [message]")
 
 		send_emote(message, m_type)

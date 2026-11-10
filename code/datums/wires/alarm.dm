@@ -1,58 +1,72 @@
 /datum/wires/alarm
-	holder_type = /obj/machinery/alarm
-	wire_count = 5
+	proper_name = "Air Alarm"
+	holder_type = /obj/structure/machinery/alarm
+	associated_skill = ATMOSPHERICS_SYSTEMS_SKILL_COMPONENT
 
-var/const/AALARM_WIRE_IDSCAN = 1
-var/const/AALARM_WIRE_POWER = 2
-var/const/AALARM_WIRE_SYPHON = 4
-var/const/AALARM_WIRE_AI_CONTROL = 8
-var/const/AALARM_WIRE_AALARM = 16
+/datum/wires/alarm/New(atom/holder)
+	wires = list(
+		WIRE_POWER,
+		WIRE_IDSCAN, WIRE_AI,
+		WIRE_PANIC, WIRE_ALARM,
+		WIRE_RCON
+	)
+	add_duds(3)
+	..()
 
+/datum/wires/alarm/interactable(mob/user)
+	if(!..())
+		return FALSE
+	var/obj/structure/machinery/alarm/A = holder
+	if(A.panel_open && A.buildstage == 2)
+		return TRUE
 
-/datum/wires/alarm/CanUse(var/mob/living/L)
-	var/obj/machinery/alarm/A = holder
-	if(A.wiresexposed && A.buildstage == 2)
-		return 1
-	return 0
+/datum/wires/alarm/get_status()
+	var/obj/structure/machinery/alarm/A = holder
+	. = ..()
+	. += A.locked ? "The air alarm is locked." : "The air alarm is unlocked."
+	. += (A.shorted || (A.stat & (NOPOWER|BROKEN))) ? "The air alarm is offline." : "The air alarm is working properly!"
+	. += A.aidisabled ? "The 'AI control allowed' light is off." : "The 'AI control allowed' light is on."
+	. += A.rcon_setting ? "The remote control link is enabled." : "The remote control link is disabled."
 
-/datum/wires/alarm/GetInteractWindow()
-	var/obj/machinery/alarm/A = holder
-	. += ..()
-	. += text("<br>\n[(A.locked ? "The Air Alarm is locked." : "The Air Alarm is unlocked.")]<br>\n[((A.shorted || (A.stat & (NOPOWER|BROKEN))) ? "The Air Alarm is offline." : "The Air Alarm is working properly!")]<br>\n[(A.aidisabled ? "The 'AI control allowed' light is off." : "The 'AI control allowed' light is on.")]")
-
-/datum/wires/alarm/UpdateCut(var/index, var/mended)
-	var/obj/machinery/alarm/A = holder
-	switch(index)
-		if(AALARM_WIRE_IDSCAN)
-			if(!mended)
+/datum/wires/alarm/on_cut(wire, mend, source)
+	var/obj/structure/machinery/alarm/A = holder
+	switch(wire)
+		if(WIRE_IDSCAN)
+			if(!mend)
 				A.locked = 1
 
-		if(AALARM_WIRE_POWER)
+		if(WIRE_POWER)
 			A.shock(usr, 50)
-			A.shorted = !mended
+			A.shorted = !mend
 			A.update_icon()
 
-		if (AALARM_WIRE_AI_CONTROL)
-			if (A.aidisabled == !mended)
-				A.aidisabled = mended
+		if (WIRE_AI)
+			if (A.aidisabled == !mend)
+				A.aidisabled = mend
 
-		if(AALARM_WIRE_SYPHON)
-			if(!mended)
+		if(WIRE_PANIC)
+			if(!mend)
 				A.mode = 3 // AALARM_MODE_PANIC
 				A.apply_mode()
 
-		if(AALARM_WIRE_AALARM)
+		if(WIRE_ALARM)
 			if (A.alarm_area.atmosalert(2, A))
 				A.post_alert(2)
 			A.update_icon()
 
-/datum/wires/alarm/UpdatePulsed(var/index)
-	var/obj/machinery/alarm/A = holder
-	switch(index)
-		if(AALARM_WIRE_IDSCAN)
+		if(WIRE_RCON)
+			if(!mend)
+				A.rcon_setting = FALSE
+			else
+				A.rcon_setting = TRUE
+
+/datum/wires/alarm/on_pulse(wire)
+	var/obj/structure/machinery/alarm/A = holder
+	switch(wire)
+		if(WIRE_IDSCAN)
 			A.locked = !A.locked
 
-		if (AALARM_WIRE_POWER)
+		if (WIRE_POWER)
 			if(A.shorted == 0)
 				A.shorted = 1
 				A.update_icon()
@@ -62,8 +76,7 @@ var/const/AALARM_WIRE_AALARM = 16
 					A.shorted = 0
 					A.update_icon()
 
-
-		if (AALARM_WIRE_AI_CONTROL)
+		if (WIRE_AI)
 			if (A.aidisabled == 0)
 				A.aidisabled = 1
 			A.updateDialog()
@@ -71,14 +84,14 @@ var/const/AALARM_WIRE_AALARM = 16
 				if (A.aidisabled == 1)
 					A.aidisabled = 0
 
-		if(AALARM_WIRE_SYPHON)
+		if(WIRE_PANIC)
 			if(A.mode == 1) // AALARM_MODE_SCRUB
 				A.mode = 3 // AALARM_MODE_PANIC
 			else
 				A.mode = 1 // AALARM_MODE_SCRUB
 			A.apply_mode()
 
-		if(AALARM_WIRE_AALARM)
+		if(WIRE_ALARM, WIRE_RCON)
 			if (A.alarm_area.atmosalert(0, A))
 				A.post_alert(0)
 			A.update_icon()

@@ -1,25 +1,26 @@
 
-/obj/item/device/ano_scanner
+/obj/item/ano_scanner
 	name = "Alden-Saraspova counter"
 	desc = "Aids in triangulation of exotic particles."
-	icon = 'icons/obj/xenoarchaeology.dmi'
-	icon_state = "flashgun"
-	item_state = "lampgreen"
-	w_class = 2.0
+	icon = 'icons/obj/item/scanner.dmi'
+	icon_state = "xenoarch_scanner"
+	item_state = "xenoarch_scanner"
+	contained_sprite = TRUE
+	w_class = WEIGHT_CLASS_SMALL
 	slot_flags = SLOT_BELT
 	var/nearest_artifact_id = "unknown"
 	var/nearest_artifact_distance = -1
 	var/last_scan_time = 0
 	var/scan_delay = 25
 
-/obj/item/device/ano_scanner/Initialize()
+/obj/item/ano_scanner/Initialize()
 	. = ..()
 	scan()
 
-/obj/item/device/ano_scanner/attack_self(var/mob/user as mob)
+/obj/item/ano_scanner/attack_self(var/mob/user as mob)
 	return src.interact(user)
 
-/obj/item/device/ano_scanner/interact(var/mob/user as mob)
+/obj/item/ano_scanner/interact(var/mob/user as mob)
 	if(world.time - last_scan_time >= scan_delay)
 		spawn(0)
 			scan()
@@ -27,18 +28,20 @@
 			if(!user) return
 
 			if(nearest_artifact_distance >= 0)
-				user << "Exotic energy detected on wavelength '[nearest_artifact_id]' in a radius of [nearest_artifact_distance]m"
+				to_chat(user, "Exotic energy detected on wavelength '[nearest_artifact_id]' in a radius of [nearest_artifact_distance]m")
 			else
-				user << "Background radiation levels detected."
+				to_chat(user, "Background radiation levels detected.")
+			playsound(loc, 'sound/machines/boop2.ogg', 40)
 	else
-		user << "Scanning array is recharging."
+		to_chat(user, "Scanning array is recharging.")
 
-/obj/item/device/ano_scanner/proc/scan()
-	set background = 1
-
+/obj/item/ano_scanner/proc/scan()
 	last_scan_time = world.time
 	nearest_artifact_distance = -1
 	var/turf/cur_turf = get_turf(src)
+	if(!cur_turf)
+		return
+
 	if (SSxenoarch) //Sanity check due to runtimes ~Z
 		for(var/turf/simulated/mineral/T in SSxenoarch.artifact_spawning_turfs)
 			if(T.artifact_find)

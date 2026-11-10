@@ -1,34 +1,28 @@
-var/datum/controller/subsystem/economy/SSeconomy
-
-/datum/controller/subsystem/economy
+SUBSYSTEM_DEF(economy)
 	name = "Economy"
 	wait = 30 SECONDS
 	flags = SS_NO_FIRE
-	init_order = SS_INIT_ECONOMY
+	init_order = INIT_ORDER_ECONOMY
 	var/datum/money_account/station_account
 	var/list/department_accounts = list()
 	var/list/all_money_accounts = list()
 	var/num_financial_terminals = 1
 	var/next_account_number = 0
 
-/datum/controller/subsystem/economy/New()
-	NEW_SS_GLOBAL(SSeconomy)
-
 /datum/controller/subsystem/economy/Initialize(timeofday)
 	next_account_number = rand(111111, 999999)
 
 	for(var/loc_type in typesof(/datum/trade_destination) - /datum/trade_destination)
 		var/datum/trade_destination/D = new loc_type
-		weighted_randomevent_locations[D] = D.viable_random_events.len
-		weighted_mundaneevent_locations[D] = D.viable_mundane_events.len
+		GLOB.weighted_randomevent_locations[D] = D.viable_random_events.len
+		GLOB.weighted_mundaneevent_locations[D] = D.viable_mundane_events.len
 
 	create_station_account()
 
-	for(var/department in station_departments)
-		create_department_account(department)
-	create_department_account("Vendor")
+	for(var/account in GLOB.department_funds)
+		create_department_account(account)
 
-	..()
+	return SS_INIT_SUCCESS
 
 /datum/controller/subsystem/economy/Recover()
 	src.station_account = SSeconomy.station_account
@@ -41,26 +35,29 @@ var/datum/controller/subsystem/economy/SSeconomy
 /**
  * Account Creation
  */
- //Create the station Account
+
+///Create the station Account
 /datum/controller/subsystem/economy/proc/create_station_account()
 	if(station_account)
 		return FALSE
 
 	station_account = new()
-	station_account.owner_name = "[station_name()] Station Account"
+	station_account.owner_name = "[station_name()] Assigned Conglomerate Funds"
 	station_account.account_number = next_account_number
 	next_account_number += rand(1,500)
+	if(next_account_number > 999999) //If we're hitting 7 digits, reset to the minimum and increase from there.
+		next_account_number = 111111 + rand(1,500)
 	station_account.remote_access_pin = rand(1111, 111111)
-	station_account.money = 75000
+	station_account.money = 35000
 
 	//create an entry in the account transaction log for when it was created
 	var/datum/transaction/T = new()
 	T.target_name = station_account.owner_name
 	T.purpose = "Account creation"
-	T.amount = 75000
-	T.date = "2nd April, 2454"
+	T.amount = 10000
+	T.date = "13th May, 2461"
 	T.time = "11:24"
-	T.source_terminal = "Biesel GalaxyNet Terminal #277"
+	T.source_terminal = "Idris Remote Terminal #[rand(111,11111)]"
 
 	//add the account
 	add_transaction_log(station_account,T)
@@ -77,16 +74,16 @@ var/datum/controller/subsystem/economy/SSeconomy
 	department_account.account_number = next_account_number
 	next_account_number += rand(1,500)
 	department_account.remote_access_pin = rand(1111, 111111)
-	department_account.money = 5000
+	department_account.money = GLOB.department_funds[department]
 
 	//create an entry in the account transaction log for when it was created
 	var/datum/transaction/T = new()
 	T.target_name = department_account.owner_name
 	T.purpose = "Account creation"
 	T.amount = department_account.money
-	T.date = "2nd April, 2454"
+	T.date = "13th May, 2461"
 	T.time = "11:24"
-	T.source_terminal = "Biesel GalaxyNet Terminal #277"
+	T.source_terminal = "Idris Remote Terminal #[rand(111,11111)]"
 
 	//add the account
 	add_transaction_log(department_account,T)
@@ -96,13 +93,14 @@ var/datum/controller/subsystem/economy/SSeconomy
 	return TRUE
 
 //Create a "normal" player account
-/datum/controller/subsystem/economy/proc/create_account(var/new_owner_name = "Default user", var/starting_funds = 0, var/obj/machinery/account_database/source_db)
+/datum/controller/subsystem/economy/proc/create_account(var/new_owner_name = "Default user", var/starting_funds = 0, var/datum/computer_file/program/account_db/source_db, var/account_public = TRUE)
 	//create a new account
 	var/datum/money_account/M = new()
 	M.owner_name = new_owner_name
 	M.remote_access_pin = rand(1111, 111111)
 	M.money = starting_funds
 	M.account_number = next_account_number
+	M.public_account = account_public
 	next_account_number += rand(1,25)
 
 	//create an entry in the account transaction log for when it was created
@@ -112,40 +110,37 @@ var/datum/controller/subsystem/economy/SSeconomy
 	T.amount = starting_funds
 
 	if(!source_db)
-		//set a random date, time and location some time over the past few decades
-		T.date = "[num2text(rand(1,31))] [pick("January","February","March","April","May","June","July","August","September","October","November","December")], 24[rand(10,48)]"
+		//set a random date from recent months
+		T.date = "[num2text(rand(1,31))] [pick("January","February","March","April","May")], 2461"
 		T.time = "[rand(0,24)]:[rand(11,59)]"
-		T.source_terminal = "NTGalaxyNet Terminal #[rand(111,1111)]"
+		T.source_terminal = "Idris SelfServ Terminal #[rand(111,11111)]"
 	else
 		T.date = worlddate2text()
 		T.time = worldtime2text()
 		T.source_terminal = source_db.machine_id
 
-		//create a sealed package containing the account details
-		var/obj/item/smallDelivery/P = new /obj/item/smallDelivery(source_db.loc)
+		if(source_db.computer.nano_printer)
+			var/pname = "Account information: [M.owner_name]"
+			var/info = "<b>Account details (confidential)</b><br><hr><br>"
+			info += "<i>Account holder:</i> [M.owner_name]<br>"
+			info += "<i>Account number:</i> [M.account_number]<br>"
+			info += "<i>Account pin:</i> [M.remote_access_pin]<br>"
+			info += "<i>Starting balance:</i> [M.money]电<br>"
+			info += "<i>Date and time:</i> [worldtime2text()], [worlddate2text()]<br><br>"
+			info += "<i>Creation terminal ID:</i> [source_db.machine_id]<br>"
+			var/obj/item/card/id/held_card = source_db.get_held_card()
+			info += "<i>Authorised NT officer overseeing creation:</i> [held_card.registered_name]<br>"
 
-		var/obj/item/weapon/paper/R = new /obj/item/weapon/paper(P)
-		P.wrapped = R
-		var/pname = "Account information: [M.owner_name]"
-		var/info = "<b>Account details (confidential)</b><br><hr><br>"
-		info += "<i>Account holder:</i> [M.owner_name]<br>"
-		info += "<i>Account number:</i> [M.account_number]<br>"
-		info += "<i>Account pin:</i> [M.remote_access_pin]<br>"
-		info += "<i>Starting balance:</i> $[M.money]<br>"
-		info += "<i>Date and time:</i> [worldtime2text()], [worlddate2text()]<br><br>"
-		info += "<i>Creation terminal ID:</i> [source_db.machine_id]<br>"
-		info += "<i>Authorised NT officer overseeing creation:</i> [source_db.held_card.registered_name]<br>"
-
-		R.set_content_unsafe(pname, info)
-
-		//stamp the paper
-		var/image/stampoverlay = image('icons/obj/bureaucracy.dmi')
-		stampoverlay.icon_state = "paper_stamp-cent"
-		if(!R.stamped)
-			R.stamped = new
-		R.stamped += /obj/item/weapon/stamp
-		R.add_overlay(stampoverlay)
-		R.stamps += "<HR><i>This paper has been stamped by the Accounts Database.</i>"
+			var/obj/item/paper/R = source_db.computer.nano_printer.print_text("", pname, "#deebff")
+			R.set_content_unsafe(pname, info)
+			//stamp the paper
+			var/image/stampoverlay = image('icons/obj/bureaucracy.dmi')
+			stampoverlay.icon_state = "paper_stamp-cent"
+			if(!R.stamped)
+				R.stamped = new
+			R.stamped += /obj/item/stamp
+			R.AddOverlays(stampoverlay)
+			R.stamps += "<HR><i>This paper has been stamped by the Accounts Database.</i>"
 
 	//add the account
 	add_transaction_log(M,T)
@@ -153,6 +148,32 @@ var/datum/controller/subsystem/economy/SSeconomy
 
 	return M
 
+/// Create and assign account for any arbitrary mob, returns the created account (/datum/money_account)
+/datum/controller/subsystem/economy/proc/create_and_assign_account(var/mob/mob, var/override_name, var/funds, var/is_public)
+	var/datum/money_account/money_account = SSeconomy.create_account(override_name || mob.real_name, funds, null, is_public)
+
+	if(mob.mind)
+		var/remembered_info = ""
+		remembered_info += "<b>Your account number is:</b> #[money_account.account_number]<br>"
+		remembered_info += "<b>Your account pin is:</b> [money_account.remote_access_pin]<br>"
+		remembered_info += "<b>Your account funds are:</b> [money_account.money]电<br>"
+
+		if(money_account.transactions.len)
+			var/datum/transaction/transaction = money_account.transactions[1]
+			remembered_info += "<b>Your account was created:</b> [transaction.time], [transaction.date] at [transaction.source_terminal]<br>"
+
+		mob.mind.store_memory(remembered_info)
+		mob.mind.initial_account = money_account
+
+	return money_account
+
+/datum/controller/subsystem/economy/proc/get_public_accounts()
+	var/list/public_accounts = list()
+	for(var/account in all_money_accounts)
+		var/datum/money_account/M = all_money_accounts[account]
+		if(M.public_account)
+			public_accounts += account // yes, we're passing the number
+	return public_accounts
 
 //Charge a account
 /datum/controller/subsystem/economy/proc/charge_to_account(var/attempt_account_number, var/source_name, var/purpose, var/terminal_id, var/amount)
@@ -244,9 +265,9 @@ var/datum/controller/subsystem/economy/SSeconomy
 
 //gets a departmental account by name
 /datum/controller/subsystem/economy/proc/get_department_account(var/department)
+	RETURN_TYPE(/datum/money_account)
 	if(department_accounts[department])
 		return department_accounts[department]
-	return
 
 /**
  * Logging functions
@@ -282,6 +303,7 @@ var/datum/controller/subsystem/economy/SSeconomy
 /datum/money_account
 	var/owner_name = ""
 	var/account_number = 0
+	var/public_account = TRUE
 	var/remote_access_pin = 0
 	var/money = 0
 	var/list/transactions = list()

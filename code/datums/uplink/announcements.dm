@@ -4,123 +4,129 @@
 /datum/uplink_item/abstract/announcements
 	category = /datum/uplink_category/services
 
-/datum/uplink_item/abstract/announcements/buy(var/obj/item/device/uplink/U, var/mob/user)
+/datum/uplink_item/abstract/announcements/buy(var/obj/item/uplink/U, var/mob/user)
 	. = ..()
 	if(.)
 		log_and_message_admins("has triggered a falsified [src]", user)
 
 /datum/uplink_item/abstract/announcements/fake_centcom/New()
 	..()
-	name = "[current_map.boss_name] Update Announcement"
-	item_cost = round(DEFAULT_TELECRYSTAL_AMOUNT / 2)
-	desc = "Causes a falsified [current_map.boss_name] Update. Triggers immediately after supplying additional data."
+	name = "[SSatlas.current_map.boss_name] Update Announcement"
+	telecrystal_cost = 5
+	bluecrystal_cost = 5
+	desc = "Causes a falsified [SSatlas.current_map.boss_name] Update. Triggers immediately after supplying additional data."
 
 /datum/uplink_item/abstract/announcements/fake_centcom/extra_args(var/mob/user)
-	var/title = sanitize(input("Enter your announcement title.", "Announcement Title") as null|text)
+	var/title = tgui_input_text(user, "Enter your announcement title.", "Announcement Title", encode = FALSE)
 	if(!title)
 		return
-	var/message = sanitize(input("Enter your announcement message.", "Announcement Title") as null|text)
+	var/message = tgui_input_text(user, "Enter your announcement message.", "Announcement Title", multiline = TRUE, encode = FALSE)
 	if(!message)
 		return
-	return list("title" = title, "message" = message)
+	return list("title" = strip_html_readd_newlines(title), "message" = strip_html_readd_newlines(message))
 
-/datum/uplink_item/abstract/announcements/fake_centcom/get_goods(var/obj/item/device/uplink/U, var/loc, var/mob/user, var/list/args)
-	command_announcement.Announce(args["message"], args["title"], do_newscast=1, do_print=1)
-	return 1
+/datum/uplink_item/abstract/announcements/fake_centcom/get_goods(var/obj/item/uplink/U, var/loc, var/mob/user, var/list/arguments)
+	command_announcement.Announce(arguments["message"], arguments["title"], do_newscast=1, do_print=1, msg_sanitized=TRUE)
+	return TRUE
 
 /datum/uplink_item/abstract/announcements/fake_crew_arrival
 	name = "Crew Arrival Announcement/Records"
 	desc = "Creates a fake crew arrival announcement as well as fake crew records, using your current appearance (including held items!) and worn id card. Trigger with care!"
-	item_cost = 8
+	telecrystal_cost = 4
+	bluecrystal_cost = 4
 
-/datum/uplink_item/abstract/announcements/fake_crew_arrival/New()
-	..()
-	antag_roles = list(MODE_MERCENARY)
-
-/datum/uplink_item/abstract/announcements/fake_crew_arrival/get_goods(var/obj/item/device/uplink/U, var/loc, var/mob/user, var/list/args)
+/datum/uplink_item/abstract/announcements/fake_crew_arrival/get_goods(var/obj/item/uplink/U, var/loc, var/mob/user, var/list/arguments)
 	if(!user)
 		return 0
 
-	var/obj/item/weapon/card/id/I = user.GetIdCard()
-	var/datum/data/record/random_general_record
-	var/datum/data/record/random_medical_record
-	if(data_core.general.len)
-		random_general_record	= pick(data_core.general)
-		random_medical_record	= find_medical_record("id", random_general_record.fields["id"])
+	var/obj/item/card/id/I = user.GetIdCard()
+	var/datum/record/general/random_record
+	if(SSrecords.records.len)
+		random_record = pick(SSrecords.records)
+	else
+		random_record = new(user)
 
-	var/datum/data/record/general = data_core.CreateGeneralRecord(user)
+	var/datum/record/general/record = random_record.Copy()
+
 	if(I)
-		general.fields["age"] = I.age
-		general.fields["rank"] = I.assignment
-		general.fields["real_rank"] = I.assignment
-		general.fields["name"] = I.registered_name
-		general.fields["sex"] = I.sex
+		record.age = I.age
+		record.name = I.registered_name
+		record.sex = I.sex
+		record.employer = I.employer_faction
+		var/datum/faction/id_faction = SSjobs.name_factions[I.employer_faction]
+		var/faction_abbreviation = id_faction?.title_suffix
+		var/assignment = "[I.assignment][ faction_abbreviation ? " ([faction_abbreviation])" : ""]"
+		record.rank = assignment
+		record.real_rank = assignment
 	else
 		var/mob/living/carbon/human/H
 		if(istype(user,/mob/living/carbon/human))
 			H = user
-			general.fields["age"] = H.age
+			record.age = H.age
+			record.employer = H.employer_faction
 		else
-			general.fields["age"] = initial(H.age)
+			record.age = initial(H.age)
 		var/assignment = GetAssignment(user)
-		general.fields["rank"] = assignment
-		general.fields["real_rank"] = assignment
-		general.fields["name"] = user.real_name
-		general.fields["sex"] = capitalize(user.gender)
+		record.rank = assignment
+		record.real_rank = assignment
+		record.name = user.real_name
+		record.sex = capitalize(user.gender)
 
-	general.fields["species"] = user.get_species()
-	var/datum/data/record/medical = data_core.CreateMedicalRecord(general.fields["name"], general.fields["id"])
-	data_core.CreateSecurityRecord(general.fields["name"], general.fields["id"])
-
-	if(!random_general_record)
-		general.fields["citizenship"]	= random_general_record.fields["citizenship"]
-		general.fields["faction"] 		= random_general_record.fields["faction"]
-		general.fields["fingerprint"] 	= random_general_record.fields["fingerprint"]
-		general.fields["home_system"] 	= random_general_record.fields["home_system"]
-		general.fields["religion"] 		= random_general_record.fields["religion"]
-	if(random_medical_record)
-		medical.fields["b_type"]		= random_medical_record.fields["b_type"]
-		medical.fields["b_dna"]			= random_medical_record.fields["b_type"]
+	record.species = user.get_species()
+	record.security = new(null, record.id)
 
 	if(I)
-		general.fields["fingerprint"] 	= I.fingerprint_hash
-		medical.fields["b_type"]	= I.blood_type
-		medical.fields["b_dna"]		= I.dna_hash
+		record.fingerprint = I.fingerprint_hash
+		record.medical.blood_type = I.blood_type
+		record.medical.blood_dna = I.dna_hash
 
-	AnnounceArrivalSimple(general.fields["name"], general.fields["rank"])
+	SSrecords.add_record(record)
+	AnnounceArrivalSimple(record.name, record.rank)
 	return 1
 
 /datum/uplink_item/abstract/announcements/fake_ion_storm
-	name = "Ion Storm Announcement"
-	desc = "Interferes with the station's ion sensors. Triggers immediately upon investment."
-	item_cost = 2
+	var/static/cooldown = FALSE
 
-/datum/uplink_item/abstract/announcements/fake_ion_storm/get_goods(var/obj/item/device/uplink/U, var/loc)
-	var/static/cooldown = 0
-	if(cooldown != 1)
+/datum/uplink_item/abstract/announcements/fake_ion_storm/New()
+	..()
+	name = "Ion Storm Announcement"
+	desc = "Interferes with the [SSatlas.current_map.station_short]'s ion sensors. Triggers immediately upon investment."
+	telecrystal_cost = 2
+	var/static/cooldown = FALSE
+
+/datum/uplink_item/abstract/announcements/fake_ion_storm/get_goods(var/obj/item/uplink/U, var/loc)
+	if(cooldown != TRUE)
 		ion_storm_announcement()
-		cooldown = 1
-		spawn(240)
-			cooldown = 0
-		return 1
+		cooldown = TRUE
+		addtimer(CALLBACK(src, PROC_REF(reset_cooldown)), 24 SECONDS)
+		return TRUE
 	else
-		loc << "<span class='danger'>This service is on cooldown! Try again in a bit!</span>"
+		to_chat(loc, SPAN_DANGER("This service is on cooldown! Try again in a bit!"))
 		return 0
+
+/datum/uplink_item/abstract/announcements/fake_ion_storm/proc/reset_cooldown()
+	cooldown = FALSE
 
 /datum/uplink_item/abstract/announcements/fake_radiation
-	name = "Radiation Storm Announcement"
-	desc = "Interferes with the station's radiation sensors. Triggers immediately upon investment."
-	item_cost = 6
+	var/static/cooldown = FALSE
 
-/datum/uplink_item/abstract/announcements/fake_radiation/get_goods(var/obj/item/device/uplink/U, var/loc)
+/datum/uplink_item/abstract/announcements/fake_radiation/New()
+	..()
+	name = "Radiation Storm Announcement"
+	desc = "Interferes with the [SSatlas.current_map.station_short]'s radiation sensors. Triggers immediately upon investment."
+	telecrystal_cost = 3
 	var/static/cooldown = 0
-	if(cooldown != 1)
+
+/datum/uplink_item/abstract/announcements/fake_radiation/get_goods(var/obj/item/uplink/U, var/loc)
+	if(cooldown != TRUE)
 		var/datum/event_meta/EM = new(EVENT_LEVEL_MUNDANE, "Fake Radiation Storm", add_to_queue = 0)
 		new/datum/event/radiation_storm/syndicate(EM)
-		cooldown = 1
-		spawn(240)
-			cooldown = 0
+		cooldown = TRUE
+		addtimer(CALLBACK(src, PROC_REF(reset_cooldown)), 24 SECONDS)
 		return 1
 	else
-		loc << "<span class='danger'>This service is on cooldown! Try again in a bit!</span>"
+		to_chat(loc, SPAN_DANGER("This service is on cooldown! Try again in a bit!"))
 		return 0
+
+/datum/uplink_item/abstract/announcements/fake_radiation/proc/reset_cooldown()
+	cooldown = FALSE

@@ -1,161 +1,85 @@
-//This file was auto-corrected by findeclaration.exe on 25.5.2012 20:42:32
-
-/obj/item/weapon/implantcase
-	name = "glass case"
-	desc = "A case containing an implant."
-	icon = 'icons/obj/items.dmi'
-	icon_state = "implantcase-0"
+/**
+ * Item used to store implants. Can be renamed with a pen. Implants are moved between these and implanters when a mob uses an implanter on the case.
+ */
+/obj/item/implantcase
+	name = "implant case"
+	desc = "An aluminium case, which can safely contain an implant."
+	icon = 'icons/obj/item/implants.dmi'
+	icon_state = "implantcase"
 	item_state = "implantcase"
 	throw_speed = 1
 	throw_range = 5
-	w_class = 1.0
-	var/obj/item/weapon/implant/imp = null
+	w_class = WEIGHT_CLASS_TINY
+	///The implant within the case
+	var/obj/item/implant/imp = null
 
-/obj/item/weapon/implantcase/proc/update()
-	if (src.imp)
-		src.icon_state = text("implantcase-[]", src.imp.implant_color)
+/obj/item/implantcase/Initialize(mapload)
+	. = ..()
+	if(ispath(imp))
+		imp = new imp(src)
+		update_description()
+	update_icon()
+
+/obj/item/implantcase/proc/update_description()
+	if(imp)
+		desc = "An aluminium case, containing \a [imp]."
+		origin_tech = imp.origin_tech
 	else
-		src.icon_state = "implantcase-0"
-	return
+		desc = "An aluminium case, which can safely contain an implant."
+		origin_tech.Cut()
 
-/obj/item/weapon/implantcase/attackby(obj/item/weapon/I as obj, mob/user as mob)
-	..()
-	if (istype(I, /obj/item/weapon/pen))
-		var/t = input(user, "What would you like the label to be?", text("[]", src.name), null)  as text
-		if (user.get_active_hand() != I)
+
+/obj/item/implantcase/update_icon()
+	ClearOverlays()
+	if (imp)
+		var/overlay_icon_state = "implantstorage_[imp.implant_icon]"
+		var/mutable_appearance/overlay_implant_icon = mutable_appearance(icon, overlay_icon_state)
+		AddOverlays(overlay_implant_icon)
+
+/obj/item/implantcase/attackby(obj/item/attacking_item, mob/user)
+	if (attacking_item.tool_behaviour == TOOL_PEN)
+		var/t = tgui_input_text(user, "What would you like the label to be?", name, name, MAX_NAME_LEN)
+		if (user.get_active_hand() != attacking_item)
 			return
-		if((!in_range(src, usr) && src.loc != user))
+		if((!in_range(src, usr) && loc != user))
 			return
-		t = sanitizeSafe(t, MAX_NAME_LEN)
 		if(t)
-			src.name = text("Glass Case - '[]'", t)
+			src.name = "implant case - [t]"
+			desc = "An aluminium case, containing \a [t] implant."
 		else
-			src.name = "Glass Case"
-	else if(istype(I, /obj/item/weapon/reagent_containers/syringe))
-		if(!src.imp)	return
-		if(!src.imp.allow_reagents)	return
-		if(src.imp.reagents.total_volume >= src.imp.reagents.maximum_volume)
-			user << "<span class='warning'>\The [src] is full.</span>"
-		else
-			var/trans = I.reagents.trans_to_obj(src.imp, 5)
-			if (trans > 0)
-				user << "<span class='notice'>You inject [trans] units of the solution. The syringe now contains [I.reagents.total_volume] units.</span>"
-	else if (istype(I, /obj/item/weapon/implanter))
-		var/obj/item/weapon/implanter/M = I
-		if (M.imp)
-			if ((src.imp || M.imp.implanted))
-				return
+			src.name = "implant case"
+			desc = "An aluminium case, which can safely contain an implant."
+	else if(istype(attacking_item, /obj/item/reagent_containers/syringe))
+		imp.attackby(attacking_item, user)
+	else if (istype(attacking_item, /obj/item/implanter))
+		var/obj/item/implanter/M = attacking_item
+		if (M.imp && !imp && !M.imp.implanted)
 			M.imp.forceMove(src)
-			src.imp = M.imp
+			imp = M.imp
 			M.imp = null
-			src.update()
-			M.update()
+		else if (imp && !M.imp)
+			imp.forceMove(M)
+			M.imp = src.imp
+			imp = null
+		update_description()
+		update_icon()
+		M.update_icon()
+	else if (istype(attacking_item, /obj/item/implant))
+		if(imp == null)
+			to_chat(user, SPAN_NOTICE("You slide \the [attacking_item] into \the [src]."))
+			user.drop_from_inventory(attacking_item,src)
+			imp = attacking_item
 		else
-			if (src.imp)
-				if (M.imp)
-					return
-				src.imp.forceMove(M)
-				M.imp = src.imp
-				src.imp = null
-				update()
-			M.update()
-	return
-
-
-/obj/item/weapon/implantcase/tracking
-	name = "glass case - 'tracking'"
-	desc = "A case containing a tracking implant."
-	icon_state = "implantcase-b"
-
-/obj/item/weapon/implantcase/tracking/New()
-	src.imp = new /obj/item/weapon/implant/tracking( src )
+			to_chat(user, SPAN_WARNING("\The [src] already has an implant inside of it!"))
+		update_description()
+		update_icon()
+	else if(istype(attacking_item, /obj/item/implantpad))
+		var/obj/item/implantpad/pad = attacking_item
+		if(!pad.case)
+			user.drop_from_inventory(src,pad)
+			pad.case = src
+			pad.update_icon()
+		else
+			to_chat(user, SPAN_WARNING("\The [pad] already has an implant case attached to it!"))
 	..()
-	return
 
-
-/obj/item/weapon/implantcase/explosive
-	name = "glass case - 'explosive'"
-	desc = "A case containing an explosive implant."
-	icon_state = "implantcase-r"
-
-/obj/item/weapon/implantcase/explosive/New()
-	src.imp = new /obj/item/weapon/implant/explosive( src )
-	..()
-	return
-
-
-/obj/item/weapon/implantcase/chem
-	name = "glass case - 'chem'"
-	desc = "A case containing a chemical implant."
-	icon_state = "implantcase-b"
-
-/obj/item/weapon/implantcase/chem/New()
-	src.imp = new /obj/item/weapon/implant/chem( src )
-	..()
-	return
-
-
-/obj/item/weapon/implantcase/loyalty
-	name = "glass case - 'loyalty'"
-	desc = "A case containing a loyalty implant."
-	icon_state = "implantcase-r"
-
-/obj/item/weapon/implantcase/loyalty/New()
-	src.imp = new /obj/item/weapon/implant/loyalty( src )
-	..()
-	return
-
-
-/obj/item/weapon/implantcase/death_alarm
-	name = "glass case - 'death alarm'"
-	desc = "A case containing a death alarm implant."
-	icon_state = "implantcase-b"
-
-/obj/item/weapon/implantcase/death_alarm/New()
-	src.imp = new /obj/item/weapon/implant/death_alarm( src )
-	..()
-	return
-
-
-/obj/item/weapon/implantcase/freedom
-	name = "glass case - 'freedom'"
-	desc = "A case containing a freedom implant."
-	icon_state = "implantcase-r"
-
-/obj/item/weapon/implantcase/freedom/New()
-	src.imp = new /obj/item/weapon/implant/freedom( src )
-	..()
-	return
-
-
-/obj/item/weapon/implantcase/adrenalin
-	name = "glass case - 'adrenalin'"
-	desc = "A case containing an adrenalin implant."
-	icon_state = "implantcase-b"
-
-/obj/item/weapon/implantcase/adrenalin/New()
-	src.imp = new /obj/item/weapon/implant/adrenalin( src )
-	..()
-	return
-
-
-/obj/item/weapon/implantcase/dexplosive
-	name = "glass case - 'explosive'"
-	desc = "A case containing an explosive."
-	icon_state = "implantcase-r"
-
-/obj/item/weapon/implantcase/dexplosive/New()
-	src.imp = new /obj/item/weapon/implant/dexplosive( src )
-	..()
-	return
-
-
-/obj/item/weapon/implantcase/health
-	name = "glass case - 'health'"
-	desc = "A case containing a health tracking implant."
-	icon_state = "implantcase-b"
-
-/obj/item/weapon/implantcase/health/New()
-	src.imp = new /obj/item/weapon/implant/health( src )
-	..()
-	return

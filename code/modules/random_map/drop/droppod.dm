@@ -13,6 +13,7 @@
 
 	wall_type = /turf/simulated/wall/titanium
 	floor_type = /turf/simulated/floor/reinforced
+	spawn_roof = TRUE
 	var/list/supplied_drop_types = list()
 	var/door_type = /obj/structure/droppod_door
 	var/drop_type = /mob/living/simple_animal/parrot
@@ -82,7 +83,7 @@
 	if(placement_explosion_dev || placement_explosion_heavy || placement_explosion_light || placement_explosion_flash)
 		var/turf/T = locate((origin_x + n_ceil(limit_x / 2)-1), (origin_y + n_ceil(limit_y / 2)-1), origin_z)
 		if(istype(T))
-			explosion(T, placement_explosion_dev, placement_explosion_heavy, placement_explosion_light, placement_explosion_flash)
+			explosion(T, placement_explosion_dev, placement_explosion_heavy, placement_explosion_light, placement_explosion_flash, spreading = TRUE)
 			sleep(15) // Let the explosion finish proccing before we ChangeTurf(), otherwise it might destroy our spawned objects.
 	return ..()
 
@@ -124,7 +125,7 @@
 		get_spawned_drop(T)
 
 /datum/random_map/droppod/proc/get_spawned_drop(var/turf/T)
-	var/obj/structure/bed/chair/C = new(T)
+	var/obj/structure/bed/stool/chair/C = new(T)
 	C.set_light(3, l_color = "#CC0000")
 	var/mob/living/drop
 	// This proc expects a list of mobs to be passed to the spawner.
@@ -137,14 +138,14 @@
 			supplied_drop_types -= drop
 			if(istype(drop))
 				drop.tag = null
-				if(drop.buckled)
-					drop.buckled = null
+				if(drop.buckled_to)
+					drop.buckled_to = null
 				drop.forceMove(T)
 	else if(ispath(drop_type))
 		drop = new drop_type(T)
 		if(istype(drop))
-			if(drop.buckled)
-				drop.buckled = null
+			if(drop.buckled_to)
+				drop.buckled_to = null
 			drop.forceMove(T)
 
 /datum/admins/proc/call_drop_pod()
@@ -152,73 +153,79 @@
 	set desc = "Call an immediate drop pod on your location."
 	set name = "Call Drop Pod"
 
-	if(!check_rights(R_FUN)) return
+	if(check_rights(R_FUN) || isstoryteller(usr))
+		var/client/selected_player
+		var/mob/living/spawned_mob
+		var/list/spawned_mobs = list()
 
-	var/client/selected_player
-	var/mob/living/spawned_mob
-	var/list/spawned_mobs = list()
-
-	var/spawn_path = input("Select a mob type.", "Drop Pod Selection", null) as null|anything in typesof(/mob/living)-/mob/living
-	if(!spawn_path)
-		return
-
-	if(alert("Do you wish the mob to have a player?",,"No","Yes") == "No")
-		var/spawn_count = input("How many mobs do you wish the pod to contain?", "Drop Pod Selection", null) as num
-		if(spawn_count <= 0)
-			return
-		for(var/i=0;i<spawn_count;i++)
-			var/mob/living/M = new spawn_path()
-			M.tag = "awaiting drop"
-			spawned_mobs |= M
-	else
-		var/list/candidates = list()
-		for(var/client/player in clients)
-			if(player.mob && istype(player.mob, /mob/abstract/observer))
-				candidates |= player
-
-		if(!candidates.len)
-			usr << "There are no candidates for a drop pod launch."
+		var/spawn_path = input("Select a mob type.", "Drop Pod Selection", null) as null|anything in typesof(/mob/living)-/mob/living
+		if(!spawn_path)
 			return
 
-		// Get a player and a mob type.
-		selected_player = input("Select a player.", "Drop Pod Selection", null) as null|anything in candidates
-		if(!selected_player)
+		if(tgui_alert(usr, "Do you wish the mob to have a player?", , list("No", "Yes")) == "No")
+			var/spawn_count = input("How many mobs do you wish the pod to contain?", "Drop Pod Selection", null) as num
+			if(spawn_count <= 0)
+				return
+			for(var/i=0;i<spawn_count;i++)
+				var/mob/living/M = new spawn_path()
+				M.tag = "awaiting drop"
+				spawned_mobs |= M
+		else
+			var/list/candidates = list()
+			for(var/client/player in GLOB.clients)
+				if(player.mob && istype(player.mob, /mob/abstract/ghost/observer))
+					candidates |= player
+
+			if(!candidates.len)
+				to_chat(usr, "There are no candidates for a drop pod launch.")
+				return
+
+			// Get a player and a mob type.
+			selected_player = input("Select a player.", "Drop Pod Selection", null) as null|anything in candidates
+			if(!selected_player)
+				return
+
+			// Spawn the mob in nullspace for now.
+			spawned_mob = new spawn_path()
+			spawned_mob.tag = "awaiting drop"
+
+			// Equip them, if they are human and it is desirable.
+			if(istype(spawned_mob, /mob/living/carbon/human))
+				var/antag_type = input("Select an equipment template to use or cancel for nude.", null) as null|anything in GLOB.all_antag_types
+				if(antag_type)
+					var/datum/antagonist/A = GLOB.all_antag_types[antag_type]
+					A.equip(spawned_mob)
+
+		if(tgui_alert(usr, "Are you SURE you wish to deploy this drop pod? It will cause a sizable explosion and gib anyone underneath it.", , list("No", "Yes")) == "No")
+			if(spawned_mob)
+				qdel(spawned_mob)
+			if(spawned_mobs.len)
+				for(var/mob/living/M in spawned_mobs)
+					spawned_mobs -= M
+					M.tag = null
+					qdel(M)
+				spawned_mobs.Cut()
 			return
 
-		// Spawn the mob in nullspace for now.
-		spawned_mob = new spawn_path()
-		spawned_mob.tag = "awaiting drop"
+		// Chuck them into the pod.
+		var/automatic_pod
+		if(spawned_mob && selected_player)
+			spawned_mob.ckey = selected_player.mob.ckey
+			spawned_mobs = list(spawned_mob)
+			message_admins("[key_name_admin(usr)] dropped a pod containing \the [spawned_mob] ([spawned_mob.key]) at ([usr.x],[usr.y],[usr.z])")
+			log_admin("[key_name(usr)] dropped a pod containing \the [spawned_mob] ([spawned_mob.key]) at ([usr.x],[usr.y],[usr.z])")
+		else if(spawned_mobs.len)
+			automatic_pod = 1
+			message_admins("[key_name_admin(usr)] dropped a pod containing [spawned_mobs.len] [spawned_mobs[1]] at ([usr.x],[usr.y],[usr.z])")
+			log_admin("[key_name(usr)] dropped a pod containing [spawned_mobs.len] [spawned_mobs[1]] at ([usr.x],[usr.y],[usr.z])")
+		else
+			return
 
-		// Equip them, if they are human and it is desirable.
-		if(istype(spawned_mob, /mob/living/carbon/human))
-			var/antag_type = input("Select an equipment template to use or cancel for nude.", null) as null|anything in all_antag_types
-			if(antag_type)
-				var/datum/antagonist/A = all_antag_types[antag_type]
-				A.equip(spawned_mob)
+		new /datum/random_map/droppod(null, usr.x-1, usr.y-1, usr.z, supplied_drops = spawned_mobs, automated = automatic_pod)
 
-	if(alert("Are you SURE you wish to deploy this drop pod? It will cause a sizable explosion and gib anyone underneath it.",,"No","Yes") == "No")
-		if(spawned_mob)
-			qdel(spawned_mob)
-		if(spawned_mobs.len)
-			for(var/mob/living/M in spawned_mobs)
-				spawned_mobs -= M
-				M.tag = null
-				qdel(M)
-			spawned_mobs.Cut()
-		return
 
-	// Chuck them into the pod.
-	var/automatic_pod
-	if(spawned_mob && selected_player)
-		spawned_mob.ckey = selected_player.mob.ckey
-		spawned_mobs = list(spawned_mob)
-		message_admins("[key_name_admin(usr)] dropped a pod containing \the [spawned_mob] ([spawned_mob.key]) at ([usr.x],[usr.y],[usr.z])")
-		log_admin("[key_name(usr)] dropped a pod containing \the [spawned_mob] ([spawned_mob.key]) at ([usr.x],[usr.y],[usr.z])",admin_key=key_name(usr),ckey=key_name(spawned_mob))
-	else if(spawned_mobs.len)
-		automatic_pod = 1
-		message_admins("[key_name_admin(usr)] dropped a pod containing [spawned_mobs.len] [spawned_mobs[1]] at ([usr.x],[usr.y],[usr.z])")
-		log_admin("[key_name(usr)] dropped a pod containing [spawned_mobs.len] [spawned_mobs[1]] at ([usr.x],[usr.y],[usr.z])",admin_key=key_name(usr),ckey=key_name(spawned_mob))
-	else
-		return
-
-	new /datum/random_map/droppod(null, usr.x-1, usr.y-1, usr.z, supplied_drops = spawned_mobs, automated = automatic_pod)
+#undef SD_FLOOR_TILE
+#undef SD_WALL_TILE
+#undef SD_DOOR_TILE
+#undef SD_EMPTY_TILE
+#undef SD_SUPPLY_TILE

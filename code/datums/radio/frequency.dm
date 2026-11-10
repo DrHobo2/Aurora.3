@@ -17,7 +17,7 @@
 		for (var/next_filter in devices)
 			send_to_filter(source, signal, next_filter, start_point, range)
 
-//Sends a signal to all machines belonging to a given filter. Should be called by post_signal()
+/// Sends a signal to all machines belonging to a given filter. Should be called by post_signal()
 /datum/radio_frequency/proc/send_to_filter(obj/source, datum/signal/signal, filter, turf/start_point = null, range = null)
 	if (range && !start_point)
 		return
@@ -37,16 +37,16 @@
 /datum/radio_frequency/proc/add_listener(obj/device, filter)
 	if (!filter)
 		filter = RADIO_DEFAULT
-	//log_debug("add_listener(device=[device],filter=[filter]) frequency=[frequency]")
+	//LOG_DEBUG("add_listener(device=[device],filter=[filter]) frequency=[frequency]")
 	var/list/obj/devices_line = devices[filter]
 	if (!devices_line)
 		devices_line = new
 		devices[filter] = devices_line
-	devices_line+=device
+	devices_line |= device
 //			var/list/obj/devices_line___ = devices[filter_str]
 //			var/l = devices_line___.len
-	//log_debug("DEBUG: devices_line.len=[devices_line.len]")
-	//log_debug("DEBUG: devices(filter_str).len=[l]")
+	//LOG_DEBUG("DEBUG: devices_line.len=[devices_line.len]")
+	//LOG_DEBUG("DEBUG: devices(filter_str).len=[l]")
 
 /datum/radio_frequency/proc/remove_listener(obj/device)
 	for (var/devices_filter in devices)

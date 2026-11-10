@@ -3,49 +3,47 @@
 	set name = "Pray"
 
 	if(say_disabled)	//This is here to try to identify lag problems
-		usr << "<span class='warning'>Speech is currently admin-disabled.</span>"
+		to_chat(usr, SPAN_WARNING("Speech is currently admin-disabled."))
 		return
 
 	msg = sanitize(msg)
 	if(!msg)	return
 
-	if(usr.client)
-		if(usr.client.prefs.muted & MUTE_PRAY)
-			usr << "<span class='warning'>You cannot pray (muted).</span>"
-			return
-		if(src.client.handle_spam_prevention(msg,MUTE_PRAY))
-			return
+	if(client && client.handle_spam_prevention(msg,MUTE_PRAY))
+		return
 
-	var/image/cross = image('icons/obj/storage.dmi',"bible")
-	msg = "<span class='notice'>\icon[cross] <b><font color=purple>PRAY: </font>[key_name(src, 1)] (<A HREF='?_src_=holder;adminmoreinfo=\ref[src]'>?</A>) (<A HREF='?_src_=holder;adminplayeropts=\ref[src]'>PP</A>) (<A HREF='?_src_=vars;Vars=\ref[src]'>VV</A>) (<A HREF='?_src_=holder;subtlemessage=\ref[src]'>SM</A>) ([admin_jump_link(src, src)]) (<A HREF='?_src_=holder;secretsadmin=check_antagonist'>CA</A>) (<A HREF='?_src_=holder;adminspawncookie=\ref[src]'>SC</a>):</b> [msg]</span>"
+	var/image/cross = image('icons/obj/library.dmi',"bible")
+	msg = SPAN_NOTICE("[icon2html(cross, src)] <b><font color=purple>PRAY: </font>[key_name(src, 1)] (<A href='byond://?_src_=holder;adminmoreinfo=[REF(src)]'>?</A>) (<A href='byond://?_src_=holder;adminplayeropts=[REF(src)]'>PP</A>) (<A href='byond://?_src_=vars;Vars=[REF(src)]'>VV</A>) (<A href='byond://?_src_=holder;subtlemessage=[REF(src)]'>SM</A>) ([admin_jump_link(src, src)]) (<A href='byond://?_src_=holder;secretsadmin=check_antagonist'>CA</A>) (<A href='byond://?_src_=holder;adminspawncookie=[REF(src)]'>SC</a>):</b> [msg]")
 
-	for(var/client/C in admins)
+	for(var/s in GLOB.staff)
+		var/client/C = s
 		if(C.holder.rights & (R_ADMIN|R_MOD|R_FUN))
 			if(C.prefs.toggles & CHAT_PRAYER)
-				C << msg
-	usr << "Your prayers have been received by the gods."
+				to_chat(C, msg)
+	to_chat(usr, "Your prayers have been received by the gods.")
 
 	feedback_add_details("admin_verb","PR") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 	log_admin("PRAYER: [key_name(src)]: [msg]")
 
 /proc/Centcomm_announce(var/msg, var/mob/Sender, var/iamessage)
-	var/msg_cciaa = "<span class='notice'><b><font color=orange>[uppertext(current_map.boss_short)][iamessage ? " IA" : ""]:</font>[key_name(Sender, 1)] (<A HREF='?_src_=holder;CentcommReply=\ref[Sender]'>RPLY</A>):</b> [msg]</span>"
-	var/msg_admin = "<span class='notice'><b><font color=orange>[uppertext(current_map.boss_short)][iamessage ? " IA" : ""]:</font>[key_name(Sender, 1)] (<A HREF='?_src_=holder;adminplayeropts=\ref[Sender]'>PP</A>) (<A HREF='?_src_=vars;Vars=\ref[Sender]'>VV</A>) (<A HREF='?_src_=holder;subtlemessage=\ref[Sender]'>SM</A>) ([admin_jump_link(Sender, src)]) (<A HREF='?_src_=holder;secretsadmin=check_antagonist'>CA</A>) (<A HREF='?_src_=holder;BlueSpaceArtillery=\ref[Sender]'>BSA</A>) (<A HREF='?_src_=holder;CentcommReply=\ref[Sender]'>RPLY</A>):</b> [msg]</span>"
+	var/msg_cciaa = SPAN_NOTICE("<b><font color=orange>[uppertext(SSatlas.current_map.boss_short)][iamessage ? " IA" : ""]:</font>[key_name(Sender, 1)] (<A href='byond://?_src_=holder;CentcommReply=[REF(Sender)]'>RPLY</A>):</b> [msg]")
+	var/msg_admin = SPAN_NOTICE("<b><font color=orange>[uppertext(SSatlas.current_map.boss_short)][iamessage ? " IA" : ""]:</font>[key_name(Sender, 1)] (<A href='byond://?_src_=holder;adminplayeropts=[REF(Sender)]'>PP</A>) (<A href='byond://?_src_=vars;Vars=[REF(Sender)]'>VV</A>) (<A href='byond://?_src_=holder;subtlemessage=[REF(Sender)]'>SM</A>) ([admin_jump_link(Sender)]) (<A href='byond://?_src_=holder;secretsadmin=check_antagonist'>CA</A>) (<A href='byond://?_src_=holder;BlueSpaceArtillery=[REF(Sender)]'>BSA</A>) (<A href='byond://?_src_=holder;CentcommReply=[REF(Sender)]'>RPLY</A>):</b> [msg]")
 
 	var/cciaa_present = 0
 	var/cciaa_afk = 0
 
-	for(var/client/C in admins)
+	for(var/s in GLOB.staff)
+		var/client/C = s
 		if(R_ADMIN & C.holder.rights)
-			C << msg_admin
+			to_chat(C, msg_admin)
 		else if (R_CCIAA & C.holder.rights)
 			cciaa_present++
 			if (C.is_afk())
 				cciaa_afk++
 
-			C << msg_cciaa
+			to_chat(C, msg_cciaa)
 
-	discord_bot.send_to_cciaa("Emergency message from the station: `[msg]`, sent by [Sender]!")
+	SSdiscord.send_to_cciaa("Emergency message from the station: `[msg]`, sent by [Sender]! Gamemode: [SSticker.mode]")
 
 	var/discord_msg = "[cciaa_present] agents online."
 	if (cciaa_present)
@@ -54,11 +52,12 @@
 		else
 			discord_msg += " [cciaa_afk] AFK."
 
-	discord_bot.send_to_cciaa(discord_msg)
-	post_webhook_event(WEBHOOK_CCIAA_EMERGENCY_MESSAGE, list("message"=msg, "sender"="[Sender]", "cciaa_present"=cciaa_present, "cciaa_afk"=cciaa_afk))
+	SSdiscord.send_to_cciaa(discord_msg)
+	SSdiscord.post_webhook_event(WEBHOOK_CCIAA_EMERGENCY_MESSAGE, list("message"=msg, "sender"="[Sender]", "cciaa_present"=cciaa_present, "cciaa_afk"=cciaa_afk))
 
 /proc/Syndicate_announce(var/msg, var/mob/Sender)
-	msg = "<span class='notice'><b><font color=crimson>ILLEGAL:</font>[key_name(Sender, 1)] (<A HREF='?_src_=holder;adminplayeropts=\ref[Sender]'>PP</A>) (<A HREF='?_src_=vars;Vars=\ref[Sender]'>VV</A>) (<A HREF='?_src_=holder;subtlemessage=\ref[Sender]'>SM</A>) ([admin_jump_link(Sender, src)]) (<A HREF='?_src_=holder;secretsadmin=check_antagonist'>CA</A>) (<A HREF='?_src_=holder;BlueSpaceArtillery=\ref[Sender]'>BSA</A>) (<A HREF='?_src_=holder;SyndicateReply=\ref[Sender]'>RPLY</A>):</b> [msg]</span>"
-	for(var/client/C in admins)
+	msg = SPAN_NOTICE("<b><font color=crimson>ILLEGAL:</font>[key_name(Sender, 1)] (<A href='byond://?_src_=holder;adminplayeropts=[REF(Sender)]'>PP</A>) (<A href='byond://?_src_=vars;Vars=[REF(Sender)]'>VV</A>) (<A href='byond://?_src_=holder;subtlemessage=[REF(Sender)]'>SM</A>) ([admin_jump_link(Sender)]) (<A href='byond://?_src_=holder;secretsadmin=check_antagonist'>CA</A>) (<A href='byond://?_src_=holder;BlueSpaceArtillery=[REF(Sender)]'>BSA</A>) (<A href='byond://?_src_=holder;SyndicateReply=[REF(Sender)]'>RPLY</A>):</b> [msg]")
+	for(var/s in GLOB.staff)
+		var/client/C = s
 		if(R_ADMIN & C.holder.rights)
-			C << msg
+			to_chat(C, msg)

@@ -5,10 +5,8 @@ var/list/admin_datums = list()
 	var/client/owner	= null
 	var/rights = 0
 	var/fakekey			= null
-
+	var/aooc_mute = FALSE
 	var/datum/marked_datum
-
-	var/mob/living/original_mob = null
 
 	var/admincaster_screen = 0	//See newscaster.dm under machinery for a full description
 	var/datum/feed_message/admincaster_feed_message = new /datum/feed_message   //These two will act as holders.
@@ -18,14 +16,21 @@ var/list/admin_datums = list()
 
 	var/list/watched_processes	// Processes marked to be shown in Status instead of just Processes.
 
+/datum/admins/vv_edit_var(var_name, var_value)
+	if(var_name == NAMEOF(src, rights))
+		return FALSE
+	if(var_name == NAMEOF(src, owner))
+		return FALSE
+	return ..()
+
 /datum/admins/New(initial_rank = "Temporary Admin", initial_rights = 0, ckey)
 	if(!ckey)
-		error("Admin datum created without a ckey argument. Datum has been deleted")
+		log_world("ERROR: Admin datum created without a ckey argument. Datum has been deleted")
 		qdel(src)
 		return
 
-	if (!current_map)
-		SSatlas.OnMapload(CALLBACK(src, .proc/update_newscaster_sig))
+	if (!SSatlas.current_map)
+		SSatlas.OnMapload(CALLBACK(src, PROC_REF(update_newscaster_sig)))
 	else
 		update_newscaster_sig()
 
@@ -41,33 +46,39 @@ var/list/admin_datums = list()
 		owner = C
 		owner.holder = src
 		owner.add_admin_verbs()	//TODO
-		admins |= C
+		GLOB.staff |= C
 
 /datum/admins/proc/disassociate()
 	if(owner)
-		admins -= owner
+		GLOB.staff -= owner
 		owner.remove_admin_verbs()
 		owner.deadmin_holder = owner.holder
 		owner.holder = null
 
 /datum/admins/proc/reassociate()
 	if(owner)
-		admins += owner
+		GLOB.staff += owner
 		owner.holder = src
 		owner.deadmin_holder = null
 		owner.add_admin_verbs()
 
 /datum/admins/proc/update_newscaster_sig()
 	if (!admincaster_signature)
-		admincaster_signature = "[current_map.company_name] Officer #[rand(0,9)][rand(0,9)][rand(0,9)]"
+		admincaster_signature = "[SSatlas.current_map.company_name] Officer #[rand(0,9)][rand(0,9)][rand(0,9)]"
 
+/datum/admins/proc/toggle_aooc_mute_check()
+	aooc_mute = !aooc_mute
+	return !aooc_mute
+
+/datum/admins/proc/check_aooc_mute()
+	return aooc_mute
 /*
 checks if usr is an admin with at least ONE of the flags in rights_required. (Note, they don't need all the flags)
 if rights_required == 0, then it simply checks if they are an admin.
 if it doesn't return 1 and show_msg=1 it will prints a message explaining why the check has failed
 generally it would be used like so:
 
-proc/admin_proc()
+/proc/admin_proc()
 	if(!check_rights(R_ADMIN)) return
 	to_world("you have enough rights!")
 
@@ -81,13 +92,13 @@ NOTE: It checks usr by default. Supply the "user" argument if you wish to check 
 					return 1
 				else
 					if(show_msg)
-						user << "<font color='red'>Error: You do not have sufficient rights to do that. You require one of the following flags:[rights2text(rights_required," ")].</font>"
+						to_chat(user, SPAN_WARNING("Error: You do not have sufficient rights to do that. You require one of the following flags:[rights2text(rights_required," ")]."))
 		else
 			if(user.client.holder)
 				return 1
 			else
 				if(show_msg)
-					user << "<font color='red'>Error: You are not an admin.</font>"
+					to_chat(user, SPAN_WARNING("Error: You are not an admin."))
 	return 0
 
 //probably a bit iffy - will hopefully figure out a better solution
@@ -99,13 +110,19 @@ NOTE: It checks usr by default. Supply the "user" argument if you wish to check 
 			if(usr.client.holder.rights != other.holder.rights)
 				if( (usr.client.holder.rights & other.holder.rights) == other.holder.rights )
 					return 1	//we have all the rights they have and more
-		usr << "<font color='red'>Error: Cannot proceed. They have more or equal rights to us.</font>"
+		to_chat(usr, SPAN_WARNING("Error: Cannot proceed. They have more or equal rights to us."))
 	return 0
-
-
 
 /client/proc/deadmin()
 	if(holder)
 		holder.disassociate()
 		//qdel(holder)
 	return 1
+
+/client/proc/toggle_aooc_holder_check()
+	if(holder)
+		return holder.toggle_aooc_mute_check()
+
+/client/proc/aooc_mute_holder_check()
+	if(holder)
+		return holder.check_aooc_mute()

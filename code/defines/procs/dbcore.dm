@@ -31,7 +31,7 @@
 #define BLOB		14
 // TODO: Investigate more recent type additions and see if I can handle them. - Nadrew
 
-DBConnection
+/DBConnection
 	var/_db_con // This variable contains a reference to the actual database connection.
 	var/con_dbi // This variable is a string containing the DBI MySQL requires.
 	var/con_user // This variable contains the username data.
@@ -41,8 +41,11 @@ DBConnection
 	var/con_port = 3306
 	var/con_database = ""
 	var/failed_connections = 0
+	var/last_fail
 
-DBConnection/New(server, port = 3306, database, username, password_handler, cursor_handler = Default_Cursor, dbi_handler)
+GENERAL_PROTECT_DATUM(/DBConnection)
+
+/DBConnection/New(server, port = 3306, database, username, password_handler, cursor_handler = Default_Cursor, dbi_handler)
 	con_user = username
 	con_password = password_handler
 	con_cursor = cursor_handler
@@ -57,8 +60,8 @@ DBConnection/New(server, port = 3306, database, username, password_handler, curs
 
 	_db_con = _dm_db_new_con()
 
-DBConnection/proc/Connect(dbi_handler = con_dbi, user_handler = con_user, password_handler = con_password, cursor_handler)
-	if (!config.sql_enabled)
+/DBConnection/proc/Connect(dbi_handler = con_dbi, user_handler = con_user, password_handler = con_password, cursor_handler)
+	if (!GLOB.config.sql_enabled)
 		return 0
 	if (!src)
 		return 0
@@ -67,35 +70,99 @@ DBConnection/proc/Connect(dbi_handler = con_dbi, user_handler = con_user, passwo
 		cursor_handler = Default_Cursor
 	return _dm_db_connect(_db_con, dbi_handler, user_handler, password_handler, cursor_handler, null)
 
-DBConnection/proc/Disconnect()
+/DBConnection/proc/Disconnect()
 	return _dm_db_close(_db_con)
 
-DBConnection/proc/Reconnect()
+/DBConnection/proc/Reconnect()
 	Disconnect()
 	Connect()
 
-DBConnection/proc/IsConnected()
-	if(!config.sql_enabled)
+/DBConnection/proc/IsConnected()
+	if(!GLOB.config.sql_enabled)
 		return 0
 	var/success = _dm_db_is_connected(_db_con)
 	return success
 
-DBConnection/proc/Quote(str)
+/DBConnection/proc/Quote(str)
 	return _dm_db_quote(_db_con,str)
 
-DBConnection/proc/ErrorMsg()
+/DBConnection/proc/ErrorMsg()
 	return _dm_db_error_msg(_db_con)
 
-DBConnection/proc/SelectDB(database_name, new_dbi)
+/DBConnection/proc/SelectDB(database_name, new_dbi)
 	if (IsConnected())
 		Disconnect()
 	con_database = database_name
 	return Connect(new_dbi ? new_dbi : "dbi:mysql:[database_name]:[con_server]:[con_port]", con_user, con_password)
 
-DBConnection/proc/NewQuery(sql_query, cursor_handler = con_cursor)
+/DBConnection/proc/NewQuery(sql_query, cursor_handler = con_cursor)
 	return new/DBQuery(sql_query, src, cursor_handler)
 
-DBQuery
+/*
+Takes a list of rows (each row being an associated list of column => value) and inserts them via a single mass query.
+Rows missing columns present in other rows will resolve to SQL NULL
+You are expected to do your own escaping of the data, and expected to provide your own quotes for strings.
+The duplicate_key arg can be true to automatically generate this part of the query
+	or set to a string that is appended to the end of the query
+Ignore_errors instructes mysql to continue inserting rows if some of them have errors.
+	the erroneous row(s) aren't inserted and there isn't really any way to know why or why errored
+Delayed insert mode was removed in mysql 7 and only works with MyISAM type tables,
+	It was included because it is still supported in mariadb.
+	It does not work with duplicate_key and the mysql server ignores it in those cases
+*/
+/DBConnection/proc/MassInsert(table, list/rows, duplicate_key = FALSE, ignore_errors = FALSE, delayed = FALSE)
+	if (!table || !rows || !istype(rows))
+		return
+	var/list/columns = list()
+	var/list/sorted_rows = list()
+
+	for (var/list/row in rows)
+		var/list/sorted_row = list()
+		sorted_row.len = columns.len
+		for (var/column in row)
+			var/idx = columns[column]
+			if (!idx)
+				idx = columns.len + 1
+				columns[column] = idx
+				sorted_row.len = columns.len
+
+			sorted_row[idx] = row[column]
+		sorted_rows[++sorted_rows.len] = sorted_row
+
+	if (duplicate_key == TRUE)
+		var/list/column_list = list()
+		for (var/column in columns)
+			column_list += "[column] = VALUES([column])"
+		duplicate_key = "ON DUPLICATE KEY UPDATE [column_list.Join(", ")]\n"
+	else if (duplicate_key == FALSE)
+		duplicate_key = null
+
+	if (ignore_errors)
+		ignore_errors = " IGNORE"
+	else
+		ignore_errors = null
+
+	if (delayed)
+		delayed = " DELAYED"
+	else
+		delayed = null
+
+	var/list/sqlrowlist = list()
+	var/len = columns.len
+	for (var/list/row in sorted_rows)
+		if (length(row) != len)
+			row.len = len
+		for (var/value in row)
+			if (value == null)
+				value = "NULL"
+		sqlrowlist += "([row.Join(", ")])"
+
+	sqlrowlist = "	[sqlrowlist.Join(",\n	")]"
+	var/DBQuery/Query = NewQuery("INSERT[delayed][ignore_errors] INTO [table]\n([columns.Join(", ")])\nVALUES\n[sqlrowlist]\n[duplicate_key]")
+
+	return Query.Execute()
+
+/DBQuery
 	var/sql // The sql query being executed.
 	var/default_cursor
 	var/list/columns //list of DB Columns populated by Columns()
@@ -105,7 +172,7 @@ DBQuery
 	var/DBConnection/db_connection
 	var/_db_query
 
-DBQuery/New(var/sql_query, var/DBConnection/connection_handler, var/cursor_handler)
+/DBQuery/New(var/sql_query, var/DBConnection/connection_handler, var/cursor_handler)
 	if (sql_query)
 		sql = sql_query
 	if (connection_handler)
@@ -115,10 +182,10 @@ DBQuery/New(var/sql_query, var/DBConnection/connection_handler, var/cursor_handl
 	_db_query = _dm_db_new_query()
 	return ..()
 
-DBQuery/proc/Connect(DBConnection/connection_handler)
+/DBQuery/proc/Connect(var/DBConnection/connection_handler)
 	db_connection = connection_handler
 
-DBQuery/proc/Execute(var/list/argument_list = null, var/pass_not_found = 0, sql_query = sql, cursor_handler = default_cursor)
+/DBQuery/proc/Execute(var/list/argument_list = null, var/pass_not_found = 0, sql_query = sql, cursor_handler = default_cursor)
 	Close()
 
 	if (argument_list)
@@ -128,33 +195,34 @@ DBQuery/proc/Execute(var/list/argument_list = null, var/pass_not_found = 0, sql_
 
 	var/error = ErrorMsg()
 	if (error)
-		log_debug("SQL Error: '[error]'",SEVERITY_ERROR)
+		log_sql("SQL Error: '[error]' during query: [sql_query]")
 		// This is hacky and should probably be changed
 		if (error == "MySQL server has gone away")
 			log_game("MySQL connection drop detected, attempting to reconnect.")
+			log_sql("MySQL connection drop detected, attempting to reconnect.")
 			message_admins("MySQL connection drop detected, attempting to reconnect.")
 			db_connection.Reconnect()
 
 	return result
 
-DBQuery/proc/NextRow()
+/DBQuery/proc/NextRow()
 	return _dm_db_next_row(_db_query,item,conversions)
 
-DBQuery/proc/RowsAffected()
+/DBQuery/proc/RowsAffected()
 	return _dm_db_rows_affected(_db_query)
 
-DBQuery/proc/RowCount()
+/DBQuery/proc/RowCount()
 	return _dm_db_row_count(_db_query)
 
-DBQuery/proc/ErrorMsg()
+/DBQuery/proc/ErrorMsg()
 	return _dm_db_error_msg(_db_query)
 
-DBQuery/proc/Columns()
+/DBQuery/proc/Columns()
 	if (!columns)
 		columns = _dm_db_columns(_db_query,/DBColumn)
 	return columns
 
-DBQuery/proc/GetRowData()
+/DBQuery/proc/GetRowData()
 	var/list/columns = Columns()
 	var/list/results
 	if (columns.len)
@@ -165,16 +233,16 @@ DBQuery/proc/GetRowData()
 			results[C] = item[(cur_col.position+1)]
 	return results
 
-DBQuery/proc/Close()
+/DBQuery/proc/Close()
 	item.len = 0
 	columns = null
 	conversions = null
 	return _dm_db_close(_db_query)
 
-DBQuery/proc/Quote(str)
+/DBQuery/proc/Quote(str)
 	return db_connection.Quote(str)
 
-DBQuery/proc/SetConversion(column,conversion)
+/DBQuery/proc/SetConversion(column,conversion)
 	if (istext(column))
 		column = columns.Find(column)
 	if (!conversions)
@@ -205,9 +273,9 @@ DBQuery/proc/SetConversion(column,conversion)
 /DBQuery/proc/parseArguments(var/query_to_parse = null, var/list/argument_list)
 	if (!query_to_parse || !argument_list || !argument_list.len)
 #ifdef UNIT_TEST
-		error("SQL ARGPARSE: Invalid arguments sent.")
+		log_world("ERROR: SQL ARGPARSE: Invalid arguments sent.")
 #else
-		log_debug("SQL ARGPARSE: Invalid arguments sent.")
+		log_sql("ERROR: SQL ARGPARSE: Invalid arguments sent.")
 #endif
 		return null
 
@@ -232,9 +300,9 @@ DBQuery/proc/SetConversion(column,conversion)
 			cache[key] = "NULL"
 		else
 #ifdef UNIT_TEST
-			error("SQL ARGPARSE: Cannot identify argument! [key]. Argument: [argument]")
+			log_world("ERROR: SQL ARGPARSE: Cannot identify argument! [key]. Argument: [argument]")
 #else
-			log_debug("SQL ARGPARSE: Cannot identify argument! [key]. Argument: [argument]")
+			log_sql("ERROR: SQL ARGPARSE: Cannot identify argument! [key]. Argument: [argument]")
 #endif
 			return null
 
@@ -250,11 +318,9 @@ DBQuery/proc/SetConversion(column,conversion)
 					parsed += cache[curr_arg]
 				else
 #ifdef UNIT_TEST
-					error("SQL ARGPARSE: Unpopulated argument found in an SQL query.")
-					error("SQL ARGPARSE: [curr_arg]. Query: [query_to_parse]")
+					log_world("ERROR: SQL ARGPARSE: Unpopulated argument found in an SQL query: [curr_arg]. Query: [query_to_parse]")
 #else
-					log_debug("SQL ARGPARSE: Unpopulated argument found in an SQL query.")
-					log_debug("SQL ARGPARSE: [curr_arg]. Query: [query_to_parse]")
+					log_sql("SQL ARGPARSE: Unpopulated argument found in an SQL query: [curr_arg]. Query: [query_to_parse]")
 #endif
 					return null
 
@@ -293,7 +359,7 @@ DBQuery/proc/SetConversion(column,conversion)
 
 	return "([text])"
 
-DBColumn
+/DBColumn
 	var/name
 	var/table
 	var/position //1-based index into item data
@@ -302,7 +368,7 @@ DBColumn
 	var/length
 	var/max_length
 
-DBColumn/New(name_handler, table_handler, position_handler, type_handler, flag_handler, length_handler, max_length_handler)
+/DBColumn/New(name_handler, table_handler, position_handler, type_handler, flag_handler, length_handler, max_length_handler)
 	name = name_handler
 	table = table_handler
 	position = position_handler
@@ -313,7 +379,7 @@ DBColumn/New(name_handler, table_handler, position_handler, type_handler, flag_h
 	return ..()
 
 
-DBColumn/proc/SqlTypeName(type_handler = sql_type)
+/DBColumn/proc/SqlTypeName(type_handler = sql_type)
 	switch (type_handler)
 		if (TINYINT)
 			return "TINYINT"

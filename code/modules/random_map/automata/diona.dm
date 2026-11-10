@@ -1,30 +1,64 @@
-/turf/simulated/wall/diona/Initialize(mapload)
-	. = ..(mapload,"biomass")
+/turf/simulated/wall/diona
+	icon = 'icons/turf/smooth/wall_preview.dmi'
+	icon_state = "diona"
 
-/turf/simulated/wall/diona/attack_generic(var/mob/user, var/damage, var/attack_message)
-	if(istype(user, /mob/living/carbon/alien/diona))
-		if(can_open == WALL_OPENING)
-			return
-		can_open = WALL_CAN_OPEN
-		user.visible_message("<span class='alium'>\The [user] strokes its feelers against \the [src] and the biomass [density ? "moves aside" : "closes up"].</span>")
-		toggle_open(user)
-		sleep(15)
-		if(can_open == WALL_CAN_OPEN) can_open = 0
-	else
-		return ..(user, damage, attack_message)
+/turf/simulated/wall/diona/Initialize(mapload)
+	canSmoothWith = list(src.type)
+	. = ..(mapload, MATERIAL_DIONA)
+	canSmoothWith = list(src.type)
 
 /obj/structure/diona
 	icon = 'icons/obj/diona.dmi'
-	anchored = 1
-	density = 1
-	opacity = 0
-	layer = TURF_LAYER + 0.01
+	anchored = TRUE
+	density = TRUE
+	opacity = FALSE
+	layer = ABOVE_TILE_LAYER
+	maxhealth = OBJECT_HEALTH_VERY_LOW
+	var/destroy_spawntype = /mob/living/carbon/alien/diona
+
+/obj/structure/diona/attackby(obj/item/attacking_item, mob/user)
+	user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
+	if(attacking_item.tool_behaviour == TOOL_WELDER)
+		var/obj/item/weldingtool/WT = attacking_item
+		if (!WT.welding)
+			to_chat(user, SPAN_WARNING("\The [WT] must be turned on!"))
+			return
+		else if (WT.use(0,user))
+			user.visible_message("<b>[user]</b> begins slicing through the skin of \the [src].",
+									SPAN_NOTICE("You begin slicing through the skin of \the [src]."))
+			if(!attacking_item.use_tool(src, user, 20, volume = 50))
+				return
+			if(QDELETED(src) || !WT.isOn())
+				return
+			user.visible_message("<b>[user]</b> slices through the skin of \the [src].",
+									SPAN_NOTICE("You slice through \the [src]."))
+		qdel(src)
+	else
+		user.do_attack_animation(src)
+		if(attacking_item.force)
+			user.visible_message(SPAN_DANGER("\The [user] [pick(attacking_item.attack_verb)] \the [src] with \the [attacking_item]!"),
+									SPAN_NOTICE("You [pick(attacking_item.attack_verb)] \the [src] with \the [attacking_item]!"))
+			playsound(loc, attacking_item.hitsound, attacking_item.get_clamped_volume(), TRUE)
+			playsound(loc, SFX_BREAK_WOOD, 50, TRUE)
+			health -= attacking_item.force
+			if(health <= 0)
+				qdel(src)
+
+/obj/structure/diona/Destroy()
+	if(destroy_spawntype)
+		if(ispath(destroy_spawntype, /mob/living/carbon/alien/diona))
+			var/turf/T = get_turf(src)
+			T.spawn_diona_nymph()
+		else
+			new destroy_spawntype(get_turf(src))
+	return ..()
 
 /obj/structure/diona/vines
-	name = "alien vines"
-	desc = "Thick, heavy vines of some sort."
+	name = "biomass vines"
+	desc = "Thick, heavy vines made of some sort of biomass."
 	icon_state = "vines3"
-	density = 0
+	density = FALSE
+	destroy_spawntype = null
 	var/growth = 0
 
 /obj/structure/diona/vines/proc/spread()
@@ -54,6 +88,27 @@
 	light_power = 3
 	light_range = 3
 	light_color = "#557733"
+	density = FALSE
+	destroy_spawntype = null
+
+/obj/structure/diona/bulb/unpowered
+	name = "unpowered glow bulb"
+	desc = "A bulb of some sort. Seems like it needs some power."
+	light_power = 0
+	light_range = 0
+
+/obj/structure/diona/bulb/unpowered/mechanics_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	. += "This bulb requires a power cell to glow. Click on it with a power cell in hand to plug it in."
+
+/obj/structure/diona/bulb/unpowered/attackby(obj/item/attacking_item, mob/user)
+	if(istype(attacking_item, /obj/item/cell))
+		to_chat(user, SPAN_NOTICE("You jack the power cell into the glow bulb."))
+		new /obj/structure/diona/bulb(get_turf(src))
+		destroy_spawntype = null
+		qdel(attacking_item)
+		qdel(src)
+	..()
 
 /datum/random_map/automata/diona
 	iterations = 3
@@ -163,7 +218,7 @@
 		if(ARTIFACT_CHAR)
 			new /obj/structure/diona/bulb(T)
 		if(MONSTER_CHAR)
-			spawn_diona_nymph(T)
+			T.spawn_diona_nymph()
 		if(DOOR_CHAR)
 			var/obj/structure/diona/vines/V = new(T)
 			V.growth = 3

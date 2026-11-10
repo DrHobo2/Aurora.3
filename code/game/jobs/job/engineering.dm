@@ -1,136 +1,335 @@
 /datum/job/chief_engineer
 	title = "Chief Engineer"
 	flag = CHIEF
-	head_position = 1
-	department = "Engineering"
+	departments = list(DEPARTMENT_ENGINEERING = JOBROLE_SUPERVISOR, DEPARTMENT_COMMAND)
 	department_flag = ENGSEC
 	faction = "Station"
 	total_positions = 1
 	spawn_positions = 1
+	intro_prefix = "the"
 	supervisors = "the captain"
-	selection_color = "#ffeeaa"
-	idtype = /obj/item/weapon/card/id/silver
-	req_admin_notify = 1
+	selection_color = "#c67519"
 	economic_modifier = 10
 
-	ideal_character_age = 50
+	minimum_character_age = list(
+		SPECIES_HUMAN = 30,
+		SPECIES_SKRELL = 80,
+		SPECIES_SKRELL_AXIORI = 80
+	)
 
+	job_access = list(
+		/datum/access/engine::id, /datum/access/engine_equip::id, /datum/access/tech_storage::id, /datum/access/maint_tunnels::id, /datum/access/teleporter::id, /datum/access/external_airlocks::id, /datum/access/atmospherics::id,
+		/datum/access/emergency_storage::id, /datum/access/eva::id, /datum/access/leviathan::id, /datum/access/ship_weapons::id, /datum/access/heads::id, /datum/access/construction::id, /datum/access/sec_doors::id, /datum/access/research::id,
+		/datum/access/medical::id, /datum/access/mining::id, /datum/access/mailsorting::id, /datum/access/ce::id, /datum/access/RC_announce::id, /datum/access/keycard_auth::id, /datum/access/tcomsat::id, /datum/access/ai_upload::id, /datum/access/tech_support::id,
+		/datum/access/bridge_crew::id, /datum/access/intrepid::id, /datum/access/spark::id, /datum/access/quark::id, /datum/access/canary::id, /datum/access/network::id
+	)
 
-	access = list(access_engine, access_engine_equip, access_tech_storage, access_maint_tunnels,
-			            access_teleporter, access_external_airlocks, access_atmospherics, access_emergency_storage, access_eva,
-			            access_heads, access_construction, access_sec_doors, access_research, access_medical,
-			            access_ce, access_RC_announce, access_keycard_auth, access_tcomsat, access_ai_upload)
-	minimal_access = list(access_engine, access_engine_equip, access_tech_storage, access_maint_tunnels,
-			            access_teleporter, access_external_airlocks, access_atmospherics, access_emergency_storage, access_eva,
-			            access_heads, access_construction, access_sec_doors, access_research, access_medical,
-			            access_ce, access_RC_announce, access_keycard_auth, access_tcomsat, access_ai_upload)
 	minimal_player_age = 7
+	outfit = /obj/outfit/job/chief_engineer
 
-	bag_type = /obj/item/weapon/storage/backpack/industrial
-	satchel_type = /obj/item/weapon/storage/backpack/satchel_eng
-	alt_satchel_type = /obj/item/weapon/storage/backpack/satchel
-	duffel_type = /obj/item/weapon/storage/backpack/duffel/eng
-	messenger_bag_type = /obj/item/weapon/storage/backpack/messenger/engi
+	blacklisted_species = list(SPECIES_TAJARA_MSAI, SPECIES_VAURCA_WORKER, SPECIES_VAURCA_WARRIOR, SPECIES_VAURCA_ATTENDANT, SPECIES_VAURCA_BULWARK, SPECIES_VAURCA_BREEDER)
 
+	skill_requirements = alist(
+		/singleton/skill/mechanical_engineering = SKILL_LEVEL_TRAINED,
+		/singleton/skill/electrical_engineering = SKILL_LEVEL_TRAINED,
+		/singleton/skill/atmospherics_systems = SKILL_LEVEL_TRAINED,
+		/singleton/skill/reactor_systems = SKILL_LEVEL_TRAINED
+	)
 
-	equip(var/mob/living/carbon/human/H)
-		if(!H)	return 0
-		H.equip_to_slot_or_del(new /obj/item/device/radio/headset/heads/ce(H), slot_l_ear)
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/chief_engineer(H), slot_w_uniform)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/heads/ce(H), slot_l_store)
+/obj/outfit/job/chief_engineer
+	name = "Chief Engineer"
+	jobtype = /datum/job/chief_engineer
+	box = /obj/item/storage/box/survival/engineer
+
+	uniform = /obj/item/clothing/under/rank/chief_engineer
+	head = /obj/item/clothing/head/hardhat/white
+	belt = /obj/item/storage/belt/utility/ce
+	id = /obj/item/card/id/scc/silver
+	shoes = null
+	r_pocket = /obj/item/t_scanner
+
+	headset = /obj/item/radio/headset/heads/ce
+	bowman = /obj/item/radio/headset/heads/ce/alt
+	double_headset = /obj/item/radio/headset/alt/double/ce
+	wrist_radio = /obj/item/radio/headset/wrist/ce
+	clipon_radio = /obj/item/radio/headset/wrist/clip/ce
+
+	tab_pda = /obj/item/modular_computer/handheld/pda/engineering/ce
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/engineering/ce
+	tablet = /obj/item/modular_computer/handheld/preset/engineering/ce
+
+	backpack = /obj/item/storage/backpack/ce
+	satchel = /obj/item/storage/backpack/satchel/ce
+	dufflebag = /obj/item/storage/backpack/duffel/ce
+	messengerbag = /obj/item/storage/backpack/messenger/ce
+
+/obj/outfit/job/chief_engineer/post_equip(mob/living/carbon/human/H, visualsOnly = FALSE)
+	. = ..()
+	if(istajara(H))
+		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/workboots/toeless(H), slot_shoes)
+		H.equip_to_slot_or_del(new /obj/item/clothing/gloves/yellow/specialt(H), slot_gloves)
+	else if(isunathi(H))
+		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/workboots/toeless(H), slot_shoes)
+		H.equip_to_slot_or_del(new /obj/item/clothing/gloves/yellow/specialu(H), slot_gloves)
+	else
 		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/workboots(H), slot_shoes)
-		H.equip_to_slot_or_del(new /obj/item/clothing/head/hardhat/white(H), slot_head)
-		H.equip_to_slot_or_del(new /obj/item/weapon/storage/belt/utility/full(H), slot_belt)
-		if(istajara(H))
-			H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black/tajara(H), slot_gloves)
-		else if(isunathi(H))
-			H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black/unathi(H), slot_gloves)
-		else
-			H.equip_to_slot_or_del(new /obj/item/clothing/gloves/black(H), slot_gloves)
-		return 1
-
-	equip_survival(var/mob/living/carbon/human/H)
-		if(!H)
-			return FALSE
-		H.species.equip_survival_gear(H,1)
-		return TRUE
-
+		H.equip_to_slot_or_del(new /obj/item/clothing/gloves/yellow(H), slot_gloves)
 
 /datum/job/engineer
-	title = "Station Engineer"
+	title = "Ship Engineer"
 	flag = ENGINEER
-	department = "Engineering"
+	departments = SIMPLEDEPT(DEPARTMENT_ENGINEERING)
 	department_flag = ENGSEC
 	faction = "Station"
 	total_positions = 5
 	spawn_positions = 5
 	supervisors = "the chief engineer"
-	selection_color = "#fff5cc"
+	selection_color = "#c67519"
 	economic_modifier = 5
-	access = list(access_eva, access_engine, access_engine_equip, access_tech_storage, access_maint_tunnels, access_external_airlocks, access_construction, access_atmospherics)
-	minimal_access = list(access_eva, access_engine, access_engine_equip, access_tech_storage, access_maint_tunnels, access_external_airlocks, access_construction)
-	alt_titles = list("Maintenance Technician","Engine Technician","Electrician")
+	alt_titles = list("Reactor Operator", "Maintenance Technician", "Systems Engineer")
 
-	bag_type = /obj/item/weapon/storage/backpack/industrial
-	satchel_type = /obj/item/weapon/storage/backpack/satchel_eng
-	alt_satchel_type = /obj/item/weapon/storage/backpack/satchel
-	duffel_type = /obj/item/weapon/storage/backpack/duffel/eng
-	messenger_bag_type = /obj/item/weapon/storage/backpack/messenger/engi
+	minimum_character_age = list(
+		SPECIES_HUMAN = 25,
+		SPECIES_SKRELL = 60,
+		SPECIES_SKRELL_AXIORI = 60
+	)
 
-	equip(var/mob/living/carbon/human/H)
-		if(!H)
-			return FALSE
-		H.equip_to_slot_or_del(new /obj/item/device/radio/headset/headset_eng(H), slot_l_ear)
-		switch(H.backbag)
-			if(2) H.equip_to_slot_or_del(new /obj/item/weapon/storage/backpack/industrial(H), slot_back)
-			if(3) H.equip_to_slot_or_del(new /obj/item/weapon/storage/backpack/satchel_eng(H), slot_back)
-			if(4) H.equip_to_slot_or_del(new /obj/item/weapon/storage/backpack/satchel(H), slot_back)
-			if(5) H.equip_to_slot_or_del(new /obj/item/weapon/storage/backpack/duffel/eng(H), slot_back)
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/engineer(H), slot_w_uniform)
+	job_access = list(
+		/datum/access/eva::id, /datum/access/engine::id, /datum/access/engine_equip::id, /datum/access/tech_storage::id, /datum/access/maint_tunnels::id, /datum/access/ship_weapons::id, /datum/access/external_airlocks::id, /datum/access/construction::id, /datum/access/leviathan::id
+	)
+	outfit = /obj/outfit/job/engineer
+
+	blacklisted_species = list(SPECIES_VAURCA_BREEDER)
+
+	skill_requirements = alist(
+		/singleton/skill/mechanical_engineering = SKILL_LEVEL_TRAINED,
+		/singleton/skill/electrical_engineering = SKILL_LEVEL_TRAINED,
+		/singleton/skill/atmospherics_systems = SKILL_LEVEL_TRAINED,
+		/singleton/skill/reactor_systems = SKILL_LEVEL_TRAINED
+	)
+
+/obj/outfit/job/engineer
+	name = "Ship Engineer"
+	jobtype = /datum/job/engineer
+	box = /obj/item/storage/box/survival/engineer
+
+	uniform = /obj/item/clothing/under/rank/engineer
+	head = /obj/item/clothing/head/hardhat
+	belt = /obj/item/storage/belt/utility
+	id = /obj/item/card/id/silver
+	shoes = null
+	r_pocket = /obj/item/t_scanner
+
+	headset = /obj/item/radio/headset/headset_eng
+	bowman = /obj/item/radio/headset/headset_eng/alt
+	double_headset = /obj/item/radio/headset/alt/double/eng
+	wrist_radio = /obj/item/radio/headset/wrist/eng
+	clipon_radio = /obj/item/radio/headset/wrist/clip/eng
+
+	tab_pda = /obj/item/modular_computer/handheld/pda/engineering
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/engineering
+	tablet = /obj/item/modular_computer/handheld/preset/engineering
+
+	backpack = /obj/item/storage/backpack/industrial
+	satchel = /obj/item/storage/backpack/satchel/eng
+	dufflebag = /obj/item/storage/backpack/duffel/eng
+	messengerbag = /obj/item/storage/backpack/messenger/engi
+
+	belt_contents = list(
+		/obj/item/screwdriver = 1,
+		/obj/item/wrench = 1,
+		/obj/item/weldingtool = 1,
+		/obj/item/crowbar = 1,
+		/obj/item/wirecutters = 1,
+		/obj/item/stack/cable_coil/random = 1
+	)
+
+/obj/outfit/job/engineer/post_equip(mob/living/carbon/human/H, visualsOnly = FALSE)
+	. = ..()
+	if(istajara(H))
+		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/workboots/toeless(H), slot_shoes)
+	else if(isunathi(H))
+		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/workboots/toeless(H), slot_shoes)
+	else
 		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/workboots(H), slot_shoes)
-		H.equip_to_slot_or_del(new /obj/item/weapon/storage/belt/utility/full(H), slot_belt)
-		H.equip_to_slot_or_del(new /obj/item/clothing/head/hardhat(H), slot_head)
-		H.equip_to_slot_or_del(new /obj/item/device/t_scanner(H), slot_r_store)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/engineering(H), slot_l_store)
-		return TRUE
-
-	equip_survival(var/mob/living/carbon/human/H)
-		if(!H)
-			return FALSE
-		H.species.equip_survival_gear(H,1)
-		return TRUE
-
 
 /datum/job/atmos
 	title = "Atmospheric Technician"
 	flag = ATMOSTECH
-	department = "Engineering"
+	departments = SIMPLEDEPT(DEPARTMENT_ENGINEERING)
 	department_flag = ENGSEC
 	faction = "Station"
 	total_positions = 3
-	spawn_positions = 2
+	spawn_positions = 3
+	intro_prefix = "an"
 	supervisors = "the chief engineer"
-	selection_color = "#fff5cc"
+	selection_color = "#c67519"
 	economic_modifier = 5
-	access = list(access_eva, access_engine, access_engine_equip, access_tech_storage, access_maint_tunnels, access_external_airlocks, access_construction, access_atmospherics, access_external_airlocks)
-	minimal_access = list(access_eva, access_engine, access_atmospherics, access_maint_tunnels, access_emergency_storage, access_construction, access_external_airlocks)
+	alt_titles = list("Environmental Systems Engineer", "Propulsion Engineer", "Damage Control Technician")
 
-	bag_type = /obj/item/weapon/storage/backpack/industrial
-	satchel_type = /obj/item/weapon/storage/backpack/satchel_eng
-	duffel_type = /obj/item/weapon/storage/backpack/duffel/eng
-	messenger_bag_type = /obj/item/weapon/storage/backpack/messenger/engi
+	minimum_character_age = list(
+		SPECIES_HUMAN = 25,
+		SPECIES_SKRELL = 60,
+		SPECIES_SKRELL_AXIORI = 60
+	)
 
-	equip(var/mob/living/carbon/human/H)
-		if(!H)	return 0
-		H.equip_to_slot_or_del(new /obj/item/device/radio/headset/headset_eng(H), slot_l_ear)
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/atmospheric_technician(H), slot_w_uniform)
+	job_access = list(
+		/datum/access/eva::id, /datum/access/engine::id, /datum/access/maint_tunnels::id, /datum/access/external_airlocks::id, /datum/access/construction::id, /datum/access/atmospherics::id, /datum/access/leviathan::id
+	)
+	outfit = /obj/outfit/job/atmos
+	blacklisted_species = list(SPECIES_VAURCA_BREEDER)
+
+	skill_requirements = alist(
+		/singleton/skill/mechanical_engineering = SKILL_LEVEL_TRAINED,
+		/singleton/skill/electrical_engineering = SKILL_LEVEL_TRAINED,
+		/singleton/skill/atmospherics_systems = SKILL_LEVEL_TRAINED,
+		/singleton/skill/reactor_systems = SKILL_LEVEL_TRAINED
+	)
+
+/obj/outfit/job/atmos
+	name = "Atmospheric Technician"
+	jobtype = /datum/job/atmos
+	box = /obj/item/storage/box/survival/engineer
+
+	uniform = /obj/item/clothing/under/rank/atmospheric_technician
+	belt = /obj/item/storage/belt/utility
+	id = /obj/item/card/id/silver
+	shoes = null
+
+	headset = /obj/item/radio/headset/headset_eng
+	bowman = /obj/item/radio/headset/headset_eng/alt
+	double_headset = /obj/item/radio/headset/alt/double/eng
+	wrist_radio = /obj/item/radio/headset/wrist/eng
+	clipon_radio = /obj/item/radio/headset/wrist/clip/eng
+
+	backpack = /obj/item/storage/backpack/industrial
+	satchel = /obj/item/storage/backpack/satchel/eng
+	dufflebag = /obj/item/storage/backpack/duffel/eng
+	messengerbag = /obj/item/storage/backpack/messenger/engi
+
+	tab_pda = /obj/item/modular_computer/handheld/pda/engineering/atmos
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/engineering/atmos
+	tablet = /obj/item/modular_computer/handheld/preset/engineering/atmos
+
+	belt_contents = list(
+		/obj/item/screwdriver = 1,
+		/obj/item/wrench = 1,
+		/obj/item/weldingtool = 1,
+		/obj/item/crowbar = 1,
+		/obj/item/wirecutters = 1,
+		/obj/item/t_scanner = 1,
+		/obj/item/analyzer = 1,
+		/obj/item/pipewrench = 1
+	)
+
+/obj/outfit/job/atmos/post_equip(mob/living/carbon/human/H, visualsOnly = FALSE)
+	. = ..()
+	if(istajara(H))
+		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/workboots/toeless(H), slot_shoes)
+	else if(isunathi(H))
+		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/workboots/toeless(H), slot_shoes)
+	else
 		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/workboots(H), slot_shoes)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/atmos(H), slot_l_store)
-		H.equip_to_slot_or_del(new /obj/item/weapon/storage/belt/utility/atmostech/(H), slot_belt)
-		return TRUE
 
-	equip_survival(var/mob/living/carbon/human/H)
-		if(!H)
-			return FALSE
-		H.species.equip_survival_gear(H,1)
-		return TRUE
+/datum/job/intern_eng
+	title = "Engineering Apprentice"
+	flag = INTERN_ENG
+	departments = SIMPLEDEPT(DEPARTMENT_ENGINEERING)
+	department_flag = ENGSEC
+	faction = "Station"
+	alt_titles = list("Atmospherics Apprentice")
+	alt_outfits = list("Atmospherics Apprentice" = /obj/outfit/job/intern_atmos)
+	total_positions = 3
+	spawn_positions = 3
+	intro_prefix = "an"
+	supervisors = "the Chief Engineer"
+	selection_color = "#c67519"
+
+	job_access = list(
+		/datum/access/maint_tunnels::id, /datum/access/construction::id, /datum/access/engine_equip::id, /datum/access/engine::id
+	)
+	outfit = /obj/outfit/job/intern_eng
+	blacklisted_species = list(SPECIES_VAURCA_BREEDER)
+
+	minimum_character_age = list(
+		SPECIES_HUMAN = 24,
+		SPECIES_SKRELL = 58,
+		SPECIES_SKRELL_AXIORI = 58
+	)
+
+	skill_requirements = alist(
+		/singleton/skill/mechanical_engineering = SKILL_LEVEL_TRAINED,
+		/singleton/skill/electrical_engineering = SKILL_LEVEL_TRAINED,
+		/singleton/skill/atmospherics_systems = SKILL_LEVEL_TRAINED,
+		/singleton/skill/reactor_systems = SKILL_LEVEL_TRAINED
+	)
+
+/obj/outfit/job/intern_eng
+	name = "Engineering Apprentice"
+	jobtype = /datum/job/intern_eng
+	box = /obj/item/storage/box/survival/engineer
+
+	uniform = /obj/item/clothing/under/rank/engineer/apprentice
+	shoes = /obj/item/clothing/shoes/sneakers/orange
+	head = /obj/item/clothing/head/beret/engineering
+	belt = /obj/item/storage/belt/utility
+
+	belt_contents = list(
+		/obj/item/screwdriver = 1,
+		/obj/item/wrench = 1,
+		/obj/item/weldingtool = 1,
+		/obj/item/crowbar = 1,
+		/obj/item/wirecutters = 1,
+		/obj/item/stack/cable_coil/random = 1
+	)
+
+	headset = /obj/item/radio/headset/headset_eng
+	bowman = /obj/item/radio/headset/headset_eng/alt
+	double_headset = /obj/item/radio/headset/alt/double/eng
+	wrist_radio = /obj/item/radio/headset/wrist/eng
+	clipon_radio = /obj/item/radio/headset/wrist/clip/eng
+
+	backpack = /obj/item/storage/backpack/industrial
+	satchel = /obj/item/storage/backpack/satchel/eng
+	dufflebag = /obj/item/storage/backpack/duffel/eng
+	messengerbag = /obj/item/storage/backpack/messenger/engi
+
+	tab_pda = /obj/item/modular_computer/handheld/pda/engineering
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/engineering
+	tablet = /obj/item/modular_computer/handheld/preset/engineering
+
+/obj/outfit/job/intern_atmos
+	name = "Atmospherics Apprentice"
+	jobtype = /datum/job/intern_eng
+	box = /obj/item/storage/box/survival/engineer
+
+	uniform = /obj/item/clothing/under/rank/engineer/apprentice
+	shoes = /obj/item/clothing/shoes/sneakers/orange
+	head = /obj/item/clothing/head/beret/engineering
+	belt = /obj/item/storage/belt/utility
+
+	belt_contents = list(
+		/obj/item/screwdriver = 1,
+		/obj/item/wrench = 1,
+		/obj/item/weldingtool = 1,
+		/obj/item/crowbar = 1,
+		/obj/item/wirecutters = 1,
+		/obj/item/t_scanner = 1,
+		/obj/item/analyzer = 1,
+		/obj/item/pipewrench = 1
+	)
+
+	headset = /obj/item/radio/headset/headset_eng
+	bowman = /obj/item/radio/headset/headset_eng/alt
+	double_headset = /obj/item/radio/headset/alt/double/eng
+	wrist_radio = /obj/item/radio/headset/wrist/eng
+	clipon_radio = /obj/item/radio/headset/wrist/clip/eng
+
+	backpack = /obj/item/storage/backpack/industrial
+	satchel = /obj/item/storage/backpack/satchel/eng
+	dufflebag = /obj/item/storage/backpack/duffel/eng
+	messengerbag = /obj/item/storage/backpack/messenger/engi
+
+	tab_pda = /obj/item/modular_computer/handheld/pda/engineering/atmos
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/engineering/atmos
+	tablet = /obj/item/modular_computer/handheld/preset/engineering/atmos

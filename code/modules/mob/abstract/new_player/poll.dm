@@ -3,14 +3,28 @@
 	var/optionid
 	var/optiontext
 
+/mob/abstract/new_player/proc/check_for_unvoted_polls()
+	if(!SSdbcore.Connect())
+		return
+
+	var/isadmin = client && client.holder
+	var/datum/db_query/query = SSdbcore.NewQuery("SELECT id FROM ss13_poll_question WHERE [(isadmin ? "" : "adminonly = false AND")] Now() BETWEEN starttime AND endtime AND id NOT IN (SELECT pollid FROM ss13_poll_vote WHERE ckey = :ckey) AND id NOT IN (SELECT pollid FROM ss13_poll_textreply WHERE ckey = :ckey) LIMIT 0,1", list("ckey" = ckey))
+	query.SetSuccessCallback(CALLBACK(src, PROC_REF(_unvoted_polls_check_cb)))
+	query.SetFailCallback(CALLBACK(GLOBAL_PROC, GLOBAL_PROC_REF(qdel)))
+	query.ExecuteNoSleep(TRUE)
+
+/mob/abstract/new_player/proc/_unvoted_polls_check_cb(datum/db_query/query)
+	if(client && query.NextRow())
+		to_chat(src, SPAN_NOTICE("There is an active poll you have not voted in. <a href='byond://?src=[REF(src)];showpoll=1'><b>\[View Polls\]</b></a>"))
+	qdel(query)
+
 /mob/abstract/new_player/proc/handle_player_polling()
-	establish_db_connection(dbcon)
-	if(dbcon.IsConnected())
+	if(establish_db_connection(GLOB.dbcon))
 		var/isadmin = 0
 		if(src.client && src.client.holder)
 			isadmin = 1
 
-		var/DBQuery/select_query = dbcon.NewQuery("SELECT id, question FROM ss13_poll_question WHERE [(isadmin ? "" : "adminonly = false AND")] Now() BETWEEN starttime AND endtime")
+		var/DBQuery/select_query = GLOB.dbcon.NewQuery("SELECT id, question FROM ss13_poll_question WHERE [(isadmin ? "" : "adminonly = false AND")] Now() BETWEEN starttime AND endtime")
 		select_query.Execute()
 
 		var/output = "<div align='center'><B>Player polls</B>"
@@ -20,42 +34,36 @@
 		var/pollquestion
 
 		output += "<table>"
-		var/color1 = "#ececec"
-		var/color2 = "#e2e2e2"
-		var/i = 0
 
 		while(select_query.NextRow())
 			pollid = select_query.item[1]
 			pollquestion = select_query.item[2]
-			output += "<tr bgcolor='[ (i % 2 == 1) ? color1 : color2 ]'><td><a href=\"byond://?src=\ref[src];pollid=[pollid]\"><b>[pollquestion]</b></a></td></tr>"
-			i++
+			output += "<tr><td><a href=\"byond://?src=[REF(src)];pollid=[pollid]\"><b>[pollquestion]</b></a></td></tr>"
 
 		output += "</table>"
 
-		src << browse(output,"window=playerpolllist;size=500x300")
+		src << browse(HTML_SKELETON(output),"window=playerpolllist;size=500x300")
 
 /mob/abstract/new_player/proc/show_poll_link(var/pollid = -1)
 	if(pollid == -1) return
-	establish_db_connection(dbcon)
-	if(dbcon.IsConnected())
-		var/DBQuery/select_query = dbcon.NewQuery("SELECT link FROM ss13_poll_question WHERE id = :pollid:")
+	if(establish_db_connection(GLOB.dbcon))
+		var/DBQuery/select_query = GLOB.dbcon.NewQuery("SELECT link FROM ss13_poll_question WHERE id = :pollid:")
 		select_query.Execute(list("pollid"=pollid))
-		
+
 		var/link = null
 		while(select_query.NextRow())
 			link = select_query.item[1]
 
 		if(link && link != "")
-			usr << link(link)
+			send_link(usr, link)
 		else
-			log_debug("Polling: [usr.ckey] tried to open poll [pollid] with a invalid link: [link]")
+			LOG_DEBUG("Polling: [usr.ckey] tried to open poll [pollid] with a invalid link: [link]")
 
 /mob/abstract/new_player/proc/poll_player(var/pollid = -1)
 	if(pollid == -1) return
-	establish_db_connection(dbcon)
-	if(dbcon.IsConnected())
 
-		var/DBQuery/select_query = dbcon.NewQuery("SELECT starttime, endtime, question, polltype, multiplechoiceoptions, link FROM ss13_poll_question WHERE id = :pollid:")
+	if(establish_db_connection(GLOB.dbcon))
+		var/DBQuery/select_query = GLOB.dbcon.NewQuery("SELECT starttime, endtime, question, polltype, multiplechoiceoptions, link FROM ss13_poll_question WHERE id = :pollid:")
 		select_query.Execute(list("pollid"=pollid))
 
 		var/pollstarttime = ""
@@ -77,13 +85,13 @@
 			break
 
 		if(!found)
-			usr << "<span class='warning'>Poll question details not found.</span>"
+			to_chat(usr, SPAN_WARNING("Poll question details not found."))
 			return
 
 		switch(polltype)
 			//Polls that have enumerated options
 			if("OPTION")
-				var/DBQuery/voted_query = dbcon.NewQuery("SELECT optionid FROM ss13_poll_vote WHERE pollid = [pollid] AND ckey = '[usr.ckey]'")
+				var/DBQuery/voted_query = GLOB.dbcon.NewQuery("SELECT optionid FROM ss13_poll_vote WHERE pollid = [pollid] AND ckey = '[usr.ckey]'")
 				voted_query.Execute()
 
 				var/voted = 0
@@ -95,7 +103,7 @@
 
 				var/list/datum/polloption/options = list()
 
-				var/DBQuery/options_query = dbcon.NewQuery("SELECT id, text FROM ss13_poll_option WHERE pollid = [pollid]")
+				var/DBQuery/options_query = GLOB.dbcon.NewQuery("SELECT id, text FROM ss13_poll_option WHERE pollid = [pollid]")
 				options_query.Execute()
 				while(options_query.NextRow())
 					var/datum/polloption/PO = new()
@@ -108,12 +116,12 @@
 				output += "<b>Question: [pollquestion]</b><br>"
 				output += "<font size='2'>Poll runs from <b>[pollstarttime]</b> until <b>[pollendtime]</b></font>"
 				if(haslink)
-					output += "<br><font size='2'>Additional information <a href='?src=\ref[src];showpolllink=[pollid]'>is available here</a></font>"
+					output += "<br><font size='2'>Additional information <a href='byond://?src=[REF(src)];showpolllink=[pollid]'>is available here</a></font>"
 				output += "<p>"
 
 				if(!voted)	//Only make this a form if we have not voted yet
-					output += "<form name='cardcomp' action='?src=\ref[src]' method='get'>"
-					output += "<input type='hidden' name='src' value='\ref[src]'>"
+					output += "<form name='cardcomp' action='?src=[REF(src)]' method='get'>"
+					output += "<input type='hidden' name='src' value='[REF(src)]'>"
 					output += "<input type='hidden' name='votepollid' value='[pollid]'>"
 					output += "<input type='hidden' name='votetype' value='OPTION'>"
 
@@ -135,11 +143,12 @@
 
 				output += "</div>"
 
-				src << browse(output,"window=playerpoll;size=500x250")
+
+				src << browse(HTML_SKELETON(output),"window=playerpoll;size=500x250")
 
 			//Polls with a text input
 			if("TEXT")
-				var/DBQuery/voted_query = dbcon.NewQuery("SELECT replytext FROM ss13_poll_textreply WHERE pollid = [pollid] AND ckey = '[usr.ckey]'")
+				var/DBQuery/voted_query = GLOB.dbcon.NewQuery("SELECT replytext FROM ss13_poll_textreply WHERE pollid = [pollid] AND ckey = '[usr.ckey]'")
 				voted_query.Execute()
 
 				var/voted = 0
@@ -155,12 +164,12 @@
 				output += "<b>Question: [pollquestion]</b><br>"
 				output += "<font size='2'>Feedback gathering runs from <b>[pollstarttime]</b> until <b>[pollendtime]</b></font>"
 				if(haslink)
-					output += "<br><font size='2'>Additional information <a href='?src=\ref[src];showpolllink=[pollid]'>is available here</a></font>"
+					output += "<br><font size='2'>Additional information <a href='byond://?src=[REF(src)];showpolllink=[pollid]'>is available here</a></font>"
 				output += "<p>"
 
 				if(!voted)	//Only make this a form if we have not voted yet
-					output += "<form name='cardcomp' action='?src=\ref[src]' method='get'>"
-					output += "<input type='hidden' name='src' value='\ref[src]'>"
+					output += "<form name='cardcomp' action='?src=[REF(src)]' method='get'>"
+					output += "<input type='hidden' name='src' value='[REF(src)]'>"
 					output += "<input type='hidden' name='votepollid' value='[pollid]'>"
 					output += "<input type='hidden' name='votetype' value='TEXT'>"
 
@@ -170,8 +179,8 @@
 					output += "<p><input type='submit' value='Submit'>"
 					output += "</form>"
 
-					output += "<form name='cardcomp' action='?src=\ref[src]' method='get'>"
-					output += "<input type='hidden' name='src' value='\ref[src]'>"
+					output += "<form name='cardcomp' action='?src=[REF(src)]' method='get'>"
+					output += "<input type='hidden' name='src' value='[REF(src)]'>"
 					output += "<input type='hidden' name='votepollid' value='[pollid]'>"
 					output += "<input type='hidden' name='votetype' value='TEXT'>"
 					output += "<input type='hidden' name='replytext' value='ABSTAIN'>"
@@ -180,11 +189,12 @@
 				else
 					output += "[vote_text]"
 
-				src << browse(output,"window=playerpoll;size=500x500")
+
+				src << browse(HTML_SKELETON(output),"window=playerpoll;size=500x500")
 
 			//Polls with a text input
 			if("NUMVAL")
-				var/DBQuery/voted_query = dbcon.NewQuery("SELECT o.text, v.rating FROM ss13_poll_option o, ss13_poll_vote v WHERE o.pollid = [pollid] AND v.ckey = '[usr.ckey]' AND o.id = v.optionid")
+				var/DBQuery/voted_query = GLOB.dbcon.NewQuery("SELECT o.text, v.rating FROM ss13_poll_option o, ss13_poll_vote v WHERE o.pollid = [pollid] AND v.ckey = '[usr.ckey]' AND o.id = v.optionid")
 				voted_query.Execute()
 
 				var/output = "<div align='center'><B>Player poll</B>"
@@ -192,7 +202,7 @@
 				output += "<b>Question: [pollquestion]</b><br>"
 				output += "<font size='2'>Poll runs from <b>[pollstarttime]</b> until <b>[pollendtime]</b></font>"
 				if(haslink)
-					output += "<br><font size='2'>Additional information <a href='?src=\ref[src];showpolllink=[pollid]'>is available here</a></font>"
+					output += "<br><font size='2'>Additional information <a href='byond://?src=[REF(src)];showpolllink=[pollid]'>is available here</a></font>"
 				output += "<p>"
 
 				var/voted = 0
@@ -205,15 +215,15 @@
 					output += "<br><b>[optiontext] - [rating]</b>"
 
 				if(!voted)	//Only make this a form if we have not voted yet
-					output += "<form name='cardcomp' action='?src=\ref[src]' method='get'>"
-					output += "<input type='hidden' name='src' value='\ref[src]'>"
+					output += "<form name='cardcomp' action='?src=[REF(src)]' method='get'>"
+					output += "<input type='hidden' name='src' value='[REF(src)]'>"
 					output += "<input type='hidden' name='votepollid' value='[pollid]'>"
 					output += "<input type='hidden' name='votetype' value='NUMVAL'>"
 
 					var/minid = 999999
 					var/maxid = 0
 
-					var/DBQuery/option_query = dbcon.NewQuery("SELECT id, text, minval, maxval, descmin, descmid, descmax FROM ss13_poll_option WHERE pollid = [pollid]")
+					var/DBQuery/option_query = GLOB.dbcon.NewQuery("SELECT id, text, minval, maxval, descmin, descmid, descmax FROM ss13_poll_option WHERE pollid = [pollid]")
 					option_query.Execute()
 					while(option_query.NextRow())
 						var/optionid = text2num(option_query.item[1])
@@ -254,9 +264,11 @@
 					output += "<p><input type='submit' value='Submit'>"
 					output += "</form>"
 
-				src << browse(output,"window=playerpoll;size=500x500")
+
+				src << browse(HTML_SKELETON(output),"window=playerpoll;size=500x500")
+
 			if("MULTICHOICE")
-				var/DBQuery/voted_query = dbcon.NewQuery("SELECT optionid FROM ss13_poll_vote WHERE pollid = [pollid] AND ckey = '[usr.ckey]'")
+				var/DBQuery/voted_query = GLOB.dbcon.NewQuery("SELECT optionid FROM ss13_poll_vote WHERE pollid = [pollid] AND ckey = '[usr.ckey]'")
 				voted_query.Execute()
 
 				var/list/votedfor = list()
@@ -269,7 +281,7 @@
 				var/maxoptionid = 0
 				var/minoptionid = 0
 
-				var/DBQuery/options_query = dbcon.NewQuery("SELECT id, text FROM ss13_poll_option WHERE pollid = [pollid]")
+				var/DBQuery/options_query = GLOB.dbcon.NewQuery("SELECT id, text FROM ss13_poll_option WHERE pollid = [pollid]")
 				options_query.Execute()
 				while(options_query.NextRow())
 					var/datum/polloption/PO = new()
@@ -290,12 +302,12 @@
 				output += "<b>Question: [pollquestion]</b><br>You can select up to [multiplechoiceoptions] options. If you select more, the first [multiplechoiceoptions] will be saved.<br>"
 				output += "<font size='2'>Poll runs from <b>[pollstarttime]</b> until <b>[pollendtime]</b></font>"
 				if(haslink)
-					output += "<br><font size='2'>Additional information <a href='?src=\ref[src];showpolllink=[pollid]'>is available here</a></font>"
+					output += "<br><font size='2'>Additional information <a href='byond://?src=[REF(src)];showpolllink=[pollid]'>is available here</a></font>"
 				output += "<p>"
 
 				if(!voted)	//Only make this a form if we have not voted yet
-					output += "<form name='cardcomp' action='?src=\ref[src]' method='get'>"
-					output += "<input type='hidden' name='src' value='\ref[src]'>"
+					output += "<form name='cardcomp' action='?src=[REF(src)]' method='get'>"
+					output += "<input type='hidden' name='src' value='[REF(src)]'>"
 					output += "<input type='hidden' name='votepollid' value='[pollid]'>"
 					output += "<input type='hidden' name='votetype' value='MULTICHOICE'>"
 					output += "<input type='hidden' name='maxoptionid' value='[maxoptionid]'>"
@@ -319,7 +331,8 @@
 
 				output += "</div>"
 
-				src << browse(output,"window=playerpoll;size=500x250")
+
+				src << browse(HTML_SKELETON(output),"window=playerpoll;size=500x250")
 		return
 
 /mob/abstract/new_player/proc/vote_on_poll(var/pollid = -1, var/optionid = -1, var/multichoice = 0)
@@ -328,10 +341,9 @@
 
 	if(!isnum(pollid) || !isnum(optionid))
 		return
-	establish_db_connection(dbcon)
-	if(dbcon.IsConnected())
+	if(establish_db_connection(GLOB.dbcon))
 
-		var/DBQuery/select_query = dbcon.NewQuery("SELECT starttime, endtime, question, polltype, multiplechoiceoptions FROM ss13_poll_question WHERE id = [pollid] AND Now() BETWEEN starttime AND endtime")
+		var/DBQuery/select_query = GLOB.dbcon.NewQuery("SELECT starttime, endtime, question, polltype, multiplechoiceoptions FROM ss13_poll_question WHERE id = [pollid] AND Now() BETWEEN starttime AND endtime")
 		select_query.Execute()
 
 		var/validpoll = 0
@@ -346,10 +358,10 @@
 			break
 
 		if(!validpoll)
-			usr << "<span class='warning'>Poll is not valid.</span>"
+			to_chat(usr, SPAN_WARNING("Poll is not valid."))
 			return
 
-		var/DBQuery/select_query2 = dbcon.NewQuery("SELECT id FROM ss13_poll_option WHERE id = [optionid] AND pollid = [pollid]")
+		var/DBQuery/select_query2 = GLOB.dbcon.NewQuery("SELECT id FROM ss13_poll_option WHERE id = [optionid] AND pollid = [pollid]")
 		select_query2.Execute()
 
 		var/validoption = 0
@@ -359,12 +371,12 @@
 			break
 
 		if(!validoption)
-			usr << "<span class='warning'>Poll option is not valid.</span>"
+			to_chat(usr, SPAN_WARNING("Poll option is not valid."))
 			return
 
 		var/alreadyvoted = 0
 
-		var/DBQuery/voted_query = dbcon.NewQuery("SELECT id FROM ss13_poll_vote WHERE pollid = [pollid] AND ckey = '[usr.ckey]'")
+		var/DBQuery/voted_query = GLOB.dbcon.NewQuery("SELECT id FROM ss13_poll_vote WHERE pollid = [pollid] AND ckey = '[usr.ckey]'")
 		voted_query.Execute()
 
 		while(voted_query.NextRow())
@@ -373,11 +385,11 @@
 				break
 
 		if(!multichoice && alreadyvoted)
-			usr << "<span class='warning'>You already voted in this poll.</span>"
+			to_chat(usr, SPAN_WARNING("You already voted in this poll."))
 			return
 
 		if(multichoice && (alreadyvoted >= multiplechoiceoptions))
-			usr << "<span class='warning'>You already have more than [multiplechoiceoptions] logged votes on this poll. Enough is enough. Contact the database admin if this is an error.</span>"
+			to_chat(usr, SPAN_WARNING("You already have more than [multiplechoiceoptions] logged votes on this poll. Enough is enough. Contact the database admin if this is an error."))
 			return
 
 		var/adminrank = "Player"
@@ -385,10 +397,10 @@
 			adminrank = usr.client.holder.rank
 
 
-		var/DBQuery/insert_query = dbcon.NewQuery("INSERT INTO ss13_poll_vote (id ,datetime ,pollid ,optionid ,ckey ,ip ,adminrank) VALUES (null, Now(), [pollid], [optionid], '[usr.ckey]', '[usr.client.address]', '[adminrank]')")
+		var/DBQuery/insert_query = GLOB.dbcon.NewQuery("INSERT INTO ss13_poll_vote (id ,datetime ,pollid ,optionid ,ckey ,ip ,adminrank) VALUES (null, Now(), [pollid], [optionid], '[usr.ckey]', '[usr.client.address]', '[adminrank]')")
 		insert_query.Execute()
 
-		usr << "<span class='notice'>Vote successful.</span>"
+		to_chat(usr, SPAN_NOTICE("Vote successful."))
 		usr << browse(null,"window=playerpoll")
 
 
@@ -398,10 +410,9 @@
 
 	if(!isnum(pollid) || !istext(replytext))
 		return
-	establish_db_connection(dbcon)
-	if(dbcon.IsConnected())
+	if(establish_db_connection(GLOB.dbcon))
 
-		var/DBQuery/select_query = dbcon.NewQuery("SELECT starttime, endtime, question, polltype FROM ss13_poll_question WHERE id = [pollid] AND Now() BETWEEN starttime AND endtime")
+		var/DBQuery/select_query = GLOB.dbcon.NewQuery("SELECT starttime, endtime, question, polltype FROM ss13_poll_question WHERE id = [pollid] AND Now() BETWEEN starttime AND endtime")
 		select_query.Execute()
 
 		var/validpoll = 0
@@ -413,12 +424,12 @@
 			break
 
 		if(!validpoll)
-			usr << "<span class='warning'>Poll is not valid.</span>"
+			to_chat(usr, SPAN_WARNING("Poll is not valid."))
 			return
 
 		var/alreadyvoted = 0
 
-		var/DBQuery/voted_query = dbcon.NewQuery("SELECT id FROM ss13_poll_textreply WHERE pollid = [pollid] AND ckey = '[usr.ckey]'")
+		var/DBQuery/voted_query = GLOB.dbcon.NewQuery("SELECT id FROM ss13_poll_textreply WHERE pollid = [pollid] AND ckey = '[usr.ckey]'")
 		voted_query.Execute()
 
 		while(voted_query.NextRow())
@@ -426,7 +437,7 @@
 			break
 
 		if(alreadyvoted)
-			usr << "<span class='warning'>You already sent your feedback for this poll.</span>"
+			to_chat(usr, SPAN_WARNING("You already sent your feedback for this poll."))
 			return
 
 		var/adminrank = "Player"
@@ -440,13 +451,13 @@
 		replytext = replacetext(replytext, "%BR%", "<BR>")
 
 		if(!text_pass)
-			usr << "The text you entered was blank, contained illegal characters or was too long. Please correct the text and submit again."
+			to_chat(usr, "The text you entered was blank, contained illegal characters or was too long. Please correct the text and submit again.")
 			return
 
-		var/DBQuery/insert_query = dbcon.NewQuery("INSERT INTO ss13_poll_textreply (id ,datetime ,pollid ,ckey ,ip ,replytext ,adminrank) VALUES (null, Now(), [pollid], '[usr.ckey]', '[usr.client.address]', '[replytext]', '[adminrank]')")
+		var/DBQuery/insert_query = GLOB.dbcon.NewQuery("INSERT INTO ss13_poll_textreply (id ,datetime ,pollid ,ckey ,ip ,replytext ,adminrank) VALUES (null, Now(), [pollid], '[usr.ckey]', '[usr.client.address]', '[replytext]', '[adminrank]')")
 		insert_query.Execute()
 
-		usr << "<span class='notice'>Feedback logging successful.</span>"
+		to_chat(usr, SPAN_NOTICE("Feedback logging successful."))
 		usr << browse(null,"window=playerpoll")
 
 
@@ -456,10 +467,9 @@
 
 	if(!isnum(pollid) || !isnum(optionid))
 		return
-	establish_db_connection(dbcon)
-	if(dbcon.IsConnected())
+	if(establish_db_connection(GLOB.dbcon))
 
-		var/DBQuery/select_query = dbcon.NewQuery("SELECT starttime, endtime, question, polltype FROM ss13_poll_question WHERE id = [pollid] AND Now() BETWEEN starttime AND endtime")
+		var/DBQuery/select_query = GLOB.dbcon.NewQuery("SELECT starttime, endtime, question, polltype FROM ss13_poll_question WHERE id = [pollid] AND Now() BETWEEN starttime AND endtime")
 		select_query.Execute()
 
 		var/validpoll = 0
@@ -471,10 +481,10 @@
 			break
 
 		if(!validpoll)
-			usr << "<span class='warning'>Poll is not valid.</span>"
+			to_chat(usr, SPAN_WARNING("Poll is not valid."))
 			return
 
-		var/DBQuery/select_query2 = dbcon.NewQuery("SELECT id FROM ss13_poll_option WHERE id = [optionid] AND pollid = [pollid]")
+		var/DBQuery/select_query2 = GLOB.dbcon.NewQuery("SELECT id FROM ss13_poll_option WHERE id = [optionid] AND pollid = [pollid]")
 		select_query2.Execute()
 
 		var/validoption = 0
@@ -484,12 +494,12 @@
 			break
 
 		if(!validoption)
-			usr << "<span class='warning'>Poll option is not valid.</span>"
+			to_chat(usr, SPAN_WARNING("Poll option is not valid."))
 			return
 
 		var/alreadyvoted = 0
 
-		var/DBQuery/voted_query = dbcon.NewQuery("SELECT id FROM ss13_poll_vote WHERE optionid = [optionid] AND ckey = '[usr.ckey]'")
+		var/DBQuery/voted_query = GLOB.dbcon.NewQuery("SELECT id FROM ss13_poll_vote WHERE optionid = [optionid] AND ckey = '[usr.ckey]'")
 		voted_query.Execute()
 
 		while(voted_query.NextRow())
@@ -497,7 +507,7 @@
 			break
 
 		if(alreadyvoted)
-			usr << "<span class='warning'>You already voted in this poll.</span>"
+			to_chat(usr, SPAN_WARNING("You already voted in this poll."))
 			return
 
 		var/adminrank = "Player"
@@ -505,8 +515,8 @@
 			adminrank = usr.client.holder.rank
 
 
-		var/DBQuery/insert_query = dbcon.NewQuery("INSERT INTO ss13_poll_vote (id ,datetime ,pollid ,optionid ,ckey ,ip ,adminrank, rating) VALUES (null, Now(), [pollid], [optionid], '[usr.ckey]', '[usr.client.address]', '[adminrank]', [(isnull(rating)) ? "null" : rating])")
+		var/DBQuery/insert_query = GLOB.dbcon.NewQuery("INSERT INTO ss13_poll_vote (id ,datetime ,pollid ,optionid ,ckey ,ip ,adminrank, rating) VALUES (null, Now(), [pollid], [optionid], '[usr.ckey]', '[usr.client.address]', '[adminrank]', [(isnull(rating)) ? "null" : rating])")
 		insert_query.Execute()
 
-		usr << "<span class='notice'>Vote successful.</span>"
+		to_chat(usr, SPAN_NOTICE("Vote successful."))
 		usr << browse(null,"window=playerpoll")

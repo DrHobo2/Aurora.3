@@ -1,7 +1,7 @@
 // explosion logic is in code/controllers/Processes/explosives.dm now
 
-/proc/explosion(turf/epicenter, devastation_range, heavy_impact_range, light_impact_range, flash_range, adminlog = 1, z_transfer = UP|DOWN, spreading = config.use_spreading_explosions)
-	src = null	//so we don't abort once src is deleted
+/proc/explosion(turf/epicenter, devastation_range, heavy_impact_range, light_impact_range, flash_range, adminlog = 1, z_transfer = UP|DOWN, spreading = GLOB.config.use_spreading_explosions, mob/source_mob, source_name = "an explosion")
+	UNLINT(src = null)	//so we don't abort once src is deleted
 	var/datum/explosiondata/data = new
 	data.epicenter = epicenter
 	data.devastation_range = devastation_range
@@ -11,19 +11,33 @@
 	data.adminlog = adminlog
 	data.z_transfer = z_transfer
 	data.spreading = spreading
-	data.rec_pow = max(0,devastation_range) * 2 + max(0,heavy_impact_range) + max(0,light_impact_range)
+	data.max_damage_range = max(devastation_range, heavy_impact_range, light_impact_range)
+	if(devastation_range > 0)
+		data.rec_pow = 300
+	else if(heavy_impact_range > 0)
+		data.rec_pow = 199
+	else if(light_impact_range > 0)
+		data.rec_pow = 99
+	data.power_falloff = data.rec_pow / max(1, light_impact_range + 2)
+	data.source_mob = source_mob
+	data.source_name = source_name
 
 	// queue work
 	SSexplosives.queue(data)
 
 	//Machines which report explosions.
-	for(var/i,i<=doppler_arrays.len,i++)
-		var/obj/machinery/doppler_array/Array = doppler_arrays[i]
-		if(Array)
-			var/x0 = epicenter.x
-			var/y0 = epicenter.y
-			var/z0 = epicenter.z
-			Array.sense_explosion(x0,y0,z0,devastation_range,heavy_impact_range,light_impact_range)
+	var/list/invalid_doppler_arrays
+	for(var/thing in GLOB.doppler_arrays)
+		if(!istype(thing, /obj/structure/machinery/doppler_array))
+			LAZYADD(invalid_doppler_arrays, thing)
+			continue
+		var/obj/structure/machinery/doppler_array/Array = thing
+		if(QDELETED(Array))
+			LAZYADD(invalid_doppler_arrays, thing)
+			continue
+		Array.sense_explosion(epicenter.x,epicenter.y,epicenter.z,devastation_range,heavy_impact_range,light_impact_range)
+	if(invalid_doppler_arrays)
+		GLOB.doppler_arrays -= invalid_doppler_arrays
 
 // == Recursive Explosions stuff ==
 
@@ -35,33 +49,3 @@
 	d.epicenter = T
 	d.rec_pow = power
 	SSexplosives.queue(d)
-
-/atom
-	var/explosion_resistance
-
-/turf/space
-	explosion_resistance = 3
-
-/turf/simulated/open
-	explosion_resistance = 3
-
-/turf/simulated/floor
-	explosion_resistance = 1
-
-/turf/simulated/mineral
-	explosion_resistance = 2
-
-/turf/simulated/shuttle/floor
-	explosion_resistance = 1
-
-/turf/simulated/shuttle/floor4
-	explosion_resistance = 1
-
-/turf/simulated/shuttle/plating
-	explosion_resistance = 1
-
-/turf/simulated/shuttle/wall
-	explosion_resistance = 10
-
-/turf/simulated/wall
-	explosion_resistance = 10

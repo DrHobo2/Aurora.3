@@ -1,60 +1,108 @@
-
 /client/verb/who()
 	set name = "Who"
 	set category = "OOC"
 
-	var/msg = "<b>Current Players:</b>\n"
+	var/count
+	var/msg
+	var/total_num = 0
 
-	var/list/Lines = list()
+	if(holder && (R_ADMIN & holder.rights || R_MOD & holder.rights || R_DEV & holder.rights))
+		msg += "<table border='1' border-collapse='collapse' width='100%' style='border-collapse: collapse'>"
 
-	if(holder && (R_ADMIN & holder.rights || R_MOD & holder.rights))
-		for(var/client/C in clients)
-			var/entry = "\t[C.key]"
-			if(C.holder && C.holder.fakekey)
-				entry += " <i>(as [C.holder.fakekey])</i>"
-			entry += " - Playing as [C.mob.real_name]"
-			switch(C.mob.stat)
+		// Table Header
+		msg += "<tr>"
+		msg += "<td>Client Key</td>"
+		msg += "<td>Character</td>"
+		msg += "<td>Status</td>"
+		msg += "<td>Age</td>"
+		msg += "<td>Ping</td>"
+		msg += "<td>Antag</td>"
+		msg += "<td>More Info</td>"
+		msg += "</tr>"
+
+		for(var/client/client in sortKey(GLOB.clients))
+			msg += "<tr>"
+
+			// Client Key
+			msg += "<td>[client.key]"
+			if(client.holder && client.holder.fakekey)
+				msg += " <i>(as [client.holder.fakekey])</i>"
+			msg += "</td>"
+
+			// Character
+			msg += "<td>[client.mob.real_name]</td>"
+
+			// Status
+			msg += "<td>"
+			switch(client.mob.stat)
 				if(UNCONSCIOUS)
-					entry += " - <font color='darkgray'><b>Unconscious</b></font>"
+					msg += "<font color='darkgray'><b>Unconscious</b></font>"
 				if(DEAD)
-					if(isobserver(C.mob))
-						var/mob/abstract/observer/O = C.mob
+					if(isobserver(client.mob))
+						var/mob/abstract/ghost/observer/O = client.mob
 						if(O.started_as_observer)
-							entry += " - <font color='gray'>Observing</font>"
+							msg += "<font color='gray'>Observing</font>"
 						else
-							entry += " - <font color='black'><b>DEAD</b></font>"
+							msg += "<font color='black'><b>Dead</b></font>"
+					else if(isstoryteller(client.mob))
+						msg += "<font color='blue'><b>Storytelling</b></font>"
 					else
-						entry += " - <font color='black'><b>DEAD</b></font>"
+						msg += "<font color='black'><b>Dead</b></font>"
+				else
+					msg += "<font color='green'><b>Alive</b></font>"
+			msg += "</td>"
 
+			// Account Age
 			var/age
-			if(isnum(C.player_age))
-				age = C.player_age
+			if(isnum(client.player_age))
+				age = client.player_age
 			else
 				age = 0
-
 			if(age <= 1)
 				age = "<font color='#ff0000'><b>[age]</b></font>"
 			else if(age < 10)
 				age = "<font color='#ff8c00'><b>[age]</b></font>"
+			msg += "<td>[age]</td>"
 
-			entry += " - [age]"
-
-			if(is_special_character(C.mob))
-				entry += " - <b><font color='red'>Antagonist</font></b>"
-			entry += " (<A HREF='?_src_=holder;adminmoreinfo=\ref[C.mob]'>?</A>)"
-			Lines += entry
-	else
-		for(var/client/C in clients)
-			if(C.holder && C.holder.fakekey)
-				Lines += C.holder.fakekey
+			// Ping
+			if((R_ADMIN & holder.rights) || (R_DEV & holder.rights))
+				msg += "<td>[round(client.avgping, 1)] ms</td>"
 			else
-				Lines += C.key
+				msg += "<td></td>"
 
-	for(var/line in sortList(Lines))
-		msg += "[line]\n"
+			// Antag
+			if(is_special_character(client.mob))
+				msg += "<td><b>Antagonist</b></td>"
+			else
+				msg += "<td></td>"
 
-	msg += "<b>Total Players: [length(Lines)]</b>"
-	src << msg
+			// More Info
+			msg += "<td><A href='byond://?_src_=holder;adminmoreinfo=[REF(client.mob)]'>?</A></td>"
+
+			total_num++
+			msg += "</tr>"
+		msg += "</table>"
+	else
+		for(var/client/client in sortKey(GLOB.clients))
+			if(client.holder && client.holder.fakekey)
+				msg += client.holder.fakekey
+			else
+				msg += client.key
+			total_num++
+			msg += "<br>"
+
+	count = "<b>Current Players ([total_num])</b><br>"
+	msg = count + msg
+
+	var/datum/browser/who_win = new(usr, "who", "Who", 450, 500)
+	who_win.set_content(msg)
+	who_win.open()
+
+#define STAFFWHO_STATUS_OBSERVING " \[Observing\]"
+#define STAFFWHO_STATUS_LOBBY " \[Lobby\]"
+#define STAFFWHO_STATUS_STORYTELLING " \[Storytelling\]"
+#define STAFFWHO_STATUS_PLAYING " \[Playing\]"
+#define STAFFWHO_AFK " (AFK)"
 
 /client/verb/staffwho()
 	set category = "Admin"
@@ -69,99 +117,131 @@
 	var/num_cciaa_online = 0
 	var/num_devs_online = 0
 	if(holder)
-		for(var/client/C in admins)
-			if(R_ADMIN & C.holder.rights || (!R_MOD & C.holder.rights))	//Used to determine who shows up in admin rows
+		for(var/s in GLOB.staff)
+			var/client/client = s
+			if(R_ADMIN & client.holder.rights) // Who shows up in admin rows.
 
-				if(C.holder.fakekey && (!R_ADMIN & holder.rights && !R_MOD & holder.rights))		//Mentors can't see stealthmins
+				if(client.holder.fakekey && !(R_ADMIN & holder.rights || R_MOD & holder.rights))
 					continue
 
-				msg += "\t[C] is a [C.holder.rank]"
+				msg += "\t[client.key] · [client.holder.rank]"
 
-				if(C.holder.fakekey)
-					msg += " <i>(as [C.holder.fakekey])</i>"
+				if(client.holder.fakekey)
+					msg += " <i>(as [client.holder.fakekey])</i>"
 
-				if(isobserver(C.mob))
-					msg += " - Observing"
-				else if(istype(C.mob,/mob/abstract/new_player))
-					msg += " - Lobby"
+				if(isobserver(client.mob))
+					msg += STAFFWHO_STATUS_OBSERVING
+				else if(isnewplayer(client.mob))
+					msg += STAFFWHO_STATUS_LOBBY
+				else if(isstoryteller(client.mob))
+					msg += STAFFWHO_STATUS_STORYTELLING
 				else
-					msg += " - Playing"
+					msg += STAFFWHO_STATUS_PLAYING
 
-				if(C.is_afk())
-					msg += " (AFK)"
-				msg += "\n"
+				if(client.is_afk())
+					msg += STAFFWHO_AFK
+				msg += "<br>"
 
 				num_admins_online++
-			else if(R_MOD & C.holder.rights)				//Who shows up in mod/mentor rows.
-				modmsg += "\t[C] is a [C.holder.rank]"
+			else if(R_MOD & client.holder.rights) // Who shows up in mod rows.
+				modmsg += "\t[client.key] · [client.holder.rank]"
 
-				if(isobserver(C.mob))
-					modmsg += " - Observing"
-				else if(istype(C.mob,/mob/abstract/new_player))
-					modmsg += " - Lobby"
+				if(isobserver(client.mob))
+					modmsg += STAFFWHO_STATUS_OBSERVING
+				else if(isnewplayer(client.mob))
+					modmsg += STAFFWHO_STATUS_LOBBY
+				else if(isstoryteller(client.mob))
+					modmsg += STAFFWHO_STATUS_STORYTELLING
 				else
-					modmsg += " - Playing"
+					modmsg += STAFFWHO_STATUS_PLAYING
 
-				if(C.is_afk())
-					modmsg += " (AFK)"
-				modmsg += "\n"
+				if(client.is_afk())
+					modmsg += STAFFWHO_AFK
+				modmsg += "<br>"
 				num_mods_online++
 
-			else if (R_CCIAA & C.holder.rights)
-				cciaamsg += "\t[C]"
-				if (isobserver(C.mob))
-					cciaamsg += " - Observing"
-				else if (istype(C.mob, /mob/abstract/new_player))
-					cciaamsg += " - Lobby"
-				else
-					cciaamsg += " - Playing"
+			else if(R_CCIAA & client.holder.rights) // Who shows up in CCIAA rows.
+				cciaamsg += "\t[client.key] · [client.holder.rank]"
 
-				if (C.is_afk())
-					cciaamsg += " (AFK)"
-				cciaamsg += "\n"
+				if(isobserver(client.mob))
+					cciaamsg += STAFFWHO_STATUS_OBSERVING
+				else if(isnewplayer(client.mob))
+					cciaamsg += STAFFWHO_STATUS_LOBBY
+				else if(isstoryteller(client.mob))
+					cciaamsg += STAFFWHO_STATUS_STORYTELLING
+				else
+					cciaamsg += STAFFWHO_STATUS_PLAYING
+
+				if(client.is_afk())
+					cciaamsg += STAFFWHO_AFK
+				cciaamsg += "<br>"
 				num_cciaa_online++
 
-			else if(C.holder.rights & R_DEV)
-				devmsg += "\t[C] is a [C.holder.rank]"
-				if(isobserver(C.mob))
-					devmsg += " - Observing"
-				else if(istype(C.mob,/mob/abstract/new_player))
-					devmsg += " - Lobby"
+			else if(client.holder.rights & R_DEV) // Who shows up in dev rows.
+				devmsg += "\t[client.key] · [client.holder.rank]"
+
+				if(isobserver(client.mob))
+					devmsg += STAFFWHO_STATUS_OBSERVING
+				else if(isnewplayer(client.mob))
+					devmsg += STAFFWHO_STATUS_LOBBY
+				else if(isstoryteller(client.mob))
+					devmsg += STAFFWHO_STATUS_STORYTELLING
 				else
-					devmsg += " - Playing"
+					devmsg += STAFFWHO_STATUS_PLAYING
 
-				if(C.is_afk())
-					devmsg += " (AFK)"
-				devmsg += "\n"
+				if(client.is_afk())
+					devmsg += STAFFWHO_AFK
+				devmsg += "<br>"
 				num_devs_online++
-
 	else
-		for(var/client/C in admins)
-			if(R_ADMIN & C.holder.rights || (!R_MOD & C.holder.rights))
-				if(!C.holder.fakekey)
-					msg += "\t[C] is a [C.holder.rank]\n"
+		for(var/s in GLOB.staff)
+			var/client/client = s
+			if(R_ADMIN & client.holder.rights)
+				if(!client.holder.fakekey)
+					if(client.is_afk())
+						msg += "\t[client.key] · [client.holder.rank] (AFK)<br>"
+					else
+						msg += "\t[client.key] · [client.holder.rank]<br>"
 					num_admins_online++
-			else if (R_MOD & C.holder.rights)
-				modmsg += "\t[C] is a [C.holder.rank]\n"
+			else if(R_MOD & client.holder.rights)
+				if(client.is_afk())
+					modmsg += "\t[client.key] · [client.holder.rank] (AFK)<br>"
+				else
+					modmsg += "\t[client.key] · [client.holder.rank]<br>"
 				num_mods_online++
-			else if(C.holder.rights & R_DEV)
-				devmsg += "\t[C] is a [C.holder.rank]\n"
+			else if(client.holder.rights & R_DEV)
+				if(client.is_afk())
+					devmsg += "\t[client.key] · [client.holder.rank] (AFK)<br>"
+				else
+					devmsg += "\t[client.key] · [client.holder.rank]<br>"
 				num_devs_online++
-			else if (R_CCIAA & C.holder.rights)
-				cciaamsg += "\t[C] is a [C.holder.rank]\n"
+			else if(R_CCIAA & client.holder.rights)
+				if(client.is_afk())
+					cciaamsg += "\t[client.key] · [client.holder.rank] (AFK)<br>"
+				else
+					cciaamsg += "\t[client.key] · [client.holder.rank]<br>"
 				num_cciaa_online++
 
-	if(discord_bot && discord_bot.active)
-		src << "<span class='info'>Adminhelps are also sent to Discord. If no admins are available in game try anyway and an admin on Discord may see it and respond.</span>"
-	msg = "<b>Current Admins ([num_admins_online]):</b>\n" + msg
+	if(SSdiscord && SSdiscord.active)
+		to_chat(src, SPAN_INFO("Adminhelps are also sent to Discord. If no admins are available in game try anyway and an admin on Discord may see it and respond."))
 
-	if(config.show_mods)
-		msg += "\n<b> Current Moderators ([num_mods_online]):</b>\n" + modmsg
+	msg = "<b>Current Administrators ([num_admins_online])</b><br>" + msg
 
-	if (config.show_auxiliary_roles)
-		if (num_cciaa_online)
-			msg += "\n<b> Current CCIA Agents ([num_cciaa_online]):</b>\n" + cciaamsg
+	if(GLOB.config.show_mods)
+		msg += "<br><b>Current Moderators ([num_mods_online])</b><br>" + modmsg
+
+	if(GLOB.config.show_auxiliary_roles)
+		if(num_cciaa_online)
+			msg += "<br><b>Current CCIA Agents ([num_cciaa_online])</b><br>" + cciaamsg
 		if(num_devs_online)
-			msg += "\n<b> Current Developers ([num_devs_online]):</b>\n" + devmsg
+			msg += "<br><b>Current Developers ([num_devs_online])</b><br>" + devmsg
 
-	src << msg
+	var/datum/browser/staff_win = new(usr, "staffwho", "Staff Who", 450, 500)
+	staff_win.set_content(msg)
+	staff_win.open()
+
+#undef STAFFWHO_STATUS_OBSERVING
+#undef STAFFWHO_STATUS_LOBBY
+#undef STAFFWHO_STATUS_STORYTELLING
+#undef STAFFWHO_STATUS_PLAYING
+#undef STAFFWHO_AFK

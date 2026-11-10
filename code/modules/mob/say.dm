@@ -1,129 +1,121 @@
-/mob/proc/say()
+/mob/proc/say(var/text, var/datum/language/speaking = null, var/verb="says", var/alt_name="", var/ghost_hearing = GHOSTS_ALL_HEAR, var/whisper = FALSE)
 	return
 
-/mob/verb/whisper()
-	set name = "Whisper"
-	set category = "IC"
-	return
-
+///what clients use to speak. when you type a message into the chat bar in say mode, this is the first thing that goes off serverside.
 /mob/verb/say_verb(message as text)
 	set name = "Say"
 	set category = "IC"
-	if(say_disabled)	//This is here to try to identify lag problems
-		usr << "<span class='warning'>Speech is currently admin-disabled.</span>"
-		return
-	//Let's try to make users fix their errors - we try to detect single, out-of-place letters and 'unintended' words
-	/*
-	var/first_letter = copytext(message,1,2)
-	if((copytext(message,2,3) == " " && first_letter != "I" && first_letter != "A" && first_letter != ";") || cmptext(copytext(message,1,5), "say ") || cmptext(copytext(message,1,4), "me ") || cmptext(copytext(message,1,6), "looc ") || cmptext(copytext(message,1,5), "ooc ") || cmptext(copytext(message,2,6), "say "))
-		var/response = alert(usr, "Do you really want to say this using the *say* verb?\n\n[message]\n", "Confirm your message", "Yes", "Edit message", "No")
-		if(response == "Edit message")
-			message = input(usr, "Please edit your message carefully:", "Edit message", message)
-			if(!message)
-				return
-		else if(response == "No")
-			return
-	*/
 
-	set_typing_indicator(0)
+	if(say_disabled)	//This is here to try to identify lag problems
+		to_chat(usr, SPAN_WARNING("Speech is currently admin-disabled."))
+		return
+
+	message = sanitize(message)
 
 	if (src.client.handle_spam_prevention(message, MUTE_IC))
 		return
 
-	usr.say(message)
+	//queue this message because verbs are scheduled to process after SendMaps in the tick and speech is pretty expensive when it happens.
+	//by queuing this for next tick the mc can compensate for its cost instead of having speech delay the start of the next tick
+	if(message)
+		QUEUE_OR_CALL_VERB_FOR(VERB_CALLBACK(src, PROC_REF(say), message), SSspeech_controller)
 
 /mob/verb/me_verb(message as text)
 	set name = "Me"
 	set category = "IC"
 
 	if(say_disabled)	//This is here to try to identify lag problems
-		usr << "<span class='warning'>Speech is currently admin-disabled.</span>"
+		to_chat(usr, SPAN_WARNING("Speech is currently admin-disabled."))
 		return
 
 	message = sanitize(message)
-
-	set_typing_indicator(0)
 
 	if (src.client.handle_spam_prevention(message, MUTE_IC))
 		return
 
 	if(use_me)
-		usr.emote("me",usr.emote_type,message)
+		QUEUE_OR_CALL_VERB_FOR(VERB_CALLBACK(src, PROC_REF(client_emote), "me", usr.emote_type, message), SSspeech_controller)
 	else
-		usr.emote(message)
+		QUEUE_OR_CALL_VERB_FOR(VERB_CALLBACK(src, PROC_REF(emote), message), SSspeech_controller)
 
 /mob/proc/say_dead(var/message)
 	if(say_disabled)	//This is here to try to identify lag problems
-		usr << "<span class='danger'>Speech is currently admin-disabled.</span>"
+		to_chat(usr, SPAN_DANGER("Speech is currently admin-disabled."))
 		return
 
 	if(!src.client.holder)
-		if(!config.dsay_allowed)
-			src << "<span class='danger'>Deadchat is globally muted.</span>"
+		if(!GLOB.config.dsay_allowed)
+			to_chat(src, SPAN_DANGER("Deadchat is globally muted."))
 			return
 
 	if(client && !(client.prefs.toggles & CHAT_DEAD))
-		usr << "<span class='danger'>You have deadchat muted.</span>"
+		to_chat(usr, SPAN_DANGER("You have deadchat muted."))
 		return
 
 	message = process_chat_markup(message, list("~", "_"))
 
-	say_dead_direct("[pick("complains","moans","whines","laments","blubbers")], <span class='message'>\"[message]\"</span>", src)
+	say_dead_direct("[pick("complains","moans","whines","laments","blubbers")], <span class='message linkify'>\"[message]\"</span>", src)
 
-/mob/proc/say_understands(var/mob/other,var/datum/language/speaking = null)
+/mob/proc/say_understands(var/mob/other, var/datum/language/speaking = null)
+	if(src.stat == DEAD)
+		return TRUE
 
-	if (src.stat == 2)		//Dead
-		return 1
+	// Universal speak makes everything understandable, for obvious reasons.
+	if(src.universal_speak || src.universal_understand)
+		return TRUE
 
-	//Universal speak makes everything understandable, for obvious reasons.
-	else if(src.universal_speak || src.universal_understand)
-		return 1
-
-	//Languages are handled after.
+	// Languages are handled after.
 	if (!speaking)
 		if(!other)
-			return 1
+			return TRUE
 		if(other.universal_speak)
-			return 1
+			return TRUE
 		if(isAI(src) && ispAI(other))
-			return 1
+			return TRUE
 		if (istype(other, src.type) || istype(src, other.type))
-			return 1
-		return 0
+			return TRUE
+		return FALSE
 
 	if(speaking.flags & INNATE)
-		return 1
+		return TRUE
 
-	//Language check.
+	// Language check.
 	for(var/datum/language/L in src.languages)
 		if(speaking.name == L.name)
-			return 1
+			return TRUE
 
-	return 0
+	return FALSE
 
 /*
-   ***Deprecated***
-   let this be handled at the hear_say or hear_radio proc
-   This is left in for robot speaking when humans gain binary channel access until I get around to rewriting
-   robot_talk() proc.
-   There is no language handling build into it however there is at the /mob level so we accept the call
-   for it but just ignore it.
+	***Deprecated***
+	let this be handled at the hear_message proc
+	This is left in for robot speaking when humans gain binary channel access until I get around to rewriting
+	robot_talk() proc.
+	There is no language handling build into it however there is at the /mob level so we accept the call
+	for it but just ignore it.
 */
 
-/mob/proc/say_quote(var/message, var/datum/language/speaking = null)
-        var/verb = "says"
-        var/ending = copytext(message, length(message))
-        if(ending=="!")
-                verb=pick("exclaims","shouts","yells")
-        else if(ending=="?")
-                verb="asks"
+/mob/proc/say_quote(var/message, var/datum/language/speaking = null, var/singing = FALSE, var/whisper = FALSE)
+	. = "says"
+	if(singing)
+		return "sings"
+	if(whisper)
+		return "whispers"
+	var/ending = copytext(message, length(message))
+	var/pre_ending = copytext(message, length(message) - 1, length(message))
+	if(ending == "!")
+		if(pre_ending == "!" || pre_ending == "?")
+			. = pick("shouts", "yells")
+		else
+			. = "exclaims"
+	else if(ending == "?")
+		. ="asks"
 
-        return verb
 
-
-/mob/proc/emote(var/act, var/type, var/message)
-	if(act == "me")
-		return custom_emote(type, message)
+/mob/proc/whisper(var/message, var/datum/language/speaking, var/is_singing = FALSE)
+	set name = "Whisper"
+	set category = "IC"
+	return
 
 /mob/proc/get_ear()
 	// returns an atom representing a location on the map from which this
@@ -141,9 +133,15 @@
 		return "2"
 	return "0"
 
-//parses the message mode code (e.g. :h, :w) from text, such as that supplied to say.
-//returns the message mode string or null for no message mode.
-//standard mode is the mode returned for the special ';' radio code.
+/**
+ * Parses the message mode code (e.g. :h, :w) from text, such as that supplied to Say.
+ * Standard mode is the mode returned for the special ';' radio code.
+ *
+ * * message - the original string being passed
+ * * standard_mode - the message mode itself
+ *
+ * Returns the message mode string.
+ */
 /mob/proc/parse_message_mode(var/message, var/standard_mode="headset")
 	if(length(message) >= 1 && copytext(message,1,2) == ";")
 		return standard_mode
@@ -154,17 +152,119 @@
 
 	return null
 
-//parses the language code (e.g. :j) from text, such as that supplied to say.
-//returns the language object only if the code corresponds to a language that src can speak, otherwise null.
-/mob/proc/parse_language(var/message)
+/**
+ * Parses the language code (e.g. :j) from text, such as that supplied to say
+ *
+ * Returns a `/datum/language` only if the code corresponds to a language that src can speak, otherwise `null`
+ *
+ * * message - A string, the message to parse
+ */
+/mob/proc/parse_language(message)
+	SHOULD_NOT_SLEEP(TRUE)
+	SHOULD_BE_PURE(TRUE)
+	RETURN_TYPE(/datum/language)
+
 	var/prefix = copytext(message,1,2)
 	if(length(message) >= 1 && prefix == "!")
-		return all_languages["Noise"]
+		return GLOB.all_languages[LANGUAGE_NOISE]
 
+	//Check that the message is at least 2 characters long and is there's a prefix starting it
 	if(length(message) >= 2 && is_language_prefix(prefix))
-		var/language_prefix = lowertext(copytext(message, 2 ,3))
-		var/datum/language/L = language_keys[language_prefix]
-		if (can_speak(L))
-			return L
 
-	return null
+		//Get the first 2 letters after the prefix (position 2 and 3)
+		var/language_prefix = lowertext(copytext(message, 2, 4))
+
+		//Try to grab a language associated with said prefix
+		var/datum/language/L = GLOB.language_keys[language_prefix]
+
+		//If we didn't find a language, or we found one we cannot speak, try with a single letter identification
+		if(!istype(L) || (istype(L) && !can_speak(L)))
+			language_prefix = lowertext(copytext(message, 2, 3))
+			L = GLOB.language_keys[language_prefix]
+
+		//Check if we can speak the language, otherwise return null
+		if(istype(L) && can_speak(L))
+			return L
+		else
+			return null
+
+/// Splits a message into per-language /datum/say_segment, switching language at each spoken prefix.
+/// A forced language takes the whole message with no prefix parsing.
+/mob/living/proc/build_say_message(message, datum/language/forced_language)
+	RETURN_TYPE(/datum/say_message)
+	var/datum/say_message/say_message = new
+	say_message.speaker = src
+	say_message.raw_message = message
+
+	if(forced_language)
+		say_message.collapse_to(forced_language, message)
+		return say_message
+
+	var/datum/language/current = get_default_language()
+	if(copytext(message, 1, 2) == "!")
+		current = GLOB.all_languages[LANGUAGE_NOISE]
+		message = trim_left(copytext(message, 2))
+
+	var/regex/trigger = get_language_trigger_regex()
+	trigger.next = 1
+
+	var/segment_start = 1
+	var/list/datum/say_segment/segments = list()
+
+	while(trigger.Find(message))
+		var/lead = trigger.group[1]	//empty at the start of the message, otherwise the whitespace before the prefix
+		var/prefix_pos = trigger.index + length(lead)
+		var/key_pos = prefix_pos + 1
+
+		var/key_len = 2
+		var/datum/language/found = resolve_language_key(copytext(message, key_pos, key_pos + 2))
+		if(!found)
+			key_len = 1
+			found = resolve_language_key(copytext(message, key_pos, key_pos + 1))
+		if(!found)
+			continue	//not a language we can speak, leave it as literal text and keep scanning
+
+		var/before = copytext(message, segment_start, prefix_pos)
+
+		var/after = key_pos + key_len
+		if(copytext(message, after, after + 1) == " ")
+			after++
+
+		// If LANG_NO_MULTILANG is present, it must be first. If first,
+		// set the whole message to that language. If not, skip it.
+		if(found.flags & LANG_NO_MULTILANG)
+			if(!length(segments) && !length(before))
+				say_message.collapse_to(found, copytext(message, after))
+				return say_message
+			continue
+
+		segments += new /datum/say_segment(before, current)
+		segment_start = after
+		current = found
+		trigger.next = after
+
+	segments += new /datum/say_segment(copytext(message, segment_start), current)
+	say_message.segments = clean_segments(segments)
+	say_message.single_language = (length(say_message.segments) == 1) ? say_message.segments[1].language : null
+	return say_message
+
+/// Returns the language for a prefix key if we can speak it, otherwise null.
+/mob/proc/resolve_language_key(key)
+	RETURN_TYPE(/datum/language)
+	if(!key)
+		return null
+	var/datum/language/found = GLOB.language_keys[lowertext(key)]
+	return (istype(found) && can_speak(found)) ? found : null
+
+/// Drops empty segments and merges adjacent ones sharing a language.
+/proc/clean_segments(list/datum/say_segment/segments)
+	var/list/datum/say_segment/cleaned = list()
+	for(var/datum/say_segment/segment as anything in segments)
+		if(!length(segment.text))
+			continue
+		var/datum/say_segment/last = cleaned.len ? cleaned[cleaned.len] : null
+		if(last && last.language == segment.language)
+			last.text += segment.text
+		else
+			cleaned += segment
+	return cleaned

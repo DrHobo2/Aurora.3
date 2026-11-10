@@ -4,39 +4,23 @@
 
 /obj/item/clothing/head/helmet/space/rig
 	name = "helmet"
-	item_flags = THICKMATERIAL
+	item_flags = ITEM_FLAG_THICK_MATERIAL|ITEM_FLAG_INJECTION_PORT
 	flags_inv = 		 HIDEEARS|HIDEEYES|HIDEFACE|BLOCKHAIR
 	body_parts_covered = HEAD|FACE|EYES
 	heat_protection =    HEAD|FACE|EYES
 	cold_protection =    HEAD|FACE|EYES
-	brightness_on = 4
-	light_wedge = LIGHT_WIDE
-	sprite_sheets = list(
-		"Tajara" = 'icons/mob/species/tajaran/helmet.dmi',
-		"Skrell" = 'icons/mob/species/skrell/helmet.dmi',
-		"Unathi" = 'icons/mob/species/unathi/helmet.dmi',
-		"Vaurca" = 'icons/mob/species/vaurca/helmet.dmi',
-		"Machine" = 'icons/mob/species/machine/helmet.dmi',
-		"Vox" = 'icons/mob/species/vox/head.dmi'
-	)
-	species_restricted = list("exclude","Diona","Xenomorph","Vaurca","Golem", "Vox")
+	light_range = 4
+	contained_sprite = FALSE
 
 /obj/item/clothing/gloves/rig
 	name = "gauntlets"
-	item_flags = THICKMATERIAL
+	item_flags = ITEM_FLAG_THICK_MATERIAL|ITEM_FLAG_INJECTION_PORT
 	body_parts_covered = HANDS
 	heat_protection =    HANDS
 	cold_protection =    HANDS
 	species_restricted = null
 	gender = PLURAL
 	punch_force = 5
-	sprite_sheets = list(
-		"Tajara" = 'icons/mob/species/tajaran/gloves.dmi',
-		"Unathi" = 'icons/mob/species/unathi/gloves.dmi',
-		"Vaurca" = 'icons/mob/species/vaurca/gloves.dmi',
-		"Machine" = 'icons/mob/species/machine/gloves.dmi',
-		"Vox" = 'icons/mob/species/vox/gloves.dmi'
-	)
 
 /obj/item/clothing/shoes/magboots/rig
 	name = "boots"
@@ -46,35 +30,34 @@
 	species_restricted = null
 	gender = PLURAL
 	icon_base = null
-	sprite_sheets = list(
-		"Tajara" = 'icons/mob/species/tajaran/shoes.dmi',
-		"Unathi" = 'icons/mob/species/unathi/shoes.dmi',
-		"Vaurca" = 'icons/mob/species/vaurca/shoes.dmi',
-		"Machine" = 'icons/mob/species/machine/shoes.dmi',
-		"Vox" = 'icons/mob/species/vox/shoes.dmi'
-	)
+	movement_sounds = list('sound/machines/rig/rigstep.ogg')
+
+/obj/item/clothing/shoes/magboots/rig/advanced
+	slowdown_active = 0
+
+/obj/item/clothing/shoes/magboots/rig/medium
+	movement_sounds = list('sound/machines/rig/rigstep_medium.ogg')
+
+/obj/item/clothing/shoes/magboots/rig/heavy
+	movement_sounds = list('sound/machines/rig/rigstep_heavy.ogg')
+
+/obj/item/clothing/shoes/magboots/rig/chonk
+	movement_sounds = list('sound/machines/rig/rigstep_chonk.ogg')
 
 /obj/item/clothing/suit/space/rig
 	name = "chestpiece"
-	allowed = list(/obj/item/device/flashlight,/obj/item/weapon/tank,/obj/item/device/suit_cooling_unit)
+	allowed = list(/obj/item/flashlight,/obj/item/tank,/obj/item/suit_cooling_unit)
 	body_parts_covered = UPPER_TORSO|LOWER_TORSO|LEGS|ARMS
 	heat_protection =    UPPER_TORSO|LOWER_TORSO|LEGS|ARMS
 	cold_protection =    UPPER_TORSO|LOWER_TORSO|LEGS|ARMS
 	flags_inv =          HIDEJUMPSUIT|HIDETAIL
-	item_flags =              STOPPRESSUREDAMAGE | THICKMATERIAL | AIRTIGHT
+	item_flags =         ITEM_FLAG_THICK_MATERIAL|ITEM_FLAG_AIRTIGHT|ITEM_FLAG_INJECTION_PORT
 	slowdown = 0
 	//will reach 10 breach damage after 25 laser carbine blasts, 3 revolver hits, or ~1 PTR hit. Completely immune to smg or sts hits.
 	breach_threshold = 38
 	resilience = 0.2
 	can_breach = 1
-	sprite_sheets = list(
-		"Tajara" = 'icons/mob/species/tajaran/suit.dmi',
-		"Unathi" = 'icons/mob/species/unathi/suit.dmi',
-		"Vaurca" = 'icons/mob/species/vaurca/suit.dmi',
-		"Machine" = 'icons/mob/species/machine/suit.dmi',
-		"Vox" = 'icons/mob/species/vox/suit.dmi'
-		)
-	species_restricted = list("exclude","Diona","Xenomorph","Golem","Vaurca","Vox")
+	contained_sprite = FALSE
 
 	supporting_limbs = list()
 
@@ -91,13 +74,13 @@
 	if(!istype(H) || !H.back)
 		return 0
 
-	var/obj/item/weapon/rig/suit = H.back
+	var/obj/item/rig/suit = H.back
 	if(!suit || !istype(suit) || !suit.installed_modules.len)
 		return 0
 
 	for(var/obj/item/rig_module/module in suit.installed_modules)
 		if(module.active && module.activates_on_touch)
-			if(module.engage(A))
+			if(module.do_engage(A, H))
 				return 1
 
 	return 0
@@ -109,16 +92,17 @@
 	body_parts_covered = HEAD|FACE|EYES
 	heat_protection =    HEAD|FACE|EYES
 	cold_protection =    HEAD|FACE|EYES
-	flags =              THICKMATERIAL|AIRTIGHT
+	item_flags =         ITEM_FLAG_THICK_MATERIAL|ITEM_FLAG_AIRTIGHT|ITEM_FLAG_INJECTION_PORT
+	allow_hair_covering = FALSE
 
 /obj/item/clothing/suit/lightrig
 	name = "suit"
-	allowed = list(/obj/item/device/flashlight)
+	allowed = list(/obj/item/flashlight)
 	body_parts_covered = UPPER_TORSO|LOWER_TORSO|LEGS|ARMS
 	heat_protection =    UPPER_TORSO|LOWER_TORSO|LEGS|ARMS
 	cold_protection =    UPPER_TORSO|LOWER_TORSO|LEGS|ARMS
 	flags_inv =          HIDEJUMPSUIT
-	flags =              THICKMATERIAL
+	item_flags =         ITEM_FLAG_THICK_MATERIAL|ITEM_FLAG_INJECTION_PORT
 
 /obj/item/clothing/shoes/lightrig
 	name = "boots"
@@ -126,13 +110,14 @@
 	cold_protection = FEET
 	heat_protection = FEET
 	species_restricted = null
+	item_flags = ITEM_FLAG_THICK_MATERIAL|ITEM_FLAG_INJECTION_PORT
 	gender = PLURAL
 
 /obj/item/clothing/gloves/lightrig
 	name = "gloves"
-	flags = THICKMATERIAL
 	body_parts_covered = HANDS
 	heat_protection =    HANDS
 	cold_protection =    HANDS
+	item_flags = ITEM_FLAG_THICK_MATERIAL|ITEM_FLAG_INJECTION_PORT
 	species_restricted = null
 	gender = PLURAL

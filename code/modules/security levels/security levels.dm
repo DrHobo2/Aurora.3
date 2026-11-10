@@ -1,4 +1,4 @@
-/var/security_level = 0
+GLOBAL_VAR_INIT(security_level, SEC_LEVEL_GREEN)
 //0 = code green
 //1 = code yellow
 //2 = code blue
@@ -6,10 +6,10 @@
 //4 = code delta
 
 //config.alert_desc_blue_downto
-/var/datum/announcement/priority/security/security_announcement_up = new(do_log = 0, do_newscast = 1, new_sound = sound('sound/misc/notice1.ogg'))
-/var/datum/announcement/priority/security/security_announcement_down = new(do_log = 0, do_newscast = 1)
+/var/datum/announcement/priority/security/security_announcement_sound = new(do_log = FALSE, do_newscast = TRUE, new_sound = sound('sound/ai/announcements/security_level.ogg'))
+/var/datum/announcement/priority/security/security_announcement = new(do_log = FALSE, do_newscast = TRUE)
 
-/proc/set_security_level(var/level)
+/proc/set_security_level(var/level, var/nuke = FALSE, var/area/A)
 	switch(level)
 		if("green")
 			level = SEC_LEVEL_GREEN
@@ -23,44 +23,48 @@
 			level = SEC_LEVEL_DELTA
 
 	//Will not be announced if you try to set to the same level as it already is
-	if(level >= SEC_LEVEL_GREEN && level <= SEC_LEVEL_DELTA && level != security_level)
+	if(level >= SEC_LEVEL_GREEN && level <= SEC_LEVEL_DELTA && level != GLOB.security_level)
 		switch(level)
 			if(SEC_LEVEL_GREEN)
-				security_announcement_down.Announce("[config.alert_desc_green]", "Attention! Security level lowered to green.")
-				security_level = SEC_LEVEL_GREEN
+				security_announcement.Announce("[GLOB.config.alert_desc_green]", "Attention! Security level lowered to green.")
+				GLOB.security_level = SEC_LEVEL_GREEN
 				SSnightlight.end_temp_disable()
 			if(SEC_LEVEL_BLUE)
-				if(security_level < SEC_LEVEL_BLUE)
-					security_announcement_up.Announce("[config.alert_desc_blue_upto]", "Attention! Security level elevated to blue.")
+				if(GLOB.security_level < SEC_LEVEL_BLUE)
+					security_announcement_sound.Announce("[GLOB.config.alert_desc_blue_upto]", "Attention! Security level elevated to blue.")
 				else
-					security_announcement_down.Announce("[config.alert_desc_blue_downto]", "Attention! Security level lowered to blue.")
-				security_level = SEC_LEVEL_BLUE
+					security_announcement.Announce("[GLOB.config.alert_desc_blue_downto]", "Attention! Security level lowered to blue.")
+				GLOB.security_level = SEC_LEVEL_BLUE
 				SSnightlight.end_temp_disable()
 			if(SEC_LEVEL_YELLOW)
-				security_announcement_up.Announce("[config.alert_desc_yellow_to]", "Attention! Biohazard alert declared!")
-				security_level = SEC_LEVEL_YELLOW
+				security_announcement_sound.Announce("[GLOB.config.alert_desc_yellow_to]", "Attention! Biohazard alert declared!")
+				GLOB.security_level = SEC_LEVEL_YELLOW
 				SSnightlight.end_temp_disable()
 			if(SEC_LEVEL_RED)
-				if(security_level < SEC_LEVEL_RED)
-					security_announcement_up.Announce("[config.alert_desc_red_upto]", "Attention! Security level elevated to red!")
+				if(GLOB.security_level < SEC_LEVEL_RED)
+					security_announcement_sound.Announce("[GLOB.config.alert_desc_red_upto]", "Attention! Security level elevated to red!", new_sound = 'sound/effects/high_alert.ogg')
 					SSnightlight.temp_disable()
 				else
-					security_announcement_down.Announce("[config.alert_desc_red_downto]", "Attention! Code red!")
-				security_level = SEC_LEVEL_RED
+					security_announcement.Announce("[GLOB.config.alert_desc_red_downto]", "Attention! Code red!")
+				GLOB.security_level = SEC_LEVEL_RED
 				post_display_status("alert", "redalert")
 			if(SEC_LEVEL_DELTA)
-				security_announcement_up.Announce("[config.alert_desc_delta]", "Attention! Delta security level reached!", new_sound = 'sound/effects/siren.ogg')
-				security_level = SEC_LEVEL_DELTA
+				if(!nuke)
+					security_announcement_sound.Announce("[GLOB.config.alert_desc_delta]", "Attention! Delta security level reached!", new_sound = 'sound/effects/siren.ogg')
+				else if (A)
+					security_announcement_sound.Announce("An active nuclear device has been detected in the [get_area_display_name(A)]. All crew are instructed to obey all instructions given by heads of staff. Any violations of these orders can be punished by death. This is not a drill.", "Attention! Delta security level reached!", new_sound = 'sound/effects/siren.ogg')
+				else
+					security_announcement_sound.Announce("An active nuclear device has been detected onboard. All crew are instructed to obey all instructions given by heads of staff. Any violations of these orders can be punished by death. This is not a drill.", "Attention! Delta security level reached!", new_sound = 'sound/effects/siren.ogg')
+				GLOB.security_level = SEC_LEVEL_DELTA
 				SSnightlight.temp_disable()
 
 		var/newlevel = get_security_level()
-		for(var/obj/machinery/firealarm/FA in SSmachinery.processing_machines)
-			if(FA.z in current_map.contact_levels)
-				FA.set_security_level(newlevel)
-
+		for(var/obj/structure/machinery/power/apc/powercontrol in SSmachinery.processing)
+			if(isContactLevel(powercontrol.z))
+				powercontrol.manage_emergency(newlevel)
 
 /proc/get_security_level()
-	switch(security_level)
+	switch(GLOB.security_level)
 		if(SEC_LEVEL_GREEN)
 			return "green"
 		if(SEC_LEVEL_BLUE)
@@ -97,15 +101,3 @@
 			return SEC_LEVEL_RED
 		if("delta")
 			return SEC_LEVEL_DELTA
-
-
-/*DEBUG
-/mob/verb/set_thing0()
-	set_security_level(0)
-/mob/verb/set_thing1()
-	set_security_level(1)
-/mob/verb/set_thing2()
-	set_security_level(2)
-/mob/verb/set_thing3()
-	set_security_level(3)
-*/

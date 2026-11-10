@@ -1,32 +1,33 @@
-/obj/machinery/papershredder
+/obj/structure/machinery/papershredder
 	name = "paper shredder"
 	desc = "For those documents you don't want seen."
 	icon = 'icons/obj/bureaucracy.dmi'
 	icon_state = "papershredder0"
 	density = 1
 	anchored = 1
+	maxhealth = OBJECT_HEALTH_LOW
 	var/max_paper = 10
 	var/paperamount = 0
 	var/list/shred_amounts = list(
-		/obj/item/weapon/photo = -1,
-		/obj/item/weapon/shreddedp = 1,
-		/obj/item/weapon/paper = 1,
-		/obj/item/weapon/newspaper = 3,
-		/obj/item/weapon/card/id = -1,
-		/obj/item/weapon/paper_bundle = 3
+		/obj/item/photo = -1,
+		/obj/item/shreddedp = 1,
+		/obj/item/paper = 1,
+		/obj/item/newspaper = 3,
+		/obj/item/card/id = -1,
+		/obj/item/paper_bundle = 3
 		)// use -1 if it doesn't generate paper
 
-/obj/machinery/papershredder/attackby(var/obj/item/W, var/mob/user)
-	if (istype(W, /obj/item/weapon/storage))
-		empty_bin(user, W)
+/obj/structure/machinery/papershredder/attackby(obj/item/attacking_item, mob/user)
+	if (istype(attacking_item, /obj/item/storage))
+		empty_bin(user, attacking_item)
 		return
 
-	else if (W.iswrench())
-		playsound(loc, 'sound/items/Ratchet.ogg', 50, 1)
+	else if (attacking_item.tool_behaviour == TOOL_WRENCH)
+		attacking_item.play_tool_sound(get_turf(src), 50)
 		anchored = !anchored
 		user.visible_message(
-			span("notice", anchored ? "\The [user] fastens \the [src] to \the [loc]." : "\The unfastens \the [src] from \the [loc]."),
-			span("notice", anchored ? "You fasten \the [src] to \the [loc]." : "You unfasten \the [src] from \the [loc]."),
+			SPAN_NOTICE("[anchored ? "\The [user] fastens \the [src] to \the [loc]." : "\The unfastens \the [src] from \the [loc]."]"),
+			SPAN_NOTICE("[anchored ? "You fasten \the [src] to \the [loc]." : "You unfasten \the [src] from \the [loc]."]"),
 			"You hear a ratchet."
 		)
 		return
@@ -34,33 +35,41 @@
 	else
 		var/paper_result
 		for(var/shred_type in shred_amounts)
-			if(istype(W, shred_type))
+			if(istype(attacking_item, shred_type))
 				paper_result = shred_amounts[shred_type]
 		if(paper_result)
 			if (!anchored)
-				user << span("warning", "\The [src] must be anchored to the ground to operate!")
+				to_chat(user, SPAN_WARNING("\The [src] must be anchored to the ground to operate!"))
 				return
 			if(paperamount == max_paper)
-				user << "<span class='warning'>\The [src] is full; please empty it before you continue.</span>"
+				to_chat(user, SPAN_WARNING("\The [src] is full; please empty it before you continue."))
 				return
 			if (paper_result > 0)
 				paperamount += paper_result
-			qdel(W)
-			playsound(src.loc, 'sound/items/pshred.ogg', 75, 1)
-			to_chat(user, span("notice", "You shred the paper."))
-			flick("papershredder_on", src)
+			if(astype(attacking_item, /obj/item/paper)?.crumpled)
+				flick("papershredder_s_on", src)
+			else if(attacking_item.icon_state == "paper_words")
+				flick("papershredder_w_on", src)
+			else if(attacking_item.icon_state == "paper_plane")
+				flick("papershredder_p_on", src)
+			else
+				flick("papershredder_on", src)
+			qdel(attacking_item)
+			playsound(src.loc, 'sound/items/bureaucracy/papershred.ogg', 75, 1)
+			to_chat(user, SPAN_NOTICE("You shred the paper."))
+			intent_message(MACHINE_SOUND)
 			if(paperamount > max_paper)
-				user <<"<span class='danger'>\The [src] was too full, and shredded paper goes everywhere!</span>"
+				to_chat(user, SPAN_DANGER("\The [src] was too full, and shredded paper goes everywhere!"))
 				for(var/i=(paperamount-max_paper);i>0;i--)
-					var/obj/item/weapon/shreddedp/SP = get_shredded_paper()
+					var/obj/item/shreddedp/SP = get_shredded_paper()
 					SP.forceMove(get_turf(src))
-					SP.throw_at(get_edge_target_turf(src,pick(alldirs)),1,5)
+					SP.throw_at(get_edge_target_turf(src,pick(GLOB.alldirs)),1,5)
 				paperamount = max_paper
 			update_icon()
 			return
 	return ..()
 
-/obj/machinery/papershredder/verb/empty_contents()
+/obj/structure/machinery/papershredder/verb/empty_contents()
 	set name = "Empty bin"
 	set category = "Object"
 	set src in range(1)
@@ -69,23 +78,23 @@
 		return
 
 	if(!paperamount)
-		usr << "<span class='notice'>\The [src] is empty.</span>"
+		to_chat(usr, SPAN_NOTICE("\The [src] is empty."))
 		return
 
 	empty_bin(usr)
 
-/obj/machinery/papershredder/proc/empty_bin(var/mob/living/user, var/obj/item/weapon/storage/empty_into)
+/obj/structure/machinery/papershredder/proc/empty_bin(var/mob/living/user, var/obj/item/storage/empty_into)
 
 	// Sanity.
 	if(empty_into && !istype(empty_into))
 		empty_into = null
 
 	if(empty_into && empty_into.contents.len >= empty_into.storage_slots)
-		user << "<span class='notice'>\The [empty_into] is full.</span>"
+		to_chat(user,  SPAN_NOTICE("\The [empty_into] is full."))
 		return
 
 	while(paperamount)
-		var/obj/item/weapon/shreddedp/SP = get_shredded_paper()
+		var/obj/item/shreddedp/SP = get_shredded_paper()
 		if(!SP) break
 		if(empty_into)
 			empty_into.handle_item_insertion(SP)
@@ -93,59 +102,78 @@
 				break
 	if(empty_into)
 		if(paperamount)
-			user << "<span class='notice'>You fill \the [empty_into] with as much shredded paper as it will carry.</span>"
+			to_chat(user,  SPAN_NOTICE("You fill \the [empty_into] with as much shredded paper as it will carry."))
 		else
-			user << "<span class='notice'>You empty \the [src] into \the [empty_into].</span>"
+			to_chat(user,  SPAN_NOTICE("You empty \the [src] into \the [empty_into]."))
 
 	else
-		user << "<span class='notice'>You empty \the [src].</span>"
+		to_chat(user,  SPAN_NOTICE("You empty \the [src]."))
 	update_icon()
 
-/obj/machinery/papershredder/proc/get_shredded_paper()
+/obj/structure/machinery/papershredder/proc/get_shredded_paper()
 	if(!paperamount)
 		return
 	paperamount--
-	return new /obj/item/weapon/shreddedp(get_turf(src))
+	return new /obj/item/shreddedp(get_turf(src))
 
-/obj/machinery/papershredder/update_icon()
-	icon_state = "papershredder[max(0,min(5,Floor(paperamount/2)))]"
+/obj/structure/machinery/papershredder/update_icon() //makes it show how full the papershredder is while covering up the animation. Seemsgood - Wezzy
+	ClearOverlays()
+	switch(paperamount)
+		if(2 to 3)
+			AddOverlays("papershredder1")
+		if(4 to 5)
+			AddOverlays("papershredder2")
+		if(6 to 7)
+			AddOverlays("papershredder3")
+		if(8 to 9)
+			AddOverlays("papershredder4")
+		if(10)
+			AddOverlays("papershredder5")
 
-/obj/item/weapon/shreddedp/attackby(var/obj/item/W as obj, var/mob/user)
-	if(istype(W, /obj/item/weapon/flame/lighter))
-		burnpaper(W, user)
+/obj/item/shreddedp/attackby(obj/item/attacking_item, mob/user)
+	if(istype(attacking_item, /obj/item/flame/lighter))
+		burnpaper(attacking_item, user)
 	else
 		..()
 
-/obj/item/weapon/shreddedp/proc/burnpaper(var/obj/item/weapon/flame/lighter/P, var/mob/user)
-	if(user.restrained())
-		return
-	if(!P.lit)
-		user << "<span class='warning'>\The [P] is not lit.</span>"
-		return
-	user.visible_message("<span class='warning'>\The [user] holds \the [P] up to \the [src]. It looks like \he's trying to burn it!</span>", \
-		"<span class='warning'>You hold \the [P] up to \the [src], burning it slowly.</span>")
-	if(!do_after(user,20))
-		user << "<span class='warning'>You must hold \the [P] steady to burn \the [src].</span>"
-		return
-	user.visible_message("<span class='danger'>\The [user] burns right through \the [src], turning it to ash. It flutters through the air before settling on the floor in a heap.</span>", \
-		"<span class='danger'>You burn right through \the [src], turning it to ash. It flutters through the air before settling on the floor in a heap.</span>")
-	FireBurn()
+/obj/item/shreddedp/proc/burnpaper(obj/item/P, mob/user)
+	var/class = "warning"
 
-/obj/item/weapon/shreddedp/proc/FireBurn()
-	new /obj/effect/decal/cleanable/ash(get_turf(src))
-	qdel(src)
+	if (!user.restrained())
+		if (istype(P, /obj/item/flame))
+			var/obj/item/flame/F = P
+			if (!F.lit)
+				return
+		else if (P.tool_behaviour == TOOL_WELDER)
+			var/obj/item/weldingtool/F = P // NOW THAT'S WHAT I CALL RECYCLING - wezzy
+			if (!F.welding)
+				return
+			if (!F.use(1, user))
+				return
+		else
 
-/obj/item/weapon/shreddedp
+			return
+
+		if(istype(P, /obj/item/flame/lighter/zippo))
+			class = "rose"
+
+		user.visible_message(span("[class]", "[user] holds \the [P] up to \the [src], trying to burn it!"), \
+		span("[class]", "You hold \the [P] up to \the [src], burning it slowly."))
+		playsound(src.loc, 'sound/items/bureaucracy/paperburn.ogg', 50, 1)
+		flick("shredp_onfire", src)
+
+		if (do_after(user, 2 SECONDS, src, DO_UNIQUE | DO_USER_CAN_MOVE))
+			user.visible_message(span("[class]", "[user] burns right through \the [src], turning it to ash. It flutters through the air before settling on the floor in a heap."), \
+			span("[class]", "You burn right through \the [src], turning it to ash. It flutters through the air before settling on the floor in a heap."))
+			new /obj/effect/decal/cleanable/ash(src.loc)
+			qdel(src)
+
+/obj/item/shreddedp
 	name = "shredded paper"
+	desc = "The remains of a private, confidential, or otherwise sensitive document."
 	icon = 'icons/obj/bureaucracy.dmi'
 	icon_state = "shredp"
 	throwforce = 0
-	w_class = 1
+	w_class = WEIGHT_CLASS_TINY
 	throw_range = 3
 	throw_speed = 1
-
-/obj/item/weapon/shreddedp/New()
-	..()
-	pixel_x = rand(-5,5)
-	pixel_y = rand(-5,5)
-	if(prob(65)) color = pick("#BABABA","#7F7F7F")

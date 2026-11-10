@@ -1,13 +1,15 @@
 /obj/item/clothing/gloves/boxing
 	name = "boxing gloves"
 	desc = "Because you really needed another excuse to punch your crewmates."
+	icon = 'icons/obj/item/clothing/gloves/boxing_gloves.dmi'
 	icon_state = "boxing"
 	item_state = "boxing"
-	species_restricted = list("exclude","Vaurca Breeder","Vaurca Warform")
+	contained_sprite = TRUE
+	species_restricted = list("exclude",BODYTYPE_VAURCA_BREEDER,BODYTYPE_VAURCA_WARFORM,BODYTYPE_VAURCA_BULWARK)
 
-/obj/item/clothing/gloves/boxing/attackby(obj/item/weapon/W, mob/user)
-	if(W.iswirecutter() || istype(W, /obj/item/weapon/scalpel))
-		user << "<span class='notice'>That won't work.</span>"	//Nope
+/obj/item/clothing/gloves/boxing/attackby(obj/item/attacking_item, mob/user)
+	if(attacking_item.tool_behaviour == TOOL_WIRECUTTER || istype(attacking_item, /obj/item/surgery/scalpel))
+		to_chat(user, SPAN_NOTICE("That won't work."))	//Nope)
 		return
 	..()
 

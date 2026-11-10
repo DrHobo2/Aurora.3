@@ -1,68 +1,89 @@
 /obj/structure/closet/secure_closet/scientist
 	name = "scientist's locker"
-	req_access = list(access_tox_storage)
-	icon_state = "secureres1"
-	icon_closed = "secureres"
-	icon_locked = "secureres1"
-	icon_opened = "secureresopen"
-	icon_broken = "secureresbroken"
-	icon_off = "secureresoff"
+	req_access = list(/datum/access/tox_storage::id)
+	icon_state = "science"
 
-	fill()
-		new /obj/item/clothing/under/rank/scientist(src)
-		//new /obj/item/clothing/suit/labcoat/science(src)
-		new /obj/item/clothing/suit/storage/toggle/labcoat(src)
-		new /obj/item/clothing/shoes/white(src)
-//		new /obj/item/weapon/cartridge/signal/science(src)
-		new /obj/item/device/radio/headset/headset_sci(src)
-		new /obj/item/weapon/tank/air(src)
-		new /obj/item/clothing/mask/gas(src)
+/obj/structure/closet/secure_closet/scientist/fill()
+	new /obj/item/clothing/under/rank/scientist(src)
+	new /obj/item/clothing/suit/storage/toggle/labcoat(src)
+	new /obj/item/clothing/shoes/sneakers/medsci(src)
+	new /obj/item/radio/headset/headset_sci(src)
+	new /obj/item/radio/headset/headset_sci/alt(src)
+	new /obj/item/tank/air(src)
+	new /obj/item/clothing/mask/gas(src)
+	new /obj/item/taperoll/science(src)
+	new /obj/item/sampler(src)
 
+/obj/structure/closet/secure_closet/scientist/modlaser
+	name = "scientist's laser locker"
+
+/obj/structure/closet/secure_closet/scientist/modlaser/fill()
+	new /obj/item/laser_assembly(src)
+	new /obj/item/laser_assembly/medium(src)
+	new /obj/item/laser_assembly/large(src)
+	new /obj/item/firing_pin(src)
+	new /obj/item/firing_pin(src)
+	new /obj/item/storage/box/modlaser(src)
+	new /obj/item/storage/box/modlaser/modulators(src)
+	new /obj/item/storage/box/modlaser/lens(src)
+	new /obj/item/storage/box/modlaser/modifiers(src)
 
 /obj/structure/closet/secure_closet/RD
 	name = "research director's locker"
-	req_access = list(access_rd)
-	icon_state = "rdsecure1"
-	icon_closed = "rdsecure"
-	icon_locked = "rdsecure1"
-	icon_opened = "rdsecureopen"
-	icon_broken = "rdsecurebroken"
-	icon_off = "rdsecureoff"
+	req_access = list(/datum/access/rd::id)
+	icon_state = "rd"
 
-	fill()
-		new /obj/item/clothing/suit/bio_suit/scientist(src)
-		new /obj/item/clothing/head/bio_hood/scientist(src)
-		new /obj/item/clothing/under/rank/research_director(src)
-		new /obj/item/clothing/under/rank/research_director/rdalt(src)
-		new /obj/item/clothing/under/rank/research_director/dress_rd(src)
-		new /obj/item/clothing/suit/storage/toggle/labcoat(src)
-		new /obj/item/weapon/cartridge/rd(src)
-		new /obj/item/clothing/shoes/white(src)
-		new /obj/item/clothing/shoes/leather(src)
-		new /obj/item/clothing/gloves/latex(src)
-		new /obj/item/device/radio/headset/heads/rd(src)
-		new /obj/item/weapon/tank/air(src)
-		new /obj/item/clothing/mask/gas(src)
-		new /obj/item/device/flash(src)
-		new /obj/item/weapon/storage/box/firingpinsRD(src)
-		new /obj/item/device/pin_extractor(src)
+/obj/structure/closet/secure_closet/RD/fill()
+	new /obj/item/clothing/suit/hazmat/research(src)
+	new /obj/item/clothing/head/hazmat/research(src)
+	new /obj/item/clothing/under/rank/research_director(src)
+	new /obj/item/clothing/suit/storage/toggle/labcoat(src)
+	new /obj/item/rig/hazmat/equipped(src)
+	new /obj/item/clothing/glasses/welding/superior(src)
+	new /obj/item/clothing/shoes/sneakers/brown(src)
+	new /obj/item/clothing/shoes/laceup/brown(src)
+	new /obj/item/storage/box/gloves(src)
+	new /obj/item/radio/headset/heads/rd(src)
+	new /obj/item/radio/headset/heads/rd/alt(src)
+	new /obj/item/tank/air(src)
+	new /obj/item/clothing/mask/gas(src)
+	new /obj/item/clothing/mask/gas/half(src)
+	new /obj/item/flash(src)
+	new /obj/item/storage/box/firingpinsRD(src)
+	new /obj/item/pin_extractor(src)
+	new /obj/item/storage/box/fancy/keypouch/sci(src)
+	new /obj/item/aicard(src)
+	new /obj/item/paicard(src)
+	new /obj/item/storage/box/tethers(src)
+	new /obj/item/taperoll/science(src)
+	new /obj/item/gun/projectile/sec(src)
+	new /obj/item/clothing/accessory/holster/waist(src)
+	new /obj/item/storage/box/unique/freezer/organcooler/psireceiver(src)
+	new /obj/item/megaphone/sci(src)
+	new /obj/item/taperecorder(src)
+	new /obj/item/sampler(src)
+	new /obj/item/storage/box/shells/tranquilizer(src)
+	new /obj/item/modular_computer/laptop/preset/supply/robotics(src)
+
+/// Used for when we want to populate the contents of this locker ourself. Good for away sites
+/obj/structure/closet/secure_closet/RD/empty
+	name = "research director's locker"
+	req_access = list(/datum/access/rd::id)
+	icon_state = "rd"
+
+/obj/structure/closet/secure_closet/RD/empty/fill()
 
 /obj/structure/closet/secure_closet/RD2
 	name = "research director's attire"
-	req_access = list(access_rd)
-	icon_state = "rdsecure1"
-	icon_closed = "rdsecure"
-	icon_locked = "rdsecure1"
-	icon_opened = "rdsecureopen"
-	icon_broken = "rdsecurebroken"
-	icon_off = "rdsecureoff"
+	req_access = list(/datum/access/rd::id)
+	icon_state = "rd"
 
-	fill()
-		new /obj/item/clothing/under/rank/research_director(src)
-		new /obj/item/clothing/under/rank/research_director/rdalt(src)
-		new /obj/item/clothing/under/rank/research_director/dress_rd(src)
-		new /obj/item/clothing/suit/storage/toggle/labcoat(src)
-		new /obj/item/clothing/shoes/white(src)
-		new /obj/item/clothing/shoes/leather(src)
-		new /obj/item/clothing/gloves/latex(src)
-		new /obj/item/device/radio/headset/heads/rd(src)
+/obj/structure/closet/secure_closet/RD2/fill()
+	new /obj/item/clothing/under/rank/research_director(src)
+	new /obj/item/clothing/suit/storage/toggle/labcoat(src)
+	new /obj/item/clothing/shoes/sneakers/brown(src)
+	new /obj/item/clothing/shoes/laceup/brown(src)
+	new /obj/item/clothing/gloves/latex/nitrile(src)
+	new /obj/item/radio/headset/heads/rd(src)
+	new /obj/item/radio/headset/heads/rd/alt(src)
+	new /obj/item/megaphone/sci(src)

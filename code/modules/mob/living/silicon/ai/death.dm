@@ -8,12 +8,17 @@
 
 	remove_ai_verbs(src)
 
-	for(var/obj/machinery/ai_status_display/O in SSmachinery.all_status_displays)
-		spawn( 0 )
+	for(var/obj/structure/machinery/ai_status_display/O in SSmachinery.all_status_displays)
 		O.mode = 2
-		if (istype(loc, /obj/item/weapon/aicard))
-			var/obj/item/weapon/aicard/card = loc
+		if (istype(loc, /obj/item/aicard))
+			var/obj/item/aicard/card = loc
 			card.update_icon()
 
 	. = ..(gibbed,"gives one shrill beep before falling lifeless.")
-	density = 1
+
+	if(.)
+		// If true, the mob went from living to dead (assuming everyone has been overriding as they should...)
+		GLOB.cameranet.update_visibility(src, FALSE)
+
+	density = TRUE
+	ghostize(FALSE)

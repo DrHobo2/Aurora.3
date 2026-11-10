@@ -1,23 +1,26 @@
 /mob/living/simple_animal/hostile/pirate
 	name = "Pirate"
 	desc = "Does what he wants cause a pirate is free."
+	icon = 'icons/mob/npc/human.dmi'
 	icon_state = "piratemelee"
 	icon_living = "piratemelee"
 	icon_dead = "piratemelee_dead"
 	speak_chance = 0
 	turns_per_move = 5
+	organ_names = list("chest", "lower body", "left arm", "right arm", "left leg", "right leg", "head")
 	response_help = "pushes"
 	response_disarm = "shoves"
 	response_harm = "hits"
 	speed = 4
 	stop_automated_movement_when_pulled = 0
-	maxHealth = 100
+	maxhealth = 100
 	health = 100
 
 	harm_intent_damage = 5
 	melee_damage_lower = 30
 	melee_damage_upper = 30
-	attacktext = "slashed"
+	attacktext = "slashes"
+	attack_vis_effect = ATTACK_EFFECT_SLASH
 	attack_sound = 'sound/weapons/bladeslice.ogg'
 
 	min_oxy = 5
@@ -30,7 +33,7 @@
 	max_n2 = 0
 	unsuitable_atoms_damage = 15
 	var/corpse = /obj/effect/landmark/mobcorpse/pirate
-	var/weapon1 = /obj/item/weapon/melee/energy/sword/pirate
+	var/weapon1 = /obj/item/melee/energy/sword/pirate
 
 	faction = "pirate"
 
@@ -39,12 +42,12 @@
 	icon_state = "pirateranged"
 	icon_living = "pirateranged"
 	icon_dead = "piratemelee_dead"
-	projectilesound = 'sound/weapons/laser.ogg'
+	projectilesound = 'sound/weapons/laser1.ogg'
 	ranged = 1
 	rapid = 1
-	projectiletype = /obj/item/projectile/beam
+	projectiletype = /obj/projectile/beam
 	corpse = /obj/effect/landmark/mobcorpse/pirate/ranged
-	weapon1 = /obj/item/weapon/gun/energy/laser
+	weapon1 = /obj/item/gun/energy/rifle/laser
 
 
 /mob/living/simple_animal/hostile/pirate/death()

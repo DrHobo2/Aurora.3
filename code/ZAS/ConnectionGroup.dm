@@ -20,7 +20,7 @@ Class Vars:
 		B - This holds the second zone with which the first zone equalizes.
 
 		direct - This counts the number of direct (i.e. with no doors) connections on this edge.
-		         Any value of this is sufficient to make the zones mergeable.
+				Any value of this is sufficient to make the zones mergeable.
 
 	connection_edge/unsimulated
 
@@ -71,11 +71,11 @@ Class Procs:
 /connection_edge/proc/add_connection(connection/c)
 	coefficient++
 	if(c.direct()) direct++
-//	log_debug("Connection added: [type] Coefficient: [coefficient]")
+//	LOG_DEBUG("Connection added: [type] Coefficient: [coefficient]")
 
 
 /connection_edge/proc/remove_connection(connection/c)
-//	log_debug("Connection removed: [type] Coefficient: [coefficient-1]")
+//	LOG_DEBUG("Connection removed: [type] Coefficient: [coefficient-1]")
 
 	coefficient--
 	if(coefficient <= 0)
@@ -86,7 +86,7 @@ Class Procs:
 
 /connection_edge/proc/erase()
 	SSair.remove_edge(src)
-//	log_debug("[type] Erased.")
+//	LOG_DEBUG("[type] Erased.")
 
 /connection_edge/proc/tick()
 
@@ -98,17 +98,18 @@ Class Procs:
 		var/atom/movable/M = thing
 
 		//If they're already being tossed, don't do it again.
-		if(M.last_airflow > world.time - vsc.airflow_delay)
+		if(M.last_airflow > world.time - GLOB.vsc.airflow_delay)
 			continue
 
 		if(M.airflow_speed)
 			continue
 
 		//Check for knocking people over
-		if(ismob(M) && differential > vsc.airflow_stun_pressure)
-			if(M:status_flags & GODMODE)
+		if(ismob(M) && differential > GLOB.vsc.airflow_stun_pressure)
+			var/mob/mob = M
+			if(mob.status_flags & GODMODE)
 				continue
-			M:airflow_stun()
+			mob.airflow_stun()
 
 		if(M.check_airflow_movable(differential))
 			//Check for things that are in range of the midpoint turfs.
@@ -138,7 +139,7 @@ Class Procs:
 	LAZYADD(A.edges, src)
 	LAZYADD(B.edges, src)
 	//id = edge_id(A,B)
-//	log_debug("New edge between [A] and [B]")
+//	LOG_DEBUG("New edge between [A] and [B]")
 
 
 /connection_edge/zone/add_connection(connection/c)
@@ -164,8 +165,8 @@ Class Procs:
 
 	var/equiv = A.air.share_ratio(B.air, coefficient)
 
-	var/differential = A.air.return_pressure() - B.air.return_pressure()
-	if(abs(differential) >= vsc.airflow_lightest_pressure)
+	var/differential = XGM_PRESSURE(A.air) - XGM_PRESSURE(B.air)
+	if(abs(differential) >= GLOB.vsc.airflow_lightest_pressure)
 		var/list/attracted
 		var/list/repelled
 		if(differential > 0)
@@ -208,9 +209,10 @@ Class Procs:
 	src.A = A
 	src.B = B
 	LAZYADD(A.edges, src)
-	air = B.return_air()
+	if(B)
+		air = B.return_air()
 	//id = 52*A.id
-//	log_debug("New edge from [A] to [B].")
+//	LOG_DEBUG("New edge from [A] to [B].")
 
 
 /connection_edge/unsimulated/add_connection(connection/c)
@@ -237,8 +239,8 @@ Class Procs:
 
 	var/equiv = A.air.share_space(air)
 
-	var/differential = A.air.return_pressure() - air.return_pressure()
-	if(abs(differential) >= vsc.airflow_lightest_pressure)
+	var/differential = XGM_PRESSURE(A.air) - XGM_PRESSURE(air)
+	if(abs(differential) >= GLOB.vsc.airflow_lightest_pressure)
 		var/list/attracted = A.movables(connecting_turfs)
 		// This call is async, with waitfor = FALSE
 		flow(attracted, abs(differential), differential < 0)
@@ -256,7 +258,7 @@ Class Procs:
 	if(!A.air.compare(air, vacuum_exception = 1))
 		SSair.mark_edge_active(src)
 
-proc/ShareHeat(datum/gas_mixture/A, datum/gas_mixture/B, connecting_tiles)
+/proc/ShareHeat(datum/gas_mixture/A, datum/gas_mixture/B, connecting_tiles)
 	//This implements a simplistic version of the Stefan-Boltzmann law.
 	var/energy_delta = ((A.temperature - B.temperature) ** 4) * STEFAN_BOLTZMANN_CONSTANT * connecting_tiles * 2.5
 	var/maximum_energy_delta = max(0, min(A.temperature * A.heat_capacity() * A.group_multiplier, B.temperature * B.heat_capacity() * B.group_multiplier))

@@ -1,72 +1,73 @@
-/obj/item/weapon/pinpointer
+/obj/item/pinpointer
 	name = "pinpointer"
-	icon = 'icons/obj/device.dmi'
+	icon = 'icons/obj/item/pinpointer.dmi'
 	icon_state = "pinoff"
-	flags = CONDUCT
-	slot_flags = SLOT_BELT
-	w_class = 2.0
 	item_state = "electronic"
+	contained_sprite = TRUE
+	obj_flags = OBJ_FLAG_CONDUCTABLE
+	slot_flags = SLOT_BELT
+	w_class = WEIGHT_CLASS_SMALL
 	throw_speed = 4
 	throw_range = 20
-	matter = list(DEFAULT_WALL_MATERIAL = 500)
-	var/obj/item/weapon/disk/nuclear/the_disk = null
+	matter = list(MATERIAL_STEEL = 500)
+	var/obj/item/disk/nuclear/the_disk = null
 	var/active = 0
 
-/obj/item/weapon/pinpointer/attack_self()
+/obj/item/pinpointer/feedback_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	for(var/obj/structure/machinery/nuclearbomb/bomb in SSmachinery.machinery)
+		if(bomb.timing)
+			. += "Extreme danger. Arming signal detected. Time remaining: [bomb.timeleft]"
+
+/obj/item/pinpointer/attack_self()
 	if(!active)
 		active = 1
 		START_PROCESSING(SSfast_process, src)
-		usr << "<span class='notice'>You activate the pinpointer</span>"
+		to_chat(usr, SPAN_NOTICE("You activate the pinpointer."))
 	else
 		active = 0
 		STOP_PROCESSING(SSfast_process, src)
-		icon_state = "pinoff"
-		usr << "<span>You deactivate the pinpointer</span>"
+		to_chat(usr, SPAN_NOTICE("You deactivate the pinpointer."))
 
-/obj/item/weapon/pinpointer/process()
+/obj/item/pinpointer/process()
 	if (active)
 		workdisk()
 	else
 		STOP_PROCESSING(SSfast_process, src)
 
-/obj/item/weapon/pinpointer/proc/workdisk()
+/obj/item/pinpointer/proc/workdisk()
+	ClearOverlays()
 	if(!active) return
 	if(!the_disk)
 		the_disk = locate()
 		if(!the_disk)
-			icon_state = "pinonnull"
+			AddOverlays("pinonnull")
 			return
 	set_dir(get_dir(src,the_disk))
 	switch(get_dist(src,the_disk))
 		if(0)
-			icon_state = "pinondirect"
+			AddOverlays("pinondirect")
 		if(1 to 8)
-			icon_state = "pinonclose"
+			AddOverlays("pinonclose")
 		if(9 to 16)
-			icon_state = "pinonmedium"
+			AddOverlays("pinonmedium")
 		if(16 to INFINITY)
-			icon_state = "pinonfar"
+			AddOverlays("pinonfar")
+	return TRUE
 
-/obj/item/weapon/pinpointer/examine(mob/user)
-	..(user)
-	for(var/obj/machinery/nuclearbomb/bomb in SSmachinery.all_machines)
-		if(bomb.timing)
-			user << "Extreme danger.  Arming signal detected.   Time remaining: [bomb.timeleft]"
-
-/obj/item/weapon/pinpointer/Destroy()
+/obj/item/pinpointer/Destroy()
 	active = 0
 	STOP_PROCESSING(SSfast_process, src)
 	return ..()
 
-/obj/item/weapon/pinpointer/advpinpointer
-	name = "Advanced Pinpointer"
-	icon = 'icons/obj/device.dmi'
+/obj/item/pinpointer/advpinpointer
+	name = "advanced pinpointer"
 	desc = "A larger version of the normal pinpointer, this unit features a helpful quantum entanglement detection system to locate various objects that do not broadcast a locator signal."
 	var/mode = 0  // Mode 0 locates disk, mode 1 locates coordinates.
 	var/turf/location = null
 	var/obj/target = null
 
-/obj/item/weapon/pinpointer/advpinpointer/attack_self()
+/obj/item/pinpointer/advpinpointer/attack_self()
 	if(!active)
 		active = 1
 		if(mode == 0)
@@ -76,13 +77,14 @@
 		if(mode == 2)
 			workobj()
 		START_PROCESSING(SSfast_process, src)
-		usr << "<span class='notice'>You activate the pinpointer</span>"
+		to_chat(usr, SPAN_NOTICE("You activate the pinpointer"))
 	else
 		active = 0
 		icon_state = "pinoff"
-		usr << "<span class='notice'>You deactivate the pinpointer</span>"
+		ClearOverlays()
+		to_chat(usr, SPAN_NOTICE("You deactivate the pinpointer"))
 
-/obj/item/weapon/pinpointer/advpinpointer/process()
+/obj/item/pinpointer/advpinpointer/process()
 	switch(mode)
 		if (0)
 			workdisk()
@@ -91,60 +93,79 @@
 		if (2)
 			workobj()
 
-/obj/item/weapon/pinpointer/advpinpointer/proc/worklocation()
+/obj/item/pinpointer/advpinpointer/proc/worklocation()
+	ClearOverlays()
 	if(!active)
 		STOP_PROCESSING(SSfast_process, src)
 		return
 	if(!location)
-		icon_state = "pinonnull"
+		AddOverlays("pinonnull")
 		return
 	set_dir(get_dir(src,location))
+	set_z_overlays(location)
 	switch(get_dist(src,location))
 		if(0)
-			icon_state = "pinondirect"
+			AddOverlays("pinondirect")
 		if(1 to 8)
-			icon_state = "pinonclose"
+			AddOverlays("pinonclose")
 		if(9 to 16)
-			icon_state = "pinonmedium"
+			AddOverlays("pinonmedium")
 		if(16 to INFINITY)
-			icon_state = "pinonfar"
+			AddOverlays("pinonfar")
 
-/obj/item/weapon/pinpointer/advpinpointer/proc/workobj()
+/obj/item/pinpointer/advpinpointer/proc/set_z_overlays(var/atom/target)
+	if(AreConnectedZLevels(src.loc.z, target.z))
+		if(src.loc.z > target.z)
+			AddOverlays("pinzdown")
+		else if(src.loc.z < target.z)
+			AddOverlays("pinzup")
+	else
+		active = 0
+		if(ismob(loc))
+			var/mob/holder = loc
+			to_chat(holder, "<span class='notice>\The [src] cannot locate chosen target, shutting down.</span>")
+
+/obj/item/pinpointer/advpinpointer/workdisk()
+	if(..())
+		set_z_overlays(the_disk)
+
+/obj/item/pinpointer/advpinpointer/proc/workobj()
+	ClearOverlays()
 	if(!active)
 		STOP_PROCESSING(SSfast_process, src)
 		return
 	if(!target)
-		icon_state = "pinonnull"
+		AddOverlays("pinonnull")
 		return
 	set_dir(get_dir(src,target))
+	set_z_overlays(target)
 	switch(get_dist(src,target))
 		if(0)
-			icon_state = "pinondirect"
+			AddOverlays("pinondirect")
 		if(1 to 8)
-			icon_state = "pinonclose"
+			AddOverlays("pinonclose")
 		if(9 to 16)
-			icon_state = "pinonmedium"
+			AddOverlays("pinonmedium")
 		if(16 to INFINITY)
-			icon_state = "pinonfar"
+			AddOverlays("pinonfar")
 
-/obj/item/weapon/pinpointer/advpinpointer/verb/toggle_mode()
-	set category = "Object"
+/obj/item/pinpointer/advpinpointer/verb/toggle_mode()
+	set category = "Object.Held"
 	set name = "Toggle Pinpointer Mode"
 	set src in view(1)
 
 	active = 0
-	icon_state = "pinoff"
 	target = null
 	location = null
 
-	switch(alert("Please select the mode you want to put the pinpointer in.", "Pinpointer Mode Select", "Location", "Disk Recovery", "Other Signature"))
+	switch(tgui_alert(usr, "Please select the mode you want to put the pinpointer in.", "Pinpointer Mode Select", list("Location", "Disk Recovery", "Other Signature")))
 		if("Location")
 			mode = 1
 
-			var/locationx = input(usr, "Please input the x coordinate to search for.", "Location?" , "") as num
+			var/locationx = tgui_input_number(usr, "Please input the x coordinate to search for.", "Pinpointer")
 			if(!locationx || !(usr in view(1,src)))
 				return
-			var/locationy = input(usr, "Please input the y coordinate to search for.", "Location?" , "") as num
+			var/locationy = tgui_input_number(usr, "Please input the y coordinate to search for.", "Pinpointer?")
 			if(!locationy || !(usr in view(1,src)))
 				return
 
@@ -152,7 +173,7 @@
 
 			location = locate(locationx,locationy,Z.z)
 
-			usr << "You set the pinpointer to locate [locationx],[locationy]"
+			to_chat(usr, "You set the pinpointer to locate [locationx],[locationy]")
 
 
 			return attack_self()
@@ -163,23 +184,23 @@
 
 		if("Other Signature")
 			mode = 2
-			switch(alert("Search for item signature or DNA fragment?" , "Signature Mode Select" , "" , "Item" , "DNA"))
+			switch(tgui_alert(usr, "Search for item signature or DNA fragment?", "Signature Mode Select", list("", "Item", "DNA")))
 				if("Item")
 					var/datum/objective/steal/itemlist
 					itemlist = itemlist // To supress a 'variable defined but not used' error.
-					var/targetitem = input("Select item to search for.", "Item Mode Select","") as null|anything in itemlist.possible_items
+					var/targetitem = tgui_input_list(usr, "Select the item to search for.", "Pinpointer", itemlist.possible_items)
 					if(!targetitem)
 						return
 					target=locate(itemlist.possible_items[targetitem])
 					if(!target)
-						usr << "Failed to locate [targetitem]!"
+						to_chat(usr, "Failed to locate [targetitem]!")
 						return
-					usr << "You set the pinpointer to locate [targetitem]"
+					to_chat(usr, "You set the pinpointer to locate [targetitem]")
 				if("DNA")
-					var/DNAstring = input("Input DNA string to search for." , "Please Enter String." , "")
+					var/DNAstring = tgui_input_text(usr, "Input the DNA string to search.", "Pinpointer")
 					if(!DNAstring)
 						return
-					for(var/mob/living/carbon/M in mob_list)
+					for(var/mob/living/carbon/M in GLOB.mob_list)
 						if(!M.dna)
 							continue
 						if(M.dna.unique_enzymes == DNAstring)
@@ -194,38 +215,38 @@
 ///////////////////////
 
 
-/obj/item/weapon/pinpointer/nukeop
+/obj/item/pinpointer/nukeop
 	var/mode = 0	//Mode 0 locates disk, mode 1 locates the shuttle
-	var/obj/machinery/computer/shuttle_control/multi/syndicate/home = null
+	var/obj/structure/machinery/computer/shuttle_control/multi/antag/syndicate/home = null
 
-/obj/item/weapon/pinpointer/nukeop/attack_self(mob/user as mob)
+/obj/item/pinpointer/nukeop/attack_self(mob/user as mob)
 	if(!active)
 		active = 1
 		START_PROCESSING(SSfast_process, src)
 		if(!mode)
 			workdisk()
-			user << "<span class='notice'>Authentication Disk Locator active.</span>"
+			to_chat(user, SPAN_NOTICE("Authentication Disk Locator active."))
 		else
 			worklocation()
-			user << "<span class='notice'>Shuttle Locator active.</span>"
+			to_chat(user, SPAN_NOTICE("Shuttle Locator active."))
 	else
 		active = 0
 		STOP_PROCESSING(SSfast_process, src)
-		icon_state = "pinoff"
-		user << "<span class='notice'>You deactivate the pinpointer.</span>"
+		to_chat(user, SPAN_NOTICE("You deactivate the pinpointer."))
 
-/obj/item/weapon/pinpointer/nukeop/process()
+/obj/item/pinpointer/nukeop/process()
 	if (mode)
 		workdisk()
 	else
 		worklocation()
 
-/obj/item/weapon/pinpointer/nukeop/workdisk()
+/obj/item/pinpointer/nukeop/workdisk()
+	ClearOverlays()
 	if(!active) return
 	if(mode)		//Check in case the mode changes while operating
 		worklocation()
 		return
-	if(bomb_set)	//If the bomb is set, lead to the shuttle
+	if(GLOB.bomb_set)	//If the bomb is set, lead to the shuttle
 		mode = 1	//Ensures worklocation() continues to work
 		worklocation()
 		playsound(loc, 'sound/machines/twobeep.ogg', 50, 1)	//Plays a beep
@@ -234,7 +255,7 @@
 	if(!the_disk)
 		the_disk = locate()
 		if(!the_disk)
-			icon_state = "pinonnull"
+			AddOverlays("pinonnull")
 			return
 //	if(loc.z != the_disk.z)	//If you are on a different z-level from the disk
 //		icon_state = "pinonnull"
@@ -242,40 +263,40 @@
 	set_dir(get_dir(src, the_disk))
 	switch(get_dist(src, the_disk))
 		if(0)
-			icon_state = "pinondirect"
+			AddOverlays("pinondirect")
 		if(1 to 8)
-			icon_state = "pinonclose"
+			AddOverlays("pinonclose")
 		if(9 to 16)
-			icon_state = "pinonmedium"
+			AddOverlays("pinonmedium")
 		if(16 to INFINITY)
-			icon_state = "pinonfar"
+			AddOverlays("pinonfar")
 
-/obj/item/weapon/pinpointer/nukeop/proc/worklocation()
+/obj/item/pinpointer/nukeop/proc/worklocation()
 	if(!active)	return
 	if(!mode)
 		workdisk()
 		return
-	if(!bomb_set)
+	if(!GLOB.bomb_set)
 		mode = 0
 		workdisk()
 		playsound(loc, 'sound/machines/twobeep.ogg', 50, 1)
-		visible_message("<span class='notice'>Authentication Disk Locator active.</span>")
+		visible_message(SPAN_NOTICE("Authentication Disk Locator active."))
 		return
 	if(!home)
 		home = locate()
 		if(!home)
-			icon_state = "pinonnull"
+			AddOverlays("pinonnull")
 			return
 	if(loc.z != home.z)	//If you are on a different z-level from the shuttle
-		icon_state = "pinonnull"
+		AddOverlays("pinonnull")
 	else
 		set_dir(get_dir(src, home))
 		switch(get_dist(src, home))
 			if(0)
-				icon_state = "pinondirect"
+				AddOverlays("pinondirect")
 			if(1 to 8)
-				icon_state = "pinonclose"
+				AddOverlays("pinonclose")
 			if(9 to 16)
-				icon_state = "pinonmedium"
+				AddOverlays("pinonmedium")
 			if(16 to INFINITY)
-				icon_state = "pinonfar"
+				AddOverlays("pinonfar")

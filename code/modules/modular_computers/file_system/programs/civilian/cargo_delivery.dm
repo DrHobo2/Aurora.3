@@ -1,44 +1,44 @@
 /datum/computer_file/program/civilian/cargodelivery
 	filename = "cargodelivery"
 	filedesc = "Cargo Delivery"
-	extended_desc = "Application to Control Delivery and Payment of Cargo orders"
-	size = 12
-	requires_ntnet = 1
-	available_on_ntnet = 1
-	required_access_download = access_hop
+	extended_desc = "Application to Control Delivery and Payment of Cargo orders."
+	program_icon_state = "supply"
+	program_key_icon_state = "yellow_key"
+	size = 6
+	requires_ntnet = TRUE
+	available_on_ntnet = TRUE
+	required_access_download = /datum/access/cargo::id
 	usage_flags = PROGRAM_ALL
-	nanomodule_path = /datum/nano_module/program/civilian/cargodelivery/
+	tgui_id = "CargoDelivery"
 
-/datum/nano_module/program/civilian/cargodelivery/
-	name = "Cargo Delivery"
 	var/page = "overview_main" //overview_main - Main Menu, order_overview - Overview page for a specific order, order_payment - Payment page for a specific order
-	var/last_user_name = "" //Name of the User that last used the computer
-	var/status_message = null //A status message that can be displayed
+	var/status_message //A status message that can be displayed
 	var/list/order_details = list() //Order Details for the order
 	var/datum/cargo_order/co
-	var/mod_mode = 1 //If it can be used to pay for orders
+	var/mod_mode = TRUE //If it can be used to pay for orders
+	var/destinationact = "Personal"
 
-/datum/nano_module/program/civilian/cargodelivery/ui_interact(mob/user, ui_key = "main", var/datum/nanoui/ui = null, var/force_open = 1, var/datum/topic_state/state = default_state)
-	var/list/data = host.initial_data()
+/datum/computer_file/program/civilian/cargodelivery/ui_data(mob/user)
+	var/list/data = initial_data()
 
-	if(program && program.computer)
-		data["have_id_slot"] = !!program.computer.card_slot
-		data["have_printer"] = !!program.computer.nano_printer
-		data["authenticated"] = program.can_run(user)
-		if(!program.computer.card_slot || !program.computer.network_card)
-			mod_mode = 0 //We can't pay for orders when there is no card reader and no network card
+	if(computer)
+		data["have_id_slot"] = !!computer.card_slot
+		data["have_printer"] = !!computer.nano_printer
+		data["authenticated"] = can_run(user)
+		if(!computer.card_slot || !computer.network_card)
+			mod_mode = FALSE //We can't pay for orders when there is no card reader or no network card
 
-	if(program && program.computer && program.computer.card_slot)
-		var/obj/item/weapon/card/id/id_card = program.computer.card_slot.stored_card
+	if(computer && computer.card_slot)
+		var/obj/item/card/id/id_card = computer.card_slot.stored_card
 		data["has_id"] = !!id_card
 		data["id_account_number"] = id_card ? id_card.associated_account_number : null
-		//data["id_rank"] = id_card && id_card.assignment ? id_card.assignment : "Unassigned"
 		data["id_owner"] = id_card && id_card.registered_name ? id_card.registered_name : "-----"
 		data["id_name"] = id_card ? id_card.name : "-----"
-		last_user_name = data["id_owner"]
 
 	//Pass the shipped orders
-	data["order_list"] = SScargo.get_orders_by_status("shipped",1) + SScargo.get_orders_by_status("approved",1)
+	var/list/order_list = SScargo.get_orders_by_status("shipped", TRUE) + SScargo.get_orders_by_status("approved", TRUE) + SScargo.get_orders_by_status("Unpaid", TRUE, list("shipped", "approved", "rejected", "basket", "submitted"))
+
+	data["order_list"] = order_list
 
 	//Pass along the order details
 	data["order_details"] = order_details
@@ -49,93 +49,158 @@
 	//Pass the status message along
 	data["status_message"] = status_message
 
-	ui = SSnanoui.try_update_ui(user, src, ui_key, ui, data, force_open)
-	if (!ui)
-		ui = new(user, src, ui_key, "cargo_delivery.tmpl", name, 500, 600, state = state)
-		ui.auto_update_layout = 1
-		ui.set_initial_data(data)
-		ui.open()
-		ui.set_auto_update(1)
+	data["paying_account"] = destinationact
 
+	return data
 
-/datum/nano_module/program/civilian/cargodelivery/Topic(href, href_list)
-	if(..())
-		return 1
+/datum/computer_file/program/civilian/cargodelivery/ui_act(action, list/params, datum/tgui/ui, datum/ui_state/state)
+	. = ..()
+	if(.)
+		return
 
+	var/obj/item/card/id/I = usr.GetIdCard()
 
-	//Check if we want to deliver or pay
-	//If we are at the status shipped, then only the confirm delivery and pay button should be shown (deliver)
-	//If the status is not shipped, then only show the pay button as we can not confirm that it has been paid so far
-	//Everyone can pay / confirm delivery
-	if(href_list["deliver"])
-		order_details = co.get_list()
+	if(action == "deliver")
 
-		//Check if its already delivered
-		if(order_details["status"] == "delivered" && !order_details["needs_payment"])
-			status_message = "Unable to Deliver - Order has already been delivered and paid for."
-			return 1
-
-		if(program && program.computer && program.computer.card_slot && program.computer.network_card)
-			var/obj/item/weapon/card/id/id_card = program.computer.card_slot.stored_card
-			if(!id_card || !id_card.registered_name)
+		if(computer && computer.card_slot && computer.network_card)
+			var/obj/item/card/id/id_card
+			if(computer.card_slot?.stored_card)
+				id_card = computer.card_slot.stored_card
+			if(!id_card?.registered_name)
 				status_message = "Card Error: Invalid ID Card in Card Reader"
-				return 1
+				return TRUE
+			order_details = co.get_list()
 
-			//Check if a payment is required
+			//Check if its already delivered
+			if(order_details["status"] == "delivered")
+				status_message = "Unable to Deliver - Order has already been delivered."
+
+			//If a payment is not needed and we are at the status shipped, then confirm the delivery
+			else if(order_details["status"] == "shipped")
+				playsound(computer, 'sound/machines/chime.ogg', 50, TRUE)
+				status_message = co.set_delivered(GetNameAndAssignmentFromId(id_card), usr.character_id)
+				order_details = co.get_list()
+			else
+				status_message = "The order is not yet shipped."
+		else
+			status_message = "Unable to process - Network Card or Card Reader Missing"
+		return TRUE
+
+	if(action == "pay")
+		if(computer && computer.card_slot && computer.network_card)
+			var/using_id = FALSE
+			var/obj/item/card/id/id_card
+			if(computer.card_slot?.stored_card)
+				using_id = TRUE
+				id_card = computer.card_slot.stored_card
+			if(!id_card?.registered_name)
+				using_id = FALSE
+				status_message = "Card Error: Invalid ID Card in Card Reader"
+
+			order_details = co.get_list()
+
+			//Check if its already paid for
+			if(!order_details["needs_payment"])
+				status_message = "Unable to pay - Order has already been paid for."
+				return TRUE
+
+			var/obj/item/spacecash/ewallet/charge_card
+			var/mob/living/L
+			if(!using_id)
+				if(isliving(usr))
+					L = usr
+					charge_card = L.get_active_hand()
+				if(!istype(charge_card))
+					return TRUE
+
 			if(order_details["needs_payment"])
 				var/transaction_amount = order_details["price_customer"]
 				var/transaction_purpose = "Cargo Order #[order_details["order_id"]]"
-				var/transaction_terminal = "Modular Computer #[program.computer.network_card.identification_id]"
+				var/transaction_terminal = "Modular Computer #[computer.network_card.identification_id]"
 
-				var/status = SSeconomy.transfer_money(id_card.associated_account_number, SScargo.supply_account.account_number,transaction_purpose,transaction_terminal,transaction_amount,null,usr)
-				
-				if(status)
-					status_message = status
-					return 1
-
-				playsound(program.computer, 'sound/machines/chime.ogg', 50, 1)
-
-				//Check if we have delivered it aswell or only paid
-				if(order_details["status"] == "shipped")
-					status_message = co.set_delivered(id_card.registered_name,1)
+				if(using_id)
+					var/status
+					if(destinationact == "Personal")
+						status = SSeconomy.transfer_money(id_card.associated_account_number, SScargo.supply_account.account_number,transaction_purpose,transaction_terminal,transaction_amount,null,usr)
+					else
+						transaction_purpose = "Cargo Order #[order_details["order_id"]] by [id_card.registered_name]"
+						status = SSeconomy.transfer_money(SSeconomy.get_department_account(destinationact)?.account_number, SScargo.supply_account.account_number,transaction_purpose,transaction_terminal,transaction_amount,null,usr)
+					if(status)
+						status_message = status
+						return TRUE
 				else
-					status_message = co.set_paid(id_card.registered_name)
+					if(charge_card.worth < transaction_amount)
+						status_message = "Insufficient Funds in Charge Card"
+						return TRUE
+					if(!SSeconomy.charge_to_account(SScargo.supply_account.account_number, charge_card.owner_name, transaction_purpose, transaction_terminal, transaction_amount))
+						status_message = "Account Error: Failed to Deposit Credits into Cargo Account"
+						return TRUE
+					charge_card.worth -= transaction_amount
+					if(istype(charge_card, /obj/item/spacecash/ewallet/persistent_charge_card))
+						log_and_message_admins("[charge_card] used for a transaction at [src] with amount [transaction_amount]. Remaining balance: [charge_card.worth]", L, get_turf(src))
+
+				playsound(computer, 'sound/machines/chime.ogg', 50, TRUE)
+				status_message = co.set_paid(GetNameAndAssignmentFromId(id_card), usr.character_id, destinationact)
 				order_details = co.get_list()
-				
-			else
-				//TODO: Add a sound effect here
-				//If a payment is not needed and we are at the status shipped, then confirm the delivery
-				if(order_details["status"] == "shipped")
-					status_message = co.set_delivered(id_card.registered_name,0)
-			order_details = co.get_list()
+			return TRUE
 		else
-			status_message = "Unable to process - Network Card or Cardreader Missing"
-			return 1
+			status_message = "Unable to process - Network Card or Card Reader Missing"
+			return FALSE
 
+	if(action == "clear_order")
+		co = null
+		order_details = list()
+		status_message = "Selected order cleared."
+		page = "overview_main"
+		return TRUE
 
-	//But only cargo can switch between the pages
-	var/mob/user = usr
-	if(!istype(user))
-		return
-	var/obj/item/weapon/card/id/I = user.GetIdCard()
-	if(!istype(I) || !I.registered_name || !(access_cargo in I.access) || issilicon(user))
-		to_chat(user, "Authentication error: Unable to locate ID with appropriate access to allow this operation.")
-		return
-
-	if(href_list["page"])
+	if(action == "page")
 		status_message = null //Null the previous status, so its not confusing
-		switch(href_list["page"])
+		switch(params["page"])
 			if("overview_main")
 				page = "overview_main" //Main overview page that shows all the orders with the status shipped
 			if("order_overview")
 				page = "order_overview" //Details page for a specific order - Lists the contents of the orde with the suppliers, prices and required access levels
 				//Fetch the order details and store it for the order. No need to fetch it again every 2 seconds
-				co = SScargo.get_order_by_id(text2num(href_list["order_overview"]))
-				order_details = co.get_list()
+				co = SScargo.get_order_by_id(text2num(params["order_overview"]))
+				order_details = co?.get_list()
 			if("order_payment")
 				page = "order_payment"
-				co = SScargo.get_order_by_id(text2num(href_list["order_payment"]))
-				order_details = co.get_list()
+				co = SScargo.get_order_by_id(text2num(params["order_payment"]))
+				order_details = co?.get_list()
 			else
 				page = "overview_main" //fall back to overview_main if a unknown page has been supplied
-		return 1
+		return TRUE
+
+	if(action == "accountselect")
+		// Only cargo can switch between the paying accounts
+		if(!access_check(I))
+			return FALSE
+		var/list/choices = assoc_to_keys(SSeconomy.department_accounts)
+		choices += "Personal"
+		var/dest = tgui_input_list(usr, "What account would you like to select?", "Destination Account", choices)
+		if(!dest)
+			return FALSE
+		destinationact = dest
+		return TRUE
+
+	//Print functions
+	if(action == "order_print")
+		if(!access_check(I))
+			return FALSE
+		//Get the order
+		var/datum/cargo_order/co = SScargo.get_order_by_id(text2num(params["order_print"]))
+		if(co && computer.nano_printer)
+			if(!computer.nano_printer.print_text(co.get_report_invoice(),"Order Invoice #[co.order_id]"))
+				to_chat(usr, SPAN_WARNING("Hardware error: Printer was unable to print the file. It may be out of paper."))
+				return
+			else
+				computer.visible_message(SPAN_NOTICE("\The [computer] prints out paper."))
+		return TRUE
+
+// Cargo access check
+/datum/computer_file/program/civilian/cargodelivery/proc/access_check(var/obj/item/card/id/I)
+	if(!istype(I) || !I.registered_name || !(/datum/access/cargo::id in I.access) || issilicon(usr))
+		to_chat(usr, SPAN_WARNING("Authentication error: Unable to locate ID with appropriate access to allow this operation."))
+		return FALSE
+	return TRUE

@@ -1,8 +1,8 @@
 /*
  * Contains:
- *		Fire protection
- *		Bomb protection
- *		Radiation protection
+ * * Fire protection
+ * * Bomb protection
+ * * Radiation protection
  */
 
 /*
@@ -12,39 +12,58 @@
 /obj/item/clothing/suit/fire
 	name = "firesuit"
 	desc = "A suit that protects against fire and heat."
+	icon = 'icons/obj/item/clothing/suit/firefighter.dmi'
 	icon_state = "firesuit"
 	item_state = "firesuit"
-	w_class = 4//bulky item
+	sprite_sheets = list(
+		BODYTYPE_VAURCA_BULWARK = 'icons/mob/species/bulwark/fire.dmi'
+	)
+	icon_auto_adapt = TRUE
+	icon_supported_species_tags = list("una", "taj")
+	contained_sprite = TRUE
+	w_class = WEIGHT_CLASS_BULKY//bulky item
 	gas_transfer_coefficient = 0.90
 	permeability_coefficient = 0.50
 	body_parts_covered = UPPER_TORSO|LOWER_TORSO|LEGS|FEET|ARMS|HANDS
-	allowed = list(/obj/item/device/flashlight,/obj/item/weapon/tank/emergency_oxygen,/obj/item/weapon/extinguisher)
-	slowdown = 1.0
-	flags_inv = HIDEGLOVES|HIDESHOES|HIDEJUMPSUIT|HIDETAIL
-	item_flags = STOPPRESSUREDAMAGE
+	siemens_coefficient = 0.5
+	allowed = list(/obj/item/flashlight,/obj/item/tank/emergency_oxygen,/obj/item/tank/oxygen,/obj/item/extinguisher,/obj/item/crowbar,/obj/item/material/twohanded/fireaxe)
+	slowdown = 0.8 // slightly better than voidsuits
+	flags_inv = HIDEWRISTS|HIDEGLOVES|HIDESHOES|HIDEJUMPSUIT|HIDETAIL
+	max_pressure_protection = FIRESUIT_MAX_PRESSURE
+	min_pressure_protection = FIRESUIT_MIN_PRESSURE
 	heat_protection = UPPER_TORSO|LOWER_TORSO|LEGS|FEET|ARMS|HANDS
 	max_heat_protection_temperature = FIRESUIT_MAX_HEAT_PROTECTION_TEMPERATURE
 	cold_protection = UPPER_TORSO | LOWER_TORSO | LEGS | FEET | ARMS | HANDS
+	min_cold_protection_temperature = ARMOR_MIN_COLD_PROTECTION_TEMPERATURE
 
+	///Initial name of the firesuit's emissive overlay. Will be changed based on [icon_supported_species_tags], above
+	var/initial_emissive_state = "firesuit_emissive"
+	///Special variable to handle the firesuit's emissive overlay
+	var/emissive_state
 
-/obj/item/clothing/suit/fire/firefighter
-	icon_state = "firesuit"
-	item_state = "firesuit"
-
-
-/obj/item/clothing/suit/fire/heavy
-	name = "firesuit"
-	desc = "A suit that protects against extreme fire and heat."
-	//icon_state = "thermal"
-	item_state = "ro_suit"
-	w_class = 4//bulky item
-	slowdown = 1.5
+/obj/item/clothing/suit/fire/get_mob_overlay(mob/living/carbon/human/H, mob_icon, mob_state, slot)
+	var/image/I = ..()
+	emissive_state = initial_emissive_state
+	if(icon_auto_adapt)
+		if(H && length(icon_supported_species_tags))
+			if(H.species.short_name in icon_supported_species_tags)
+				emissive_state = "[H.species.short_name]_[initial_emissive_state]"
+	if(slot == slot_wear_suit_str)
+		var/image/emissive_overlay = emissive_appearance(mob_icon, emissive_state, alpha = src.alpha)
+		I.AddOverlays(emissive_overlay)
+	return I
 
 /obj/item/clothing/suit/fire/atmos
 	name = "atmospheric technician firesuit"
 	desc = "A suit that protects against fire and heat, this one is designed for atmospheric technicians."
+	siemens_coefficient = 0.35
+	max_heat_protection_temperature = FIRESUIT_MAX_HEAT_PROTECTION_TEMPERATURE + 15000
 	icon_state = "atmos_firesuit"
 	item_state = "atmos_firesuit"
+	sprite_sheets = list(
+		BODYTYPE_VAURCA_BULWARK = 'icons/mob/species/bulwark/fire.dmi'
+	)
+	initial_emissive_state = "atmos_firesuit_emissive"
 
 /*
  * Bomb protection
@@ -53,12 +72,21 @@
 	name = "bomb hood"
 	desc = "Use in case of bomb."
 	icon_state = "bombsuit"
-	w_class = 5//Too large to fit in a backpack
-	item_flags = STOPPRESSUREDAMAGE|THICKMATERIAL|BLOCK_GAS_SMOKE_EFFECT
-	armor = list(melee = 30, bullet = 20, laser = 25,energy = 30, bomb = 100, bio = 60, rad = 60)
+	w_class = WEIGHT_CLASS_HUGE//Too large to fit in a backpack
+	item_flags = ITEM_FLAG_THICK_MATERIAL|ITEM_FLAG_BLOCK_GAS_SMOKE_EFFECT
+	armor = list(
+		MELEE = ARMOR_MELEE_VERY_HIGH,
+		BULLET = ARMOR_BALLISTIC_MINOR,
+		LASER = ARMOR_LASER_SMALL,
+		ENERGY = ARMOR_ENERGY_RESISTANT,
+		BOMB = ARMOR_BOMB_SHIELDED
+	)
+	max_pressure_protection = FIRESUIT_MAX_PRESSURE
+	siemens_coefficient = 0
 	flags_inv = HIDEMASK|HIDEEARS|HIDEEYES
 	body_parts_covered = HEAD|FACE|EYES
-	siemens_coefficient = 0
+	cold_protection = HEAD|FACE|EYES
+	min_cold_protection_temperature = ARMOR_MIN_COLD_PROTECTION_TEMPERATURE
 	tint = TINT_HEAVY
 
 
@@ -72,25 +100,35 @@
 	desc = "A suit designed for safety when handling explosives. It looks heavy and uncomfortable to wear for even a short time."
 	icon_state = "bombsuit"
 	item_state = "bombsuit"
-	w_class = 7//bulky item
+	w_class = WEIGHT_CLASS_HUGE //bulky item
 	gas_transfer_coefficient = 0.01
 	permeability_coefficient = 0.01
-	slowdown = 8
-	armor = list(melee = 55, bullet = 55, laser = 55,energy = 60, bomb = 100, bio = 60, rad = 60)
-	item_flags = STOPPRESSUREDAMAGE|THICKMATERIAL
+	slowdown = 4
+	armor = list(
+		MELEE = ARMOR_MELEE_VERY_HIGH,
+		BULLET = ARMOR_BALLISTIC_MINOR,
+		LASER = ARMOR_LASER_SMALL,
+		ENERGY = ARMOR_ENERGY_RESISTANT,
+		BOMB = ARMOR_BOMB_SHIELDED
+	)
+	siemens_coefficient = 0
+	item_flags = ITEM_FLAG_THICK_MATERIAL
 	flags_inv = HIDEJUMPSUIT|HIDETAIL
 	heat_protection = UPPER_TORSO|LOWER_TORSO|LEGS|FEET|ARMS
+	min_cold_protection_temperature = ARMOR_MIN_COLD_PROTECTION_TEMPERATURE
 	cold_protection = UPPER_TORSO|LOWER_TORSO|LEGS|FEET|ARMS
 	body_parts_covered = UPPER_TORSO|LOWER_TORSO|LEGS|FEET|ARMS
 	max_heat_protection_temperature = SPACE_SUIT_MAX_HEAT_PROTECTION_TEMPERATURE
-	siemens_coefficient = 0
+	max_pressure_protection = FIRESUIT_MAX_PRESSURE
 	var/mob/living/carbon/human/wearer = null
 	var/suit_temp = T20C
 
 /obj/item/clothing/suit/bomb_suit/equipped(var/mob/user, var/slot)
 	if (slot == slot_wear_suit)
 		var/mob/living/carbon/human/H = user
-		H.visible_message("<font color='blue'>[H] starts putting on \the [src]...</font>", "<font color='blue'>You start putting on \the [src]...</font>")
+		H.visible_message(SPAN_NOTICE("[H] starts putting on \the [src]..."),
+							SPAN_NOTICE("You start putting on \the [src]..."))
+
 		if(!do_after(H,50))
 			if(H && H.wear_suit == src)
 				H.wear_suit = null
@@ -100,7 +138,7 @@
 			return
 
 		wearer = user
-		wearer << "<span class='Notice'>You struggle into the [src]. It feels hot, heavy and uncomfortable</span>"
+		to_chat(wearer, SPAN_NOTICE("You struggle into the [src]. It feels hot, heavy and uncomfortable"))
 		START_PROCESSING(SSprocessing, src)
 	else
 		wearer = null
@@ -159,33 +197,52 @@
 
 /obj/item/clothing/suit/bomb_suit/security
 	icon_state = "bombsuitsec"
-	allowed = list(/obj/item/weapon/gun/energy,/obj/item/weapon/melee/baton,/obj/item/weapon/handcuffs)
+	allowed = list(/obj/item/gun/energy, /obj/item/melee/baton, /obj/item/handcuffs, /obj/item/wirecutters/bomb)
 	body_parts_covered = UPPER_TORSO|LOWER_TORSO|LEGS|FEET|ARMS|HANDS
 
 /*
  * Radiation protection
  */
 /obj/item/clothing/head/radiation
-	name = "radiation Hood"
-	icon_state = "rad"
-	desc = "A hood with radiation protective properties. Label: Made with lead, do not eat insulation"
+	name = "radiation hood"
+	desc = "A hood with radiation protective properties. Label: Made with lead, do not eat insulation."
+	icon = 'icons/obj/item/clothing/head/radsuit.dmi'
+	item_icons = null
+	icon_state = "radhood"
+	item_state = "radhood"
+	contained_sprite = TRUE
+	icon_auto_adapt = TRUE
+	icon_supported_species_tags = list("skr", "una", "taj")
 	flags_inv = BLOCKHAIR
 	body_parts_covered = HEAD|FACE|EYES
-	armor = list(melee = 0, bullet = 0, laser = 0,energy = 0, bomb = 0, bio = 60, rad = 100)
+	armor = list(
+		BIO = ARMOR_BIO_RESISTANT,
+		RAD = ARMOR_RAD_SHIELDED
+	)
+	siemens_coefficient = 0.35
 
 
 /obj/item/clothing/suit/radiation
 	name = "radiation suit"
 	desc = "A suit that protects against radiation. Label: Made with lead, do not eat insulation."
-	icon_state = "rad"
-	item_state = "rad_suit"
-	w_class = 4//bulky item
+	icon = 'icons/obj/item/clothing/suit/radsuit.dmi'
+	item_icons = null
+	icon_state = "radsuit"
+	item_state = "radsuit"
+	contained_sprite = TRUE
+	icon_auto_adapt = TRUE
+	icon_supported_species_tags = list("una")
+	w_class = WEIGHT_CLASS_BULKY//bulky item
 	gas_transfer_coefficient = 0.90
 	permeability_coefficient = 0.50
 	body_parts_covered = UPPER_TORSO|LOWER_TORSO|LEGS|ARMS|HANDS|FEET
-	allowed = list(/obj/item/device/flashlight,/obj/item/weapon/tank/emergency_oxygen,/obj/item/clothing/head/radiation,/obj/item/clothing/mask/gas)
-	slowdown = 1.5
-	armor = list(melee = 0, bullet = 0, laser = 0,energy = 0, bomb = 0, bio = 60, rad = 100)
+	allowed = list(/obj/item/flashlight,/obj/item/tank,/obj/item/suit_cooling_unit,/obj/item/storage/bag/inflatable,/obj/item/t_scanner,/obj/item/rfd/construction,/obj/item/material/twohanded/fireaxe,/obj/item/storage/backpack/cell,/obj/item/clothing/head/radiation,/obj/item/clothing/mask/gas,/obj/item/reagent_containers/hypospray/autoinjector)
+	slowdown = 0.75
+	armor = list(
+		BIO = ARMOR_BIO_RESISTANT,
+		RAD = ARMOR_RAD_SHIELDED
+	)
+	siemens_coefficient = 0.35
 	flags_inv = HIDEJUMPSUIT|HIDETAIL
 
 

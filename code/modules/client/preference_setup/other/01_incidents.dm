@@ -2,14 +2,14 @@
 	name = "Incidents"
 	sort_order = 7
 
-/datum/category_item/player_setup_item/other/incidents/load_special(var/savefile/S)
+/datum/category_item/player_setup_item/other/incidents/load_character_special(var/savefile/S)
 	pref.incidents = list()
 	pref.ccia_actions = list()
 
 	//Special Aurora Snowflake to load in the ccia actions and persistant incidents
-	if (config.sql_saves) // Doesnt work without db
+	if (GLOB.config.sql_saves) // Doesnt work without db
 		//Load in the CCIA Actions
-		var/DBQuery/ccia_action_query = dbcon.NewQuery({"SELECT
+		var/DBQuery/ccia_action_query = GLOB.dbcon.NewQuery({"SELECT
 			act.title,
 			act.type,
 			act.issuedby,
@@ -25,7 +25,7 @@
 				act.deleted_at IS NULL;
 		"})
 		if (!ccia_action_query.Execute(list("char_id" = pref.current_character)))
-			error("Error CCIA Actions for character #[pref.current_character]. SQL error message: '[ccia_action_query.ErrorMsg()]'.")
+			log_world("ERROR: Error CCIA Actions for character #[pref.current_character]. SQL error message: '[ccia_action_query.ErrorMsg()]'.")
 
 		while(ccia_action_query.NextRow())
 			var/list/action = list(
@@ -39,7 +39,7 @@
 			pref.ccia_actions.Add(list(action))
 
 		//Load in the infractions
-		var/DBQuery/char_infraction_query = dbcon.NewQuery({"SELECT
+		var/DBQuery/char_infraction_query = GLOB.dbcon.NewQuery({"SELECT
 			id, char_id, UID, datetime, notes, charges, evidence, arbiters, brig_sentence, fine, felony
 		FROM ss13_character_incidents
 		WHERE
@@ -48,10 +48,10 @@
 		char_infraction_query.Execute(list("char_id" = pref.current_character))
 
 		while(char_infraction_query.NextRow())
-			var/datum/char_infraction/infraction = new()
+			var/datum/record/char_infraction/infraction = new()
 			infraction.db_id = text2num(char_infraction_query.item[1])
 			infraction.char_id = text2num(char_infraction_query.item[2])
-			infraction.UID = char_infraction_query.item[3]
+			infraction.id = char_infraction_query.item[3]
 			infraction.datetime = char_infraction_query.item[4]
 			infraction.notes = char_infraction_query.item[5]
 			infraction.charges = json_decode(char_infraction_query.item[6])
@@ -62,40 +62,47 @@
 			infraction.felony = text2num(char_infraction_query.item[11])
 			pref.incidents.Add(infraction)
 
-/datum/category_item/player_setup_item/other/incidents/content(mob/user)
-	var/list/dat = list(
-		"<b>Incident Information</b><br>",
-		"The following incidents are on file for your character<br>"
-	)
-	for (var/datum/char_infraction/I in pref.incidents)
-		dat += "<hr>"
-		dat += "UID: [I.UID]<br>"
-		dat += "Date/Time: [I.datetime]<br>"
-		dat += "Charges: "
-		for (var/L in I.charges)
-			dat += "[L], "
+/datum/category_item/player_setup_item/other/incidents/ui_data(mob/user)
+	var/list/sections = list()
+	for (var/In in pref.incidents)
+		var/datum/record/char_infraction/I = In
+		var/list/fields = list(
+			list("label" = "UID", "value" = I.id),
+			list("label" = "Date / Time", "value" = I.datetime),
+			list("label" = "Charges", "value" = english_list(I.charges))
+		)
 		if (I.fine == 0)
-			dat += "<br>Brig Sentence: [I.getBrigSentence()] <br>"
+			fields += list(list("label" = "Brig Sentence", "value" = I.getBrigSentence()))
 		else
-			dat += "Fine: [I.fine] Credits<br>"
-		dat += "Notes: <br>"
-		if (I.notes != "")
-			dat += nl2br(I.notes)
-		else
-			dat += "- No Summary Entered -"
-		dat += "<br><a href='?src=\ref[src];details_sec_incident=[I.db_id]'>Show Details</a><br><a href='?src=\ref[src];del_sec_incident=[I.db_id]'>Delete Incident</a>"
-
-	. = dat.Join()
+			fields += list(list("label" = "Fine", "value" = "[I.fine]电"))
+		fields += list(list(
+			"label" = "Notes",
+			"value" = I.notes != "" ? strip_html_readd_newlines(I.notes) : "No summary entered.",
+			"actions" = list(
+				list("label" = "Show Details", "action" = "details_sec_incident", "value" = I.db_id, "icon" = "up-right-from-square"),
+				list("label" = "Delete Incident", "action" = "del_sec_incident", "value" = I.db_id, "color" = "bad", "icon" = "trash")
+			)
+		))
+		sections += list(list("title" = "Incident [I.id]", "fields" = fields))
+	if(!length(sections))
+		sections += list(list("description" = "No incidents are on file for this character.", "fields" = list()))
+	return list(
+		"kind" = "form",
+		"name" = name,
+		"ref" = REF(src),
+		"sections" = sections
+	)
 
 /datum/category_item/player_setup_item/other/incidents/OnTopic(var/href,var/list/href_list, var/mob/user)
 	if(href_list["del_sec_incident"])
 		var/search_incident = text2num(href_list["del_sec_incident"])
-		var/confirm = alert(user,"Do you want to delete that incident ?","Delete Incident","Yes","No")
+		var/confirm = tgui_alert(user, "Do you want to delete that incident ?", "Delete Incident", list("Yes", "No"))
 
 		if(!search_incident || !CanUseTopic(user) || confirm == "No")
 			return TOPIC_NOACTION
 
-		for(var/datum/char_infraction/I in pref.incidents)
+		for(var/In in pref.incidents)
+			var/datum/record/char_infraction/I = In
 			if(I.db_id == search_incident && I.char_id == pref.current_character)
 				I.deleteFromDB("user")
 				qdel(I)

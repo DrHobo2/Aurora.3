@@ -2,8 +2,9 @@
 
 /area/mine
 	icon_state = "mining"
-	ambience = list('sound/ambience/ambimine.ogg', 'sound/ambience/song_game.ogg')
-	sound_env = ASTEROID
+	music = list('sound/music/ambimine.ogg', 'sound/music/ingame/ss13/song_game.ogg')
+	sound_environment = SOUND_AREA_ASTEROID
+	area_flags = AREA_FLAG_IS_BACKGROUND
 
 /area/mine/explored
 	name = "Mine"
@@ -12,43 +13,17 @@
 /area/mine/unexplored
 	name = "Mine"
 	icon_state = "unexplored"
-	flags = HIDE_FROM_HOLOMAP
-
-//S
+	area_flags = AREA_FLAG_HIDE_FROM_HOLOMAP
 
 // Smalls
-/area/outpost/mining_north
-	name = "North Mining"
-	icon_state = "outpost_mine_north"
-
-/area/outpost/mining_west
-	name = "West Mining"
-	icon_state = "outpost_mine_west"
-
-/area/outpost/abandoned
-	name = "Abandoned"
-	icon_state = "dark"
+/area/outpost
+	ambience = AMBIENCE_EXPOUTPOST
 
 // Main mining
 /area/outpost/mining_main
 	icon_state = "outpost_mine_main"
-	station_area = 1
-	holomap_color = HOLOMAP_AREACOLOR_CARGO
-
-/area/outpost/mining_main/dorms
-	name = "Mining Dormitory"
-
-/area/outpost/mining_main/medbay
-	name = "Mining Medical"
-
-/area/outpost/mining_main/maintenance
-	name = "Mining Maintenance"
-
-/area/outpost/mining_main/west_hall
-	name = "Mining West Hallway"
-
-/area/outpost/mining_main/east_hall
-	name = "Mining East Hallway"
+	station_area = TRUE
+	holomap_color = HOLOMAP_AREACOLOR_OPERATIONS
 
 /area/outpost/mining_main/eva
 	name = "Mining EVA storage"
@@ -56,12 +31,10 @@
 /area/outpost/mining_main/refinery
 	name = "Mining Refinery"
 
-
-
 // Engineering
 /area/outpost/engineering
 	icon_state = "outpost_engine"
-	station_area = 1
+	station_area = TRUE
 	holomap_color = HOLOMAP_AREACOLOR_ENGINEERING
 
 /area/outpost/engineering/hallway
@@ -82,12 +55,10 @@
 /area/outpost/engineering/meeting
 	name = "Engineering - Break Room"
 
-
-
 // Research
 /area/outpost/research
 	icon_state = "outpost_research"
-	station_area = 1
+	station_area = TRUE
 	holomap_color = HOLOMAP_AREACOLOR_SCIENCE
 
 /area/outpost/research/hallway
@@ -97,7 +68,7 @@
 	name = "Research Shuttle Dock"
 
 /area/outpost/research/eva
-	name = "Research - Xenoarcheology"
+	name = "Research - Xenoarchaeology"
 
 /area/outpost/research/analysis
 	name = "Research - Sample Analysis"
@@ -125,15 +96,6 @@
 
 /area/outpost/research/lab
 	name = "Research - Sublevel Laboratory"
-
-/area/outpost/research/emergency_storage
-	name = "Research - Sublevel Emergency Storage"
-
-/area/outpost/research/anomaly_storage
-	name = "Research - Anomalous Storage"
-
-/area/outpost/research/anomaly_analysis
-	name = "Research - Anomaly Analysis"
 
 /area/outpost/research/kitchen
 	name = "Research - Kitchen"

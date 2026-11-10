@@ -1,30 +1,32 @@
-#define LOBBY_TIME 180
+#define LOBBY_TIME 150
+#define AUTOGAMEMODE_VOTE_BUFFER 15
 
 #define SETUP_OK 0
 #define SETUP_REVOTE 1
 #define SETUP_REATTEMPT 2
 
-var/datum/controller/subsystem/ticker/SSticker
+///The time at which the next automatic transfer vote will be called
+GLOBAL_VAR_INIT(next_transfer_time, null)
 
-/datum/controller/subsystem/ticker
+SUBSYSTEM_DEF(ticker)
 	// -- Subsystem stuff --
 	name = "Ticker"
 
 	priority = SS_PRIORITY_TICKER
-	flags = SS_NO_TICK_CHECK | SS_FIRE_IN_LOBBY
-	init_order = SS_INIT_LOBBY
+	runlevels = RUNLEVELS_DEFAULT | RUNLEVEL_LOBBY
+	init_order = INIT_ORDER_TICKER
 
 	wait = 1 SECOND
 
 	// -- Gameticker --
-	var/const/restart_timeout = 600
+	var/restart_timeout = 1200
 	var/current_state = GAME_STATE_PREGAME
 
 	var/hide_mode = 0
 	var/datum/game_mode/mode = null
 	var/post_game = 0
 
-	var/login_music			// music played in pregame lobby
+	var/list/login_music			// music played in pregame lobby
 
 	var/list/datum/mind/minds = list()//The people in the game. Used for objective tracking.
 
@@ -38,24 +40,27 @@ var/datum/controller/subsystem/ticker/SSticker
 	var/pregame_timeleft = 0
 
 	var/delay_end = 0	//if set to nonzero, the round will not restart on it's own
+	var/pinned_transfer_vote_consumed = FALSE
+	var/pinned_shift_change_called = FALSE
+	var/pinned_transfer_target
+	var/pinned_transfer_setting
 
 	var/triai = 0	//Global holder for Triumvirate
-	var/tipped = FALSE						//Did we broadcast the tip of the day yet?
-	var/selected_tip						// What will be the tip of the day?
+	var/tipped = FALSE	//Did we broadcast the tip of the day yet?
 	var/testmerges_printed = FALSE
 
 	var/round_end_announced = 0 // Spam Prevention. Announce round end only once.
 
 	//station_explosion used to be a variable for every mob's hud. Which was a waste!
 	//Now we have a general cinematic centrally held within the gameticker....far more efficient!
-	var/obj/screen/cinematic = null
+	var/atom/movable/screen/cinematic = null
 
-	var/list/possible_lobby_tracks = list(
-		'sound/music/space.ogg',
-		'sound/music/traitor.ogg',
-		'sound/music/title2.ogg',
-		'sound/music/clouds.s3m',
-		'sound/music/space_oddity.ogg'
+	var/list/default_lobby_tracks = list(
+		'sound/music/lobby/yuki_satellites.xm',
+		'sound/music/lobby/snow.ogg',
+		'sound/music/lobby/saturn.ogg',
+		'sound/music/lobby/kaaistoep.ogg',
+		'sound/music/lobby/spatial_audio.ogg'
 	)
 
 	var/lobby_ready = FALSE
@@ -63,13 +68,47 @@ var/datum/controller/subsystem/ticker/SSticker
 
 	var/list/roundstart_callbacks
 
-/datum/controller/subsystem/ticker/New()
-	NEW_SS_GLOBAL(SSticker)
+	/// Used to prevent players from readying or unreadying, such as for Odyssey's setup.
+	var/prevent_unready = FALSE
+
+	// Pre-game ready menu handling
+	var/total_players = 0
+	var/total_players_ready = 0
+	var/list/ready_player_jobs
+
+	/// The round canonicity. Set by either admins or by the gamemode.
+	var/singleton/canonicity/round_canon
+	/// Round canon forced by admins in the lobby; prevents gamemodes from overriding.
+	var/round_canon_admin_forced = FALSE
 
 /datum/controller/subsystem/ticker/Initialize(timeofday)
 	pregame()
+	restart_timeout = GLOB.config.restart_timeout
+	set_pinned_round_time(SSregistry.getValue(REGISTRY_PINNED_ROUND_TIME))
 
-/datum/controller/subsystem/ticker/stat_entry()
+	//Initialize the auto-transfer time
+	GLOB.next_transfer_time = GLOB.config.vote_autotransfer_initial
+
+	return SS_INIT_SUCCESS
+
+/datum/controller/subsystem/ticker/proc/set_pinned_round_time(pinned_round_time)
+	if(pinned_round_time == pinned_transfer_setting)
+		return
+	pinned_transfer_setting = pinned_round_time
+	pinned_transfer_target = null
+	pinned_transfer_vote_consumed = FALSE
+	pinned_shift_change_called = FALSE
+	if(!pinned_round_time)
+		return
+
+	var/pinned_time_of_day = (text2num(copytext(pinned_round_time, 1, 3)) * 60 + text2num(copytext(pinned_round_time, 4, 6))) * 1 MINUTE
+	var/pinned_time_utc = MODULUS(pinned_time_of_day - world.timezone HOURS, 24 HOURS)
+	pinned_transfer_target = REALTIMEOFDAY - world.timeofday + pinned_time_utc
+	if(pinned_transfer_target <= REALTIMEOFDAY)
+		pinned_transfer_target += 24 HOURS
+	pinned_transfer_vote_consumed = pinned_transfer_target - REALTIMEOFDAY < (2 HOURS + 30 MINUTES)
+
+/datum/controller/subsystem/ticker/stat_entry(msg)
 	var/state = ""
 	switch (current_state)
 		if (GAME_STATE_PREGAME)
@@ -82,7 +121,8 @@ var/datum/controller/subsystem/ticker/SSticker
 			state = "FIN"
 		else
 			state = "UNK"
-	..("State: [state]")
+	msg = "State: [state]"
+	return ..()
 
 /datum/controller/subsystem/ticker/Recover()
 	// Copy stuff over so we don't lose any state.
@@ -106,9 +146,12 @@ var/datum/controller/subsystem/ticker/SSticker
 
 	delay_end = SSticker.delay_end
 
+	pinned_transfer_vote_consumed = SSticker.pinned_transfer_vote_consumed
+	pinned_shift_change_called = SSticker.pinned_shift_change_called
+	pinned_transfer_target = SSticker.pinned_transfer_target
+	pinned_transfer_setting = SSticker.pinned_transfer_setting
+
 	triai = SSticker.triai
-	tipped = SSticker.tipped
-	selected_tip = SSticker.selected_tip
 
 	round_end_announced = SSticker.round_end_announced
 
@@ -126,14 +169,20 @@ var/datum/controller/subsystem/ticker/SSticker
 			game_tick()
 
 /datum/controller/subsystem/ticker/proc/pregame_tick()
-	if (round_progressing)
+	// Consume the precursor opportunity if the lobby crosses its cutoff.
+	if(pinned_transfer_setting && pinned_transfer_target - REALTIMEOFDAY <= (2 HOURS + 30 MINUTES))
+		pinned_transfer_vote_consumed = TRUE
+
+	if (GLOB.round_progressing)
 		pregame_timeleft--
 
-	if (current_state == GAME_STATE_PREGAME && pregame_timeleft == config.vote_autogamemode_timeleft)
-		if (!SSvote.time_remaining)
-			SSvote.autogamemode()
-			pregame_timeleft--
-			return
+	total_players = length(GLOB.player_list)
+
+	if (current_state == GAME_STATE_PREGAME && pregame_timeleft == GLOB.config.vote_autogamemode_timeleft)
+		welcome()
+		SSvote.autogamemode()
+		pregame_timeleft--
+		return
 
 	if (pregame_timeleft <= 20 && !testmerges_printed)
 		print_testmerges()
@@ -145,17 +194,42 @@ var/datum/controller/subsystem/ticker/SSticker
 
 	if (pregame_timeleft <= 0 || current_state == GAME_STATE_SETTING_UP)
 		current_state = GAME_STATE_SETTING_UP
+		Master.SetRunLevel(RUNLEVEL_SETUP)
 		wait = 2 SECONDS
 		switch (setup())
 			if (SETUP_REVOTE)
 				wait = 1 SECOND
 				is_revote = TRUE
+				Master.SetRunLevel(RUNLEVEL_LOBBY)
 				pregame()
 			if (SETUP_REATTEMPT)
 				pregame_timeleft = 1 SECOND
-				to_world("Reattempting gamemode selection.")
+				to_world(pick(list(
+					"Shuffling cards...",
+					"Looking at the stars for guidance...",
+					"Checking the Nlom field...",
+					"Sorting supermatter crystals...",
+					"Counting phoron moles...",
+					"Reading bluespace signatures...",
+					"Counting dionae floating in space...",
+					"Listening for an answer in the Srom...",
+					"Harmonizing with the Rootsong...",
+					"Comparing the light of S'rendarr and Messa...",
+					"Asking the Queens for guidance...",
+					"Consulting an Akhandi monk...",
+					"Charting a course through the Lemurian Sea...",
+					"Sorting through corporate paperwork...",
+					"Aligning thrusters...",
+					"Charging security laser rifles...",
+					"Prefilling syringes...",
+					"Sorting through cargo orders...",
+					"Refilling soda dispensers...",
+					"Putting viscerators in crates...",
+					"Consulting the Goddess Touched seers...",
+					"Releasing the cave geist..."
+				)))
 
-/datum/controller/subsystem/ticker/proc/game_tick()
+/datum/controller/subsystem/ticker/proc/game_tick(var/force_end = FALSE)
 	if(current_state != GAME_STATE_PLAYING)
 		return 0
 
@@ -163,49 +237,50 @@ var/datum/controller/subsystem/ticker/SSticker
 
 	var/game_finished = 0
 	var/mode_finished = 0
-	if (config.continous_rounds)
-		game_finished = (emergency_shuttle.returned() || mode.station_was_nuked)
-		mode_finished = (!post_game && mode.check_finished())
+	if(force_end)
+		game_finished = TRUE
+		mode_finished = TRUE
 	else
-		game_finished = (mode.check_finished() || (emergency_shuttle.returned() && emergency_shuttle.evac == 1)) || universe_has_ended
-		mode_finished = game_finished
+		game_finished = (GLOB.evacuation_controller.round_over() || mode.station_was_nuked)
+		mode_finished = (!post_game && mode.check_finished())
 
 	if(!mode.explosion_in_progress && game_finished && (mode_finished || post_game))
 		current_state = GAME_STATE_FINISHED
+		Master.SetRunLevel(RUNLEVEL_POSTGAME)
 
 		declare_completion()
 
 		spawn(50)
 			callHook("roundend")
 
-			if (universe_has_ended)
+			if (GLOB.universe_has_ended)
 				if(mode.station_was_nuked)
 					feedback_set_details("end_proper","nuke")
 				else
 					feedback_set_details("end_proper","universe destroyed")
 				if(!delay_end)
-					to_world("<span class='notice'><b>Rebooting due to destruction of station in [restart_timeout/10] seconds</b></span>")
+					to_world(SPAN_NOTICE("<b>Rebooting due to destruction of \the [SSatlas.current_map.station_name] in [restart_timeout/10] seconds</b>"))
 			else
 				feedback_set_details("end_proper","proper completion")
 				if(!delay_end)
-					to_world("<span class='notice'><b>Restarting in [restart_timeout/10] seconds</b></span>")
+					to_world(SPAN_NOTICE("<b>Restarting in [restart_timeout/10] seconds</b>"))
 
 			var/wait_for_tickets
 			var/delay_notified = 0
 			do
 				wait_for_tickets = 0
-				for(var/datum/ticket/ticket in tickets)
+				for(var/datum/ticket/ticket in GLOB.tickets)
 					if(ticket.is_active())
 						wait_for_tickets = 1
 						break
 				if(wait_for_tickets)
 					if(!delay_notified)
 						delay_notified = 1
-						message_admins("<span class='warning'><b>Automatically delaying restart due to active tickets.</b></span>")
-						to_world("<span class='notice'><b>An admin has delayed the round end</b></span>")
+						message_admins(SPAN_WARNING("<b>Automatically delaying restart due to active tickets.</b>"))
+						to_world(SPAN_NOTICE("<b>An admin has delayed the round end</b>"))
 					sleep(15 SECONDS)
 				else if(delay_notified)
-					message_admins("<span class='warning'><b>No active tickets remaining, restarting in [restart_timeout/10] seconds if an admin has not delayed the round end.</b></span>")
+					message_admins(SPAN_WARNING("<b>No active tickets remaining, restarting in [restart_timeout/10] seconds if an admin has not delayed the round end.</b>"))
 			while(wait_for_tickets)
 
 			if(!delay_end)
@@ -213,21 +288,55 @@ var/datum/controller/subsystem/ticker/SSticker
 				if(!delay_end)
 					world.Reboot()
 				else if(!delay_notified)
-					to_world("<span class='notice'><b>An admin has delayed the round end</b></span>")
+					to_world(SPAN_NOTICE("<b>An admin has delayed the round end</b>"))
 			else if(!delay_notified)
-				to_world("<span class='notice'><b>An admin has delayed the round end</b></span>")
+				to_world(SPAN_NOTICE("<b>An admin has delayed the round end</b>"))
 
-	else if (mode_finished)
-		post_game = 1
+	//If we have not finished the game already, call the next transfer vote as scheduled.
+	if(!game_finished && !mode_finished && !post_game)
+		if(pinned_transfer_setting)
+			/* A configured pinned round reserves time for a final full round and its scheduled start.
+			 * Normal transfer scheduling continues until the precursor window (~2h35 before pinned round),
+			 * which offers one chance to end a current round at least 2h old while respecting active or recent transfer votes.
+			 * Younger rounds skip that vote and continue toward the pinned round with ordinary transfer voting disabled.
+			 * Unrelated votes defer that opportunity within the window.
+			 * Once consumed, or once too little time remains for a full round, ordinary player transfer votes are disabled.
+			 * Periodic automatic transfer votes are suppressed until the shift-change window closes.
+			 * Near the pinned start, a separate window (15m before pinned round) attempts shift change if none is underway.
+			 * Player transfer votes are re-enabled once that window closes (less than 10m before the pinned start).
+			 * Window bounds prevent premature or late calls while allowing deferred attempts.
+			 */
+			var/time_until_pinned = pinned_transfer_target - REALTIMEOFDAY
 
-		mode.cleanup()
+			if(time_until_pinned < 10 MINUTES)
+				pinned_transfer_vote_consumed = FALSE // Sanity check - Transfer went wrong: Allow votes again
 
-		//call a transfer shuttle vote
-		spawn(50)
-			if(!round_end_announced) // Spam Prevention. Now it should announce only once.
-				to_world("<span class='danger'>The round has ended!</span>")
-				round_end_announced = 1
+			// The pinned round should be starting soon, call transfer to start on time.
+			if(time_until_pinned <= 15 MINUTES && time_until_pinned >= 10 MINUTES && SSticker.current_state == GAME_STATE_PLAYING)
+				if(!pinned_shift_change_called && !SSatlas.current_map.shuttle_call_restart_timer && GLOB.evacuation_controller.state == EVAC_IDLE)
+					pinned_shift_change_called = TRUE
+					init_shift_change(null, TRUE) // Commit to pinned round
+					return 1
+			// Time window to offer one last full round, provided the current round is at least 2h old
+			else if(time_until_pinned >= 2 HOURS + 30 MINUTES && time_until_pinned <= 2 HOURS + 35 MINUTES)
+				// Check if there is already an unrelated vote and let that pass first
+				if(!pinned_transfer_vote_consumed && (!SSvote.current_vote || istype(SSvote.current_vote, /datum/vote/crewtransfer)))
+					pinned_transfer_vote_consumed = TRUE // Consume the opportunity even if the round is too young or a transfer vote already exists
+					// Only offer a new vote for rounds at least 2h old, with no active vote or transfer vote in the last 10 minutes
+					if(get_round_duration() >= 2 HOURS && !SSvote.current_vote && (!GLOB.last_transfer_vote || get_round_duration() - GLOB.last_transfer_vote >= 10 MINUTES))
+						SSvote.autotransfer_pinned_round_precursor()
+				return 1
+
+			// Fallback case - Not enough time for a full round before the pinned round, disable voting only
+			// in case the current round already intersects with the round preceeding the pinned time
+			if(time_until_pinned < 2 HOURS + 30 MINUTES && time_until_pinned >= 10 MINUTES)
+				pinned_transfer_vote_consumed = TRUE // Disable voting
+				return 1
+
+		// Regular periodic auto transfer
+		if(get_round_duration() >= GLOB.next_transfer_time - 600)
 			SSvote.autotransfer()
+			GLOB.next_transfer_time += GLOB.config.vote_autotransfer_interval
 
 	return 1
 
@@ -235,62 +344,63 @@ var/datum/controller/subsystem/ticker/SSticker
 	set waitfor = FALSE
 
 	to_world("<br><br><br><H1>A round of [mode.name] has ended!</H1>")
-	for(var/mob/Player in player_list)
+	for(var/mob/Player in GLOB.player_list)
 		if(Player.mind && !isnewplayer(Player))
 			if(Player.stat != DEAD)
 				var/turf/playerTurf = get_turf(Player)
-				if(emergency_shuttle.departed && emergency_shuttle.evac)
-					if(isNotAdminLevel(playerTurf.z))
-						Player << "<font color='blue'><b>You managed to survive, but were marooned on [station_name()] as [Player.real_name]...</b></font>"
+				var/area/playerArea = get_area(playerTurf)
+				if(GLOB.evacuation_controller.round_over() && GLOB.evacuation_controller.evacuation_type == TRANSFER_EMERGENCY)
+					if(is_station_level(playerTurf.z) && is_station_area(playerArea))
+						to_chat(Player, SPAN_GOOD(SPAN_BOLD("You managed to survive the events on [station_name()] as [Player.real_name].")))
 					else
-						Player << "<font color='green'><b>You managed to survive the events on [station_name()] as [Player.real_name].</b></font>"
-				else if(isAdminLevel(playerTurf.z))
-					Player << "<font color='green'><b>You successfully underwent crew transfer after events on [station_name()] as [Player.real_name].</b></font>"
+						to_chat(Player, SPAN_NOTICE(SPAN_BOLD("You managed to survive, but were marooned as [Player.real_name]...")))
+				else if(is_station_level(playerTurf.z) && is_station_area(playerArea))
+					to_chat(Player, SPAN_GOOD(SPAN_BOLD("You successfully underwent the crew transfer after the events on [station_name()] as [Player.real_name].")))
 				else if(issilicon(Player))
-					Player << "<font color='green'><b>You remain operational after the events on [station_name()] as [Player.real_name].</b></font>"
+					to_chat(Player, SPAN_GOOD(SPAN_BOLD("You remain operational after the events on [station_name()] as [Player.real_name].")))
 				else
-					Player << "<font color='blue'><b>You missed the crew transfer after the events on [station_name()] as [Player.real_name].</b></font>"
+					to_chat(Player, SPAN_NOTICE(SPAN_BOLD("You missed the crew transfer after the events on [station_name()] as [Player.real_name].")))
 			else
-				if(istype(Player,/mob/abstract/observer))
-					var/mob/abstract/observer/O = Player
+				if(isobserver(Player))
+					var/mob/abstract/ghost/observer/O = Player
 					if(!O.started_as_observer)
-						Player << "<font color='red'><b>You did not survive the events on [station_name()]...</b></font>"
+						to_chat(Player, SPAN_WARNING(SPAN_BOLD("You did not survive the events on [station_name()]...")))
 				else
-					Player << "<font color='red'><b>You did not survive the events on [station_name()]...</b></font>"
+					to_chat(Player, SPAN_WARNING(SPAN_BOLD("You did not survive the events on [station_name()]...")))
 	to_world("<br>")
 
-	for (var/mob/living/silicon/ai/aiPlayer in mob_list)
+	for (var/mob/living/silicon/ai/aiPlayer in GLOB.mob_list)
 		if (aiPlayer.stat != 2)
-			to_world("<b>[aiPlayer.name] (Played by: [aiPlayer.key])'s laws at the end of the round were:</b>")
+			to_world("<b>[aiPlayer.name]'s laws at the end of the round were:</b>")
 		else
-			to_world("<b>[aiPlayer.name] (Played by: [aiPlayer.key])'s laws when it was deactivated were:</b>")
+			to_world("<b>[aiPlayer.name]'s laws when it was deactivated were:</b>")
 		aiPlayer.show_laws(1)
 
 		if (aiPlayer.connected_robots.len)
 			var/robolist = "<b>The AI's loyal minions were:</b> "
 			for(var/mob/living/silicon/robot/robo in aiPlayer.connected_robots)
-				robolist += "[robo.name][robo.stat?" (Deactivated) (Played by: [robo.key]), ":" (Played by: [robo.key]), "]"
+				robolist += "[robo.name][robo.stat?" (Deactivated), ":", "]"
 			to_world("[robolist]")
 
 	var/dronecount = 0
 
-	for (var/mob/living/silicon/robot/robo in mob_list)
+	for (var/mob/living/silicon/robot/robo in GLOB.mob_list)
 
 		if(istype(robo,/mob/living/silicon/robot/drone))
 			dronecount++
 			continue
 
-		if (!robo.connected_ai)
+		if (!robo.connected_ai && !istype(robo,/mob/living/silicon/robot/shell))
 			if (robo.stat != 2)
-				to_world("<b>[robo.name] (Played by: [robo.key]) survived as an AI-less borg! Its laws were:</b>")
+				to_world("<b>[robo.name] survived as an AI-less borg! Its laws were:</b>")
 			else
-				to_world("<b>[robo.name] (Played by: [robo.key]) was unable to survive the rigors of being a cyborg without an AI. Its laws were:</b>")
+				to_world("<b>[robo.name] was unable to survive the rigors of being a cyborg without an AI. Its laws were:</b>")
 
 			if(robo) //How the hell do we lose robo between here and the world messages directly above this?
 				robo.laws.show_laws(world)
 
 	if(dronecount)
-		to_world("<b>There [dronecount>1 ? "were" : "was"] [dronecount] industrious maintenance [dronecount>1 ? "drones" : "drone"] at the end of this round.</b>")
+		to_world("<b>There [dronecount>1 ? "were" : "was"] [dronecount] industrious maintenance drone\s at the end of this round.</b>")
 
 	mode.declare_completion()//To declare normal completion.
 
@@ -304,35 +414,114 @@ var/datum/controller/subsystem/ticker/SSticker
 		var/temprole = Mind.special_role
 		if(temprole)							//if they are an antagonist of some sort.
 			if(temprole in total_antagonists)	//If the role exists already, add the name to it
-				total_antagonists[temprole] += ", [Mind.name]([Mind.key])"
+				total_antagonists[temprole] += ", [Mind.name]"
 			else
 				total_antagonists.Add(temprole) //If the role doesnt exist in the list, create it and add the mob
-				total_antagonists[temprole] += ": [Mind.name]([Mind.key])"
+				total_antagonists[temprole] += ": [Mind.name]"
 
 	//Now print them all into the log!
 	log_game("Antagonists at round end were...")
 	for(var/i in total_antagonists)
 		log_game("[i]s[total_antagonists[i]].")
 
-	SSfeedback.print_round_end_message()
+	SSstatistics.print_round_end_message()
 
 	return 1
 
-/datum/controller/subsystem/ticker/proc/send_tip_of_the_round()
-	var/m
-	if(selected_tip)
-		m = selected_tip
-	else
-		var/list/randomtips = file2list("config/tips.txt")
-		if(randomtips.len)
-			m = pick(randomtips)
+/datum/controller/subsystem/ticker/proc/update_ready_list(var/mob/abstract/new_player/NP, force_rdy = FALSE, force_urdy = FALSE)
+	if(current_state >= GAME_STATE_PLAYING || !SSjobs.bitflag_to_job.len)
+		return FALSE // don't bother once the game has started or before SSjobs is available
 
-	if(m)
-		to_world("<font color='purple'><b>Tip of the round: \
-			</b>[html_encode(m)]</font>")
+	if(!LAZYLEN(ready_player_jobs))
+		ready_player_jobs = DEPARTMENTS_LIST_INIT
+
+	if(!isclient(NP.client) || force_urdy)
+		// Logged out, so force unready
+		return unready_player(NP.last_ready_name)
+	else if(NP.ready || force_rdy)
+		if(NP.last_ready_name != NP.client.prefs.real_name)
+			NP.last_ready_name = NP.client.prefs.real_name
+		return ready_player(NP.client.prefs)
+	else
+		return unready_player(NP.client.prefs)
+
+/datum/controller/subsystem/ticker/proc/ready_player(var/datum/preferences/prefs)
+	var/datum/job/ready_job = prefs.return_chosen_high_job()
+	if(!istype(ready_job))
+		return FALSE
+
+	for(var/dept in ready_job.departments)
+		LAZYDISTINCTADD(ready_player_jobs[dept], prefs.real_name)
+		LAZYSET(ready_player_jobs[dept], prefs.real_name, ready_job.title)
+		sortTim(ready_player_jobs[dept], GLOBAL_PROC_REF(cmp_text_asc))
+		. = TRUE
+
+	if(.)
+		update_ready_count()
+
+/datum/controller/subsystem/ticker/proc/unready_player(var/ident, var/force_name = FALSE)
+	if(isnull(ident))
+		return FALSE
+
+	var/datum/preferences/prefs = ident
+	if(!istype(prefs) || force_name)
+		// trawl the whole list - we only do this on logout or job swap, aka when we can't guarantee the job datum being accurate
+		for(var/dept in ready_player_jobs)
+			if(!. && LAZYISIN(ready_player_jobs[dept], ident))
+				. = TRUE
+			ready_player_jobs[dept] -= ident
+		if(.)
+			update_ready_count()
+		return
+
+	var/datum/job/ready_job = prefs.return_chosen_high_job()
+
+	if(!istype(ready_job))
+		// literally how
+		return FALSE
+
+	for(var/dept in ready_job.departments)
+		if(!. && ready_player_jobs[dept][prefs.real_name])
+			. = TRUE
+		ready_player_jobs[dept] -= prefs.real_name
+
+	if(.)
+		update_ready_count()
+
+/datum/controller/subsystem/ticker/proc/update_ready_count()
+	total_players_ready = 0
+	for(var/mob/abstract/new_player/NP in GLOB.player_list)
+		if(NP.ready)
+			total_players_ready++
+
+/datum/controller/subsystem/ticker/proc/cycle_player(var/mob/abstract/new_player/NP, var/datum/job/job)
+	// exclusively used for occupation.dm, when players swap job priority while readied
+	if(current_state >= GAME_STATE_PLAYING || !SSjobs.bitflag_to_job.len || !NP.ready)
+		return FALSE
+
+	update_ready_list(NP, force_urdy = TRUE)
+	update_ready_list(NP)
+
+/datum/controller/subsystem/ticker/proc/setup_player_ready_list()
+	for(var/mob/abstract/new_player/NP in GLOB.player_list)
+		// initial setup to catch people who readied 0.1 seconds into init
+		if(NP.ready)
+			update_ready_list(NP)
+
+/datum/controller/subsystem/ticker/proc/send_tip_of_the_round(var/tip_override)
+	var/message
+	if(tip_override)
+		message = tip_override
+	else
+		var/chosen_tip_category = pick(GLOB.tips_by_category)
+		var/datum/tip/tip_datum = GLOB.tips_by_category[chosen_tip_category]
+		message = pick(tip_datum.messages)
+
+	if(message)
+		to_world(SPAN_VOTE(SPAN_BOLD("Tip of the round:") + " [html_encode(message)]"))
 
 /datum/controller/subsystem/ticker/proc/print_testmerges()
-	var/data = revdata.testmerge_overview()
+	var/data = GLOB.revdata.testmerge_overview()
 
 	if (data)
 		to_world(data)
@@ -340,64 +529,129 @@ var/datum/controller/subsystem/ticker/SSticker
 /datum/controller/subsystem/ticker/proc/pregame()
 	set waitfor = FALSE
 	sleep(1)	// Sleep so the MC has a chance to update its init time.
-	if (!login_music)
-		login_music = pick(possible_lobby_tracks)
+	if(!login_music)
+		if(SSatlas.current_sector && SSatlas.current_sector.lobby_tracks)
+			login_music = SSatlas.current_sector.lobby_tracks
+		else
+			login_music = default_lobby_tracks
+		login_music = shuffle(login_music)
 
 	if (is_revote)
-		pregame_timeleft = LOBBY_TIME
-		log_debug("SSticker: lobby reset due to game setup failure, using pregame time [LOBBY_TIME]s.")
+		pregame_timeleft = max(LOBBY_TIME, GLOB.config.vote_autogamemode_timeleft + AUTOGAMEMODE_VOTE_BUFFER)
+		LOG_DEBUG("SSticker: lobby reset due to game setup failure, using pregame time [pregame_timeleft]s.")
 	else
-		var/mc_init_time = round(Master.initialization_time_taken, 1)
+		var/mc_init_time = round(Master.init_timeofday, 1)
 		var/dynamic_time = LOBBY_TIME - mc_init_time
+		total_players = length(GLOB.player_list)
+		LAZYINITLIST(ready_player_jobs)
 
-		if (dynamic_time <= config.vote_autogamemode_timeleft)
-			pregame_timeleft = config.vote_autogamemode_timeleft + 10
-			log_debug("SSticker: dynamic set pregame time [dynamic_time]s was less than or equal to configured autogamemode vote time [config.vote_autogamemode_timeleft]s, clamping.")
+		if (dynamic_time <= GLOB.config.vote_autogamemode_timeleft)
+			pregame_timeleft = GLOB.config.vote_autogamemode_timeleft + AUTOGAMEMODE_VOTE_BUFFER
+			LOG_DEBUG("SSticker: dynamic set pregame time [dynamic_time]s was less than or equal to configured autogamemode vote time [GLOB.config.vote_autogamemode_timeleft]s, clamping.")
 		else
 			pregame_timeleft = dynamic_time
-			log_debug("SSticker: dynamic set pregame time [dynamic_time]s was greater than configured autogamemode time, not clamping.")
+			LOG_DEBUG("SSticker: dynamic set pregame time [dynamic_time]s was greater than configured autogamemode time, not clamping.")
 
-	to_world("<B><FONT color='blue'>Welcome to the pre-game lobby!</FONT></B>")
+		setup_player_ready_list()
+
+	callHook("pregame_start")
+
+/// Handles welcome message and prints out ghostrole information. Should be called after offsites have spawned.
+/datum/controller/subsystem/ticker/proc/welcome()
+	to_world("<B><span class='notice'>Welcome to the pre-game lobby!</span></B>")
 	to_world("Please, setup your character and select ready. Game will start in [pregame_timeleft] seconds.")
+
+	// Compute and, if available, print the ghost roles in the pre-round lobby. Begone, people who do not ready up to see what ghost roles will be available!
+	var/list/available_ghostroles = list()
+
+	if(SSatlas.current_sector?.ghostroles_enabled)
+		for(var/s in SSghostroles.spawners)
+			var/datum/ghostspawner/G = SSghostroles.spawners[s]
+			if(G.enabled \
+				&& !("Antagonist" in G.tags) \
+				&& !(G.loc_type == GS_LOC_ATOM && !length(G.spawn_atoms)) \
+				&& (G.req_perms == null) \
+			)
+				available_ghostroles |= G.name
+
+		// Special case, to list the Merchant in case it is available at roundstart
+		if(SSjobs.type_occupations[/datum/job/merchant]?.total_positions)
+			available_ghostroles |= SSjobs.type_occupations[/datum/job/merchant].title
+
+	if(length(available_ghostroles))
+		to_world("<br>" \
+			+ SPAN_BOLD(SPAN_NOTICE("Ghost roles available for this round: ")) \
+			+ "[english_list(available_ghostroles)]. " \
+			+ SPAN_INFO("Actual availability may vary.") \
+			+ "<br>" \
+		)
+
+	var/datum/space_sector/current_sector = SSatlas.current_sector
+	var/html = SPAN_NOTICE("Current sector: [current_sector].") + {"\
+		<span> \
+			<a href='byond://?src=[REF(src)];current_sector_show_sites_id=1'>Click here</a> \
+			to see every possible site/ship that can potentially spawn here.\
+		</span>\
+	"}
+	to_world(html)
 
 /datum/controller/subsystem/ticker/proc/setup()
 	//Create and announce mode
-	if(master_mode == ROUNDTYPE_STR_SECRET)
+	var/secret_autotraitor_fallback = FALSE
+	if(GLOB.master_mode == ROUNDTYPE_STR_SECRET)
 		src.hide_mode = ROUNDTYPE_SECRET
-	else if (master_mode == ROUNDTYPE_STR_MIXED_SECRET)
+	else if (GLOB.master_mode == ROUNDTYPE_STR_MIXED_SECRET)
 		src.hide_mode = ROUNDTYPE_MIXED_SECRET
 
-	var/list/runnable_modes = config.get_runnable_modes(master_mode)
-	if(master_mode in list(ROUNDTYPE_STR_RANDOM, ROUNDTYPE_STR_SECRET, ROUNDTYPE_STR_MIXED_SECRET))
+	var/list/runnable_modes = GLOB.config.get_runnable_modes(GLOB.master_mode)
+	var/datum/game_mode/extended_mode = GLOB.gamemode_cache["extended"]
+	if(GLOB.master_mode == ROUNDTYPE_STR_SECRET && length(runnable_modes) == 1 && (extended_mode in runnable_modes))
+		runnable_modes.Cut()
+	if(GLOB.master_mode in list(ROUNDTYPE_STR_RANDOM, ROUNDTYPE_STR_SECRET, ROUNDTYPE_STR_MIXED_SECRET))
 		if(!runnable_modes.len)
-			current_state = GAME_STATE_PREGAME
-			to_world("<B>Unable to choose playable game mode.</B> Reverting to pre-game lobby.")
-			return SETUP_REVOTE
-		if(secret_force_mode != ROUNDTYPE_STR_SECRET && secret_force_mode != ROUNDTYPE_STR_MIXED_SECRET)
-			src.mode = config.pick_mode(secret_force_mode)
+			if(GLOB.master_mode == ROUNDTYPE_STR_SECRET)
+				src.mode = GLOB.gamemode_cache["autotraitor"]
+				secret_autotraitor_fallback = TRUE
+			else
+				current_state = GAME_STATE_PREGAME
+				to_world("<B>Unable to choose playable game mode.</B> Reverting to pre-game lobby.")
+				return SETUP_REVOTE
+		if(!secret_autotraitor_fallback && GLOB.secret_force_mode != ROUNDTYPE_STR_SECRET && GLOB.secret_force_mode != ROUNDTYPE_STR_MIXED_SECRET)
+			src.mode = GLOB.config.pick_mode(GLOB.secret_force_mode)
 		if(!src.mode)
 			var/list/weighted_modes = list()
 			var/list/probabilities = list()
 
-			if (master_mode == ROUNDTYPE_STR_SECRET)
-				probabilities = config.probabilities_secret
-			else if (master_mode == ROUNDTYPE_STR_MIXED_SECRET)
-				probabilities = config.probabilities_mixed_secret
+			if (GLOB.master_mode == ROUNDTYPE_STR_SECRET)
+				probabilities = GLOB.config.probabilities_secret
+			else if (GLOB.master_mode == ROUNDTYPE_STR_MIXED_SECRET)
+				probabilities = GLOB.config.probabilities_mixed_secret
 			else
-				// master_mode == ROUNDTYPE_STR_RANDOM
-				probabilities = config.probabilities_secret.Copy()
-				probabilities |= config.probabilities_mixed_secret
+				// GLOB.master_mode == ROUNDTYPE_STR_RANDOM
+				probabilities = GLOB.config.probabilities_secret.Copy()
+				probabilities |= GLOB.config.probabilities_mixed_secret
 
 			for(var/datum/game_mode/GM in runnable_modes)
 				weighted_modes[GM.config_tag] = probabilities[GM.config_tag]
-			src.mode = gamemode_cache[pickweight(weighted_modes)]
+			src.mode = GLOB.gamemode_cache[pickweight(weighted_modes)]
 	else
-		src.mode = config.pick_mode(master_mode)
+		src.mode = GLOB.config.pick_mode(GLOB.master_mode)
 
 	if(!src.mode)
 		current_state = GAME_STATE_PREGAME
 		to_world("<span class='danger'>Serious error in mode setup!</span> Reverting to pre-game lobby.")
 		return SETUP_REVOTE
+
+	// This proc must return TRUE on success.
+	if(!mode.pre_game_setup())
+		current_state = GAME_STATE_PREGAME
+		to_world("<span class='danger'>Round start pre-game setup failed! Reverting to pre-game lobby.")
+		prevent_unready = FALSE
+		return SETUP_REVOTE
+	if(GLOB.master_mode == ROUNDTYPE_STR_SECRET && mode == extended_mode && !round_canon_admin_forced)
+		set_round_canon(/singleton/canonicity/limited, TRUE)
+
+	prevent_unready = FALSE
 
 	SSjobs.ResetOccupations()
 	src.mode.create_antagonists()
@@ -407,14 +661,10 @@ var/datum/controller/subsystem/ticker/SSticker
 	var/fail_reasons = list()
 
 	var/can_start = src.mode.can_start()
+	if(secret_autotraitor_fallback)
+		can_start &= ~(GAME_FAILURE_NO_PLAYERS | GAME_FAILURE_NO_ANTAGS | GAME_FAILURE_TOO_MANY_PLAYERS)
 
 	if(can_start & GAME_FAILURE_NO_PLAYERS)
-		var/list/voted_not_ready = list()
-		for(var/mob/abstract/new_player/player in player_list)
-			if((player.client)&&(!player.ready))
-				voted_not_ready += player.ckey
-		message_admins("The following players voted for [mode.name], but did not ready up: [jointext(voted_not_ready, ", ")]")
-		log_game("Ticker: Players voted for [mode.name], but did not ready up: [jointext(voted_not_ready, ", ")]")
 		fail_reasons += "Not enough players, [mode.required_players] player(s) needed"
 
 	if(can_start & GAME_FAILURE_NO_ANTAGS)
@@ -424,29 +674,27 @@ var/datum/controller/subsystem/ticker/SSticker
 		fail_reasons +=  "Too many players, less than [mode.max_players] antagonist(s) needed"
 
 	if(can_start != GAME_FAILURE_NONE)
-		to_world("<B>Unable to start [mode.name].</B> [english_list(fail_reasons,"No reason specified",". ",". ")]")
+		message_admins("<B>Unable to start the game mode, due to lack of available antagonists.</B> [english_list(fail_reasons,"No reason specified",". ",". ")]")
 		current_state = GAME_STATE_PREGAME
 		mode.fail_setup()
 		mode = null
 		SSjobs.ResetOccupations()
-		if(master_mode in list(ROUNDTYPE_STR_RANDOM, ROUNDTYPE_STR_SECRET, ROUNDTYPE_STR_MIXED_SECRET))
-			to_world("<B>Reselecting gamemode...</B>")
+		if(GLOB.master_mode in list(ROUNDTYPE_STR_RANDOM, ROUNDTYPE_STR_SECRET, ROUNDTYPE_STR_MIXED_SECRET))
 			return SETUP_REATTEMPT
 		else
-			to_world("<B>Reverting to pre-game lobby.</B>")
 			return SETUP_REVOTE
 
 	var/starttime = REALTIMEOFDAY
 
 	if(hide_mode)
-		to_world("<B>The current game mode is - [hide_mode == ROUNDTYPE_SECRET ? "Secret" : "Mixed Secret"]!</B>")
+		to_world("<B>The current game mode is [hide_mode == ROUNDTYPE_SECRET ? "Secret" : "Mixed Secret"]!</B>")
 		if(runnable_modes.len)
 			var/list/tmpmodes = new
 			for (var/datum/game_mode/M in runnable_modes)
 				tmpmodes+=M.name
 			tmpmodes = sortList(tmpmodes)
 			if(tmpmodes.len)
-				to_world("<B>Possibilities:</B> [english_list(tmpmodes)]")
+				admin_notice("[SPAN_BOLD("Possibilities:")] [english_list(tmpmodes)]", R_DEBUG)
 	else
 		src.mode.announce()
 
@@ -454,33 +702,45 @@ var/datum/controller/subsystem/ticker/SSticker
 	create_characters() //Create player characters and transfer them
 	collect_minds()
 	equip_characters()
-	data_core.manifest()
+	SSrecords.build_records()
 
-	Master.RoundStart()
+	Master.SetRunLevel(RUNLEVEL_GAME)
 	real_round_start_time = REALTIMEOFDAY
 	round_start_time = world.time
 
 	callHook("roundstart")
+	INVOKE_ASYNC(src, PROC_REF(roundstart))
 
-	spawn(0)//Forking here so we dont have to wait for this to finish
-		mode.post_setup()
-		//Cleanup some stuff
-		for(var/obj/effect/landmark/start/S in landmarks_list)
-			//Deleting Startpoints but we need the ai point to AI-ize people later
-			if (S.name != "AI")
-				qdel(S)
-		to_world("<FONT color='blue'><B>Enjoy the game!</B></FONT>")
-		to_world(sound('sound/AI/welcome.ogg'))
-		//Holiday Round-start stuff	~Carn
-		Holiday_Game_Start()
-
-	log_debug("SSticker: Running [LAZYLEN(roundstart_callbacks)] round-start callbacks.")
+	LOG_DEBUG("SSticker: Running [LAZYLEN(roundstart_callbacks)] round-start callbacks.")
 	run_callback_list(roundstart_callbacks)
 	roundstart_callbacks = null
 
-	log_debug("SSticker: Round-start setup took [(REALTIMEOFDAY - starttime)/10] seconds.")
+	LOG_DEBUG("SSticker: Round-start setup took [(REALTIMEOFDAY - starttime)/10] seconds.")
 
 	return SETUP_OK
+
+/datum/controller/subsystem/ticker/proc/roundstart()
+	SHOULD_NOT_SLEEP(TRUE)
+
+	mode.post_setup()
+	//Cleanup some stuff
+	for(var/obj/effect/landmark/start/S in GLOB.landmarks_list)
+		//Deleting Startpoints but we need the ai point to AI-ize people later
+		if (S.name != "AI")
+			qdel(S)
+	// update join icon for lobbysitters
+	for(var/mob/abstract/new_player/NP in GLOB.player_list)
+		if(!NP.client)
+			continue
+		var/atom/movable/screen/new_player/selection/join_game/JG = locate() in NP.client.screen
+		JG.update_icon(NP)
+	to_world(SPAN_NOTICE("<b>Enjoy the round!</b>"))
+	if(SSatlas.current_sector.sector_welcome_message)
+		sound_to(world, sound(SSatlas.current_sector.sector_welcome_message))
+	else
+		sound_to(world, sound('sound/AI/welcome.ogg'))
+	//Holiday Round-start stuff	~Carn
+	Holiday_Game_Start()
 
 /datum/controller/subsystem/ticker/proc/run_callback_list(list/callbacklist)
 	set waitfor = FALSE
@@ -494,29 +754,32 @@ var/datum/controller/subsystem/ticker/SSticker
 
 		CHECK_TICK
 
-/datum/controller/subsystem/ticker/proc/station_explosion_cinematic(station_missed = 0, override = null, list/affected_levels = current_map.station_levels)
+/datum/controller/subsystem/ticker/proc/station_explosion_cinematic(station_missed = 0, override = null, list/affected_levels = list())
+	if(!length(affected_levels))
+		affected_levels = SSmapping.levels_by_trait(ZTRAIT_STATION)
+
 	if (cinematic)
 		return	//already a cinematic in progress!
 
 	//initialise our cinematic screen object
-	cinematic = new /obj/screen{
+	cinematic = new /atom/movable/screen{
 		icon = 'icons/effects/station_explosion.dmi';
 		icon_state = "station_intact";
-		layer = 20;
-		mouse_opacity = 0;
+		layer = HUD_ABOVE_ITEM_LAYER;
+		mouse_opacity = MOUSE_OPACITY_TRANSPARENT;
 		screen_loc = "1,0"
 	}
 
 	var/obj/structure/bed/temp_buckle = new
 	//Incredibly hackish. It creates a bed within the gameticker (lol) to stop mobs running around
 	if(station_missed)
-		for(var/mob/living/M in living_mob_list)
-			M.buckled = temp_buckle				//buckles the mob so it can't do anything
+		for(var/mob/living/M in GLOB.living_mob_list)
+			M.buckled_to = temp_buckle				//buckles the mob so it can't do anything
 			if(M.client)
 				M.client.screen += cinematic	//show every client the cinematic
 	else	//nuke kills everyone on z-level 1 to prevent "hurr-durr I survived"
-		for(var/mob/living/M in living_mob_list)
-			M.buckled = temp_buckle
+		for(var/mob/living/M in GLOB.living_mob_list)
+			M.buckled_to = temp_buckle
 			if(M.client)
 				M.client.screen += cinematic
 
@@ -541,18 +804,18 @@ var/datum/controller/subsystem/ticker/SSticker
 				if("mercenary") //Nuke wasn't on station when it blew up
 					flick("intro_nuke",cinematic)
 					sleep(35)
-					to_world(sound('sound/effects/explosionfar.ogg'))
+					sound_to(world, sound('sound/effects/explosionfar.ogg'))
 					flick("station_intact_fade_red",cinematic)
 					cinematic.icon_state = "summary_nukefail"
 				else
 					flick("intro_nuke",cinematic)
 					sleep(35)
-					to_world(sound('sound/effects/explosionfar.ogg'))
+					sound_to(world, sound('sound/effects/explosionfar.ogg'))
 					//flick("end",cinematic)
 
 		if(2)	//nuke was nowhere nearby	//TODO: a really distant explosion animation
 			sleep(50)
-			to_world(sound('sound/effects/explosionfar.ogg'))
+			sound_to(world, sound('sound/effects/explosionfar.ogg'))
 
 		else	//station was destroyed
 			if( mode && !override )
@@ -562,25 +825,25 @@ var/datum/controller/subsystem/ticker/SSticker
 					flick("intro_nuke",cinematic)
 					sleep(35)
 					flick("station_explode_fade_red",cinematic)
-					to_world(sound('sound/effects/explosionfar.ogg'))
+					sound_to(world, sound('sound/effects/explosionfar.ogg'))
 					cinematic.icon_state = "summary_nukewin"
 				if("AI malfunction") //Malf (screen,explosion,summary)
 					flick("intro_malf",cinematic)
 					sleep(76)
 					flick("station_explode_fade_red",cinematic)
-					to_world(sound('sound/effects/explosionfar.ogg'))
+					sound_to(world, sound('sound/effects/explosionfar.ogg'))
 					cinematic.icon_state = "summary_malf"
 				if("blob") //Station nuked (nuke,explosion,summary)
 					flick("intro_nuke",cinematic)
 					sleep(35)
 					flick("station_explode_fade_red",cinematic)
-					to_world(sound('sound/effects/explosionfar.ogg'))
+					sound_to(world, sound('sound/effects/explosionfar.ogg'))
 					cinematic.icon_state = "summary_selfdes"
 				else //Station nuked (nuke,explosion,summary)
 					flick("intro_nuke",cinematic)
 					sleep(35)
 					flick("station_explode_fade_red", cinematic)
-					to_world(sound('sound/effects/explosionfar.ogg'))
+					sound_to(world, sound('sound/effects/explosionfar.ogg'))
 					cinematic.icon_state = "summary_selfdes"
 
 	//If its actually the end of the round, wait for it to end.
@@ -595,7 +858,7 @@ var/datum/controller/subsystem/ticker/SSticker
 // Round setup stuff.
 
 /datum/controller/subsystem/ticker/proc/create_characters()
-	for(var/mob/abstract/new_player/player in player_list)
+	for(var/mob/abstract/new_player/player in GLOB.player_list)
 		if(player && player.ready && player.mind)
 			if(player.mind.assigned_role=="AI")
 				player.close_spawn_windows()
@@ -603,31 +866,27 @@ var/datum/controller/subsystem/ticker/SSticker
 			else if(!player.mind.assigned_role)
 				continue
 			else
-				player.create_character()
+				var/mob/living/carbon/human/character = player.create_character()
+				var/datum/component/morale/morale = character.GetComponent(MORALE_COMPONENT)
+				morale?.load_moodlet(/datum/moodlet/roundstart_ready, 10)
 				qdel(player)
 		CHECK_TICK
 
 /datum/controller/subsystem/ticker/proc/collect_minds()
-	for(var/mob/living/player in player_list)
+	for(var/mob/living/player in GLOB.player_list)
 		if(player.mind)
 			minds += player.mind
 
 /datum/controller/subsystem/ticker/proc/equip_characters()
-	var/captainless = TRUE
-	for(var/mob/living/carbon/human/player in player_list)
+	for(var/mob/living/carbon/human/player in GLOB.player_list)
 		if(player && player.mind && player.mind.assigned_role)
-			if(player.mind.assigned_role == "Captain")
-				captainless = FALSE
 			if(!player_is_antag(player.mind, only_offstation_roles = 1))
+				equip_custom_items(player, body_only = TRUE) // Equips body-related custom items, like augments and prosthetics.
+				SSjobs.EquipAugments(player, player.client.prefs)
 				SSjobs.EquipRank(player, player.mind.assigned_role, 0)
-				UpdateFactionList(player)
-				equip_custom_items(player)
+				equip_custom_items(player, body_only = FALSE) // Equips all other custom items.
 
 		CHECK_TICK
-	if(captainless)
-		for(var/mob/M in player_list)
-			if(!istype(M,/mob/abstract/new_player))
-				M << "Captainship not forced on anyone."
 
 // Registers a callback to run on round-start.
 /datum/controller/subsystem/ticker/proc/OnRoundstart(datum/callback/callback)
@@ -636,8 +895,48 @@ var/datum/controller/subsystem/ticker/SSticker
 
 	LAZYADD(roundstart_callbacks, callback)
 
+/datum/controller/subsystem/ticker/Topic(href, href_list)
+	if(href_list["current_sector_show_sites_id"])
+		var/datum/space_sector/current_sector = SSatlas.current_sector
+		var/list/sites = SSatlas.current_sector.possible_sites_in_sector()
+		var/list/site_names = list()
+		var/list/ship_names = list()
+		for(var/datum/map_template/ruin/site in sites)
+			if(site.ship_cost)
+				ship_names += "[site.name] ([site.spawn_weight])"
+			else
+				site_names += "[site.name] ([site.spawn_weight])"
+
+		var/datum/browser/sites_win = new(
+			usr,
+			"Sector: " + current_sector.name,
+			"Sector: " + current_sector.name,
+			500, 500,
+		)
+		var/html = "<h1>Ships and sites that spawn in this sector, with their spawn weights:</h1>"
+		html += "<h3>Ships:</h3>"
+		html += english_list(ship_names)
+		html += "<h3>Sites:</h3>"
+		html += english_list(site_names)
+		sites_win.set_content(html)
+		sites_win.open()
+		return TRUE
+	. = ..()
+
+/datum/controller/subsystem/ticker/proc/set_round_canon(canon_type, pre_game = FALSE, announce = FALSE)
+	round_canon = GET_SINGLETON(canon_type)
+	if(!istype(round_canon))
+		round_canon = GET_SINGLETON(/singleton/canonicity/limited)
+
+	if(pre_game)
+		round_canon.pre_game_setup()
+
+	if(announce)
+		var/announcement = SPAN_NOTICE("The round canonicity has been set to [SPAN_DANGER(round_canon.name)].<br> For more information, press the [round_canon.name] button in your Status panel.")
+		to_world(EXAMINE_BLOCK_ODYSSEY(FONT_LARGE(announcement)))
 
 #undef SETUP_OK
 #undef SETUP_REVOTE
 #undef SETUP_REATTEMPT
 #undef LOBBY_TIME
+#undef AUTOGAMEMODE_VOTE_BUFFER

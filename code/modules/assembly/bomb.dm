@@ -1,88 +1,95 @@
-/obj/item/device/onetankbomb
+/obj/item/onetankbomb
 	name = "bomb"
 	icon = 'icons/obj/tank.dmi'
 	item_state = "assembly"
 	throwforce = 5
-	w_class = 3.0
+	w_class = WEIGHT_CLASS_NORMAL
 	throw_speed = 2
 	throw_range = 4
-	flags = CONDUCT | PROXMOVE
-	var/status = 0   //0 - not readied //1 - bomb finished with welder
-	var/obj/item/device/assembly_holder/bombassembly = null   //The first part of the bomb is an assembly holder, holding an igniter+some device
-	var/obj/item/weapon/tank/bombtank = null //the second part of the bomb is a phoron tank
+	obj_flags = OBJ_FLAG_CONDUCTABLE
+	movable_flags = MOVABLE_FLAG_PROXMOVE
+	var/status = FALSE   // FALSE - not readied // TRUE - bomb finished with welder
+	var/obj/item/assembly_holder/bombassembly = null   //The first part of the bomb is an assembly holder, holding an igniter+some device
+	var/obj/item/tank/bombtank = null //the second part of the bomb is a phoron tank
 
-/obj/item/device/onetankbomb/examine(mob/user)
-	..(user)
-	user.examinate(bombtank)
+/obj/item/onetankbomb/examine(mob/user, distance, is_adjacent, infix, suffix, show_extended)
+	. = ..()
+	examinate(user, bombtank, show_extended)
 
-/obj/item/device/onetankbomb/update_icon()
+/obj/item/onetankbomb/update_icon()
 	if(bombtank)
 		icon_state = bombtank.icon_state
 	if(bombassembly)
-		add_overlay(bombassembly)
-		add_overlay("bomb_assembly")
+		AddOverlays(bombassembly)
+		AddOverlays("bomb_assembly")
 
-/obj/item/device/onetankbomb/attackby(obj/item/weapon/W as obj, mob/user as mob)
-	if(istype(W, /obj/item/device/analyzer))
-		bombtank.attackby(W, user)
+/obj/item/onetankbomb/attackby(obj/item/attacking_item, mob/user)
+	if(istype(attacking_item, /obj/item/analyzer))
+		bombtank.attackby(attacking_item, user)
 		return
-	if(W.iswrench() && !status)	//This is basically bomb assembly code inverted. apparently it works.
+	if(!status && (attacking_item.tool_behaviour == TOOL_WRENCH || istype(attacking_item, /obj/item/wirecutters/bomb)))	//This is basically bomb assembly code inverted. apparently it works.
+		to_chat(user, SPAN_NOTICE("You disassemble \the [src]."))
 
-		user << "<span class='notice'>You disassemble [src].</span>"
-
-		bombassembly.forceMove(user.loc)
+		bombassembly.forceMove(get_turf(user))
+		bombassembly.detached()
 		bombassembly.master = null
 		bombassembly = null
 
-		bombtank.forceMove(user.loc)
+		bombtank.forceMove(get_turf(user))
 		bombtank.master = null
 		bombtank = null
 
 		qdel(src)
 		return
-	if((W.iswelder() && W:welding))
+	if(attacking_item.tool_behaviour == TOOL_WELDER)
+		var/obj/item/weldingtool/WT = attacking_item
+		if(!WT.welding)
+			return
 		if(!status)
-			status = 1
-			bombers += "[key_name(user)] welded a single tank bomb. Temp: [bombtank.air_contents.temperature-T0C]"
+			status = TRUE
+			GLOB.bombers += "[key_name(user)] welded a single tank bomb. Temp: [bombtank.air_contents.temperature-T0C]"
 			message_admins("[key_name_admin(user)] welded a single tank bomb. Temp: [bombtank.air_contents.temperature-T0C]")
-			user << "<span class='notice'>A pressure hole has been bored to [bombtank] valve. \The [bombtank] can now be ignited.</span>"
+			to_chat(user, SPAN_NOTICE("A pressure hole has been bored to [bombtank] valve. \The [bombtank] can now be ignited."))
 		else
-			status = 0
-			bombers += "[key_name(user)] unwelded a single tank bomb. Temp: [bombtank.air_contents.temperature-T0C]"
-			user << "<span class='notice'>The hole has been closed.</span>"
+			status = FALSE
+			GLOB.bombers += "[key_name(user)] unwelded a single tank bomb. Temp: [bombtank.air_contents.temperature-T0C]"
+			to_chat(user, SPAN_NOTICE("The hole has been closed."))
 	add_fingerprint(user)
 	..()
 
-/obj/item/device/onetankbomb/attack_self(mob/user as mob) //pressing the bomb accesses its assembly
-	bombassembly.attack_self(user, 1)
+/obj/item/onetankbomb/attack_self(mob/user) //pressing the bomb accesses its assembly
+	bombassembly.attack_self(user, TRUE)
 	add_fingerprint(user)
 	return
 
-/obj/item/device/onetankbomb/receive_signal()	//This is mainly called by the sensor through sense() to the holder, and from the holder to here.
-	visible_message("\icon[src] *beep* *beep*", "*beep* *beep*")
-	sleep(10)
-	if(!src)
+/obj/item/onetankbomb/receive_signal()	//This is mainly called by the sensor through sense() to the holder, and from the holder to here.
+	visible_message("[icon2html(src, viewers(get_turf(src)))] *beep* *beep*", "*beep* *beep*")
+	addtimer(CALLBACK(src, PROC_REF(delayed_explosion)), 10 SECONDS)
+
+
+/obj/item/onetankbomb/proc/delayed_explosion()
+	if(QDELETED(src))
 		return
 	if(status)
 		bombtank.ignite()	//if its not a dud, boom (or not boom if you made shitty mix) the ignite proc is below, in this file
 	else
 		bombtank.release()
 
-/obj/item/device/onetankbomb/HasProximity(atom/movable/AM as mob|obj)
+/obj/item/onetankbomb/HasProximity(atom/movable/AM as mob|obj)
 	if(bombassembly)
 		bombassembly.HasProximity(AM)
 
 // ---------- Procs below are for tanks that are used exclusively in 1-tank bombs ----------
 
-/obj/item/weapon/tank/proc/bomb_assemble(W,user)	//Bomb assembly proc. This turns assembly+tank into a bomb
-	var/obj/item/device/assembly_holder/S = W
+/obj/item/tank/proc/bomb_assemble(W, user)	//Bomb assembly proc. This turns assembly+tank into a bomb
+	var/obj/item/assembly_holder/S = W
 	var/mob/M = user
 	if(!S.secured)										//Check if the assembly is secured
 		return
 	if(isigniter(S.a_left) == isigniter(S.a_right))		//Check if either part of the assembly has an igniter, but if both parts are igniters, then fuck it
 		return
 
-	var/obj/item/device/onetankbomb/R = new /obj/item/device/onetankbomb(loc)
+	var/obj/item/onetankbomb/R = new /obj/item/onetankbomb(loc)
 
 	//this is really bad code, TODO: Make it better
 	M.drop_item()			//Remove the assembly from your hands
@@ -99,8 +106,8 @@
 	R.update_icon()
 	return
 
-/obj/item/weapon/tank/proc/ignite()	//This happens when a bomb is told to explode
-	var/fuel_moles = air_contents.gas["phoron"] + air_contents.gas["oxygen"] / 6
+/obj/item/tank/proc/ignite()	//This happens when a bomb is told to explode
+	var/fuel_moles = air_contents.gas[GAS_PHORON] + air_contents.gas[GAS_OXYGEN] / 6
 	var/strength = 1
 
 	var/turf/ground_zero = get_turf(loc)
@@ -110,11 +117,11 @@
 		strength = (fuel_moles/15)
 
 		if(strength >=1)
-			explosion(ground_zero, round(strength,1), round(strength*2,1), round(strength*3,1), round(strength*4,1))
+			explosion(ground_zero, round(strength, 1), round(strength * 2, 1), round(strength * 3, 1), round(strength * 4, 1), spreading = TRUE)
 		else if(strength >=0.5)
-			explosion(ground_zero, 0, 1, 2, 4)
+			explosion(ground_zero, 0, 1, 2, 4, spreading = TRUE)
 		else if(strength >=0.2)
-			explosion(ground_zero, -1, 0, 1, 2)
+			explosion(ground_zero, -1, 0, 1, 2, spreading = TRUE)
 		else
 			ground_zero.assume_air(air_contents)
 			ground_zero.hotspot_expose(1000, 125)
@@ -123,9 +130,9 @@
 		strength = (fuel_moles/20)
 
 		if(strength >=1)
-			explosion(ground_zero, 0, round(strength,1), round(strength*2,1), round(strength*3,1))
+			explosion(ground_zero, 0, round(strength, 1), round(strength * 2, 1), round(strength * 3, 1), spreading = TRUE)
 		else if (strength >=0.5)
-			explosion(ground_zero, -1, 0, 1, 2)
+			explosion(ground_zero, -1, 0, 1, 2, spreading = TRUE)
 		else
 			ground_zero.assume_air(air_contents)
 			ground_zero.hotspot_expose(1000, 125)
@@ -134,7 +141,7 @@
 		strength = (fuel_moles/25)
 
 		if (strength >=1)
-			explosion(ground_zero, -1, 0, round(strength,1), round(strength*3,1))
+			explosion(ground_zero, -1, 0, round(strength, 1), round(strength * 3, 1), spreading = TRUE)
 		else
 			ground_zero.assume_air(air_contents)
 			ground_zero.hotspot_expose(1000, 125)
@@ -147,7 +154,7 @@
 		qdel(master)
 	qdel(src)
 
-/obj/item/weapon/tank/proc/release()	//This happens when the bomb is not welded. Tank contents are just spat out.
+/obj/item/tank/proc/release()	//This happens when the bomb is not welded. Tank contents are just spat out.
 	var/datum/gas_mixture/removed = air_contents.remove(air_contents.total_moles)
 	var/turf/simulated/T = get_turf(src)
 	if(!T)

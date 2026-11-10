@@ -1,27 +1,4 @@
-/*
-/datum/bounty/item/alien_organs
-	name = "Alien Organs"
-	description = "Nanotrasen is interested in studying Xenomorph biology. Ship a set of organs to be thoroughly compensated."
-	reward = 25000
-	required_count = 3
-	wanted_types = list(/obj/item/organ/brain/alien, /obj/item/organ/alien, /obj/item/organ/body_egg/alien_embryo)
-
-/datum/bounty/item/syndicate_documents
-	name = "Syndicate Documents"
-	description = "Intel regarding the syndicate is highly prized at CentCom. If you find syndicate documents, ship them. You could save lives."
-	reward = 10000
-	wanted_types = list(/obj/item/documents/syndicate, /obj/item/documents/photocopy)
-
-/datum/bounty/item/syndicate_documents/applies_to(obj/O)
-	if(!..())
-		return FALSE
-	if(istype(O, /obj/item/documents/photocopy))
-		var/obj/item/documents/photocopy/Copy = O
-		return (Copy.copy_type && ispath(Copy.copy_type, /obj/item/documents/syndicate))
-	return TRUE
-*/
-/datum/bounty/more_bounties/
-	..()
+/datum/bounty/more_bounties
 	name = "More Bounties"
 	description = "Complete enough bounties and %BOSSSHORT will issue new ones!"
 	reward = 3 // number of bounties
@@ -41,3 +18,26 @@
 		claimed = TRUE
 		for(var/i = 0; i < reward; ++i)
 			SScargo.try_add_bounty(SScargo.random_bounty())
+
+//Part of the Horizon's operations is to secure phoron, so high priority.
+
+/datum/bounty/item/phoron_sheet
+	name = "Phoron Sheets"
+	description = "Shipment of Phoron is considered to be a key part of the SCCV Horizon's operations. This bounty should always be prioritized."
+	reward_low = 2000
+	reward_high = 4000
+	required_count = 40
+	random_count = 10
+	wanted_types = list(/obj/item/stack/material/phoron)
+	high_priority = TRUE
+
+/datum/bounty/item/phoron_sheet/New()
+	..()
+	required_count = round(required_count, 10)
+	//Overwrite the normal price randomization because the random_count is so high. There would be absolutely nuts price fluctuation.
+	reward = round(rand(reward_low, reward_high), 100)
+
+/datum/bounty/item/phoron_sheet/ship(var/obj/item/stack/material/phoron/O)
+	if(!applies_to(O))
+		return
+	shipped_count += O.amount

@@ -1,100 +1,207 @@
-var/datum/announcement/minor/captain_announcement = new(do_newscast = 1)
+GLOBAL_DATUM_INIT(captain_announcement, /datum/announcement/minor, new(do_newscast = TRUE))
 
 /datum/job/captain
 	title = "Captain"
 	flag = CAPTAIN
-	department = "Command"
-	head_position = 1
+	departments = list(DEPARTMENT_COMMAND = JOBROLE_SUPERVISOR)
 	department_flag = ENGSEC
 	faction = "Station"
 	total_positions = 1
 	spawn_positions = 1
+	intro_prefix = "the"
 	supervisors = "company officials and Corporate Regulations"
-	selection_color = "#ccccff"
-	idtype = /obj/item/weapon/card/id/gold
-	req_admin_notify = 1
-	access = list() 			//See get_access()
-	minimal_access = list() 	//See get_access()
+	selection_color = "#114dc1"
+	job_access = list() 	//See get_access()
 	minimal_player_age = 14
 	economic_modifier = 20
 
-	ideal_character_age = 70 // Old geezer captains ftw
+	minimum_character_age = list(
+		SPECIES_HUMAN = 35,
+		SPECIES_SKRELL = 100,
+		SPECIES_SKRELL_AXIORI = 100
+	)
 
-	bag_type = /obj/item/weapon/storage/backpack/captain
-	satchel_type = /obj/item/weapon/storage/backpack/satchel_cap
-	alt_satchel_type = /obj/item/weapon/storage/backpack/satchel
-	duffel_type = /obj/item/weapon/storage/backpack/duffel/cap
-	messenger_bag_type = /obj/item/weapon/storage/backpack/messenger/com
+	outfit = /obj/outfit/job/captain
 
-	equip(var/mob/living/carbon/human/H)
-		if(!H)
-			return FALSE
-		H.equip_to_slot_or_del(new /obj/item/device/radio/headset/heads/captain(H), slot_l_ear)
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/captain(H), slot_w_uniform)
-		if(H.age>49)
-			// Since we can have something other than the default uniform at this
-			// point, check if we can actually attach the medal
-			var/obj/item/clothing/uniform = H.w_uniform
-			var/obj/item/clothing/accessory/medal/gold/captain/medal = new()
-			if(uniform && uniform.can_attach_accessory(medal))
-				uniform.attach_accessory(null, medal)
-			else
-				qdel(medal)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/captain(H), slot_belt)
-		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/brown(H), slot_shoes)
-		H.equip_to_slot_or_del(new /obj/item/clothing/head/caphat(H), slot_head)
-		H.equip_to_slot_or_del(new /obj/item/clothing/glasses/sunglasses(H), slot_glasses)
-		if(H.backbag == 1)
-			H.equip_to_slot_or_del(new /obj/item/weapon/storage/box/ids(H), slot_l_hand)
-		else
-			H.equip_to_slot_or_del(new /obj/item/weapon/storage/box/ids(H.back), slot_in_backpack)
+	blacklisted_species = list(SPECIES_TAJARA, SPECIES_TAJARA_MSAI, SPECIES_TAJARA_ZHAN, SPECIES_UNATHI, SPECIES_UNATHI_URAWANI, SPECIES_UNATHI_ZIRALIXI, SPECIES_DIONA, SPECIES_IPC, SPECIES_IPC_G1, SPECIES_IPC_G2, SPECIES_IPC_XION, SPECIES_IPC_ZENGHU, SPECIES_IPC_BISHOP, SPECIES_IPC_SHELL, SPECIES_VAURCA_WORKER, SPECIES_VAURCA_WARRIOR, SPECIES_VAURCA_ATTENDANT, SPECIES_VAURCA_BULWARK, SPECIES_VAURCA_BREEDER, SPECIES_DIONA, SPECIES_DIONA_COEUS)
 
+	skill_requirements = alist(
+		/singleton/skill/pilot_spacecraft = SKILL_LEVEL_TRAINED
+	)
 
-		H.implant_loyalty(H)
+/obj/outfit/job/captain
+	name = "Captain"
+	jobtype = /datum/job/captain
 
-		return TRUE
+	uniform = /obj/item/clothing/under/scc_captain
+	shoes = /obj/item/clothing/shoes/laceup/brown
+	head = /obj/item/clothing/head/caphat
+	glasses = /obj/item/clothing/glasses/sunglasses
+	id = /obj/item/card/id/scc/gold/captain
 
-	get_access()
-		return get_all_station_access()
+	headset = /obj/item/radio/headset/heads/captain
+	bowman = /obj/item/radio/headset/heads/captain/alt
+	double_headset = /obj/item/radio/headset/alt/double/captain
+	wrist_radio = /obj/item/radio/headset/wrist/captain
+	clipon_radio = /obj/item/radio/headset/wrist/clip/captain
 
-/datum/job/hop
-	title = "Head of Personnel"
-	flag = HOP
-	department = "Civilian"
-	head_position = 1
-	department_flag = CIVILIAN
+	tab_pda = /obj/item/modular_computer/handheld/pda/command/captain
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/command/captain
+	tablet = /obj/item/modular_computer/handheld/preset/command/captain
+
+	backpack_contents = list(
+		/obj/item/storage/box/ids = 1
+	)
+
+	implants = list(
+		/obj/item/implant/mindshield
+	)
+
+	backpack = /obj/item/storage/backpack/captain
+	satchel = /obj/item/storage/backpack/satchel/cap
+	dufflebag = /obj/item/storage/backpack/duffel/cap
+	messengerbag = /obj/item/storage/backpack/messenger/com
+
+/obj/outfit/job/captain/post_equip(mob/living/carbon/human/H, visualsOnly = FALSE)
+	. = ..()
+	if(H && H.w_uniform)
+		var/obj/item/clothing/under/U = H.w_uniform
+		var/obj/item/clothing/accessory/medal/gold/captain/medal = new()
+		U.attach_accessory(null, medal)
+
+	if(SSticker.mode)
+		if(MODE_REVOLUTIONARY in SSticker.mode.antag_tags)
+			to_chat(H, FONT_HUGE(SPAN_DANGER("You are a Captain in a Revolution round!")))
+			to_chat(H, FONT_LARGE(SPAN_BOLD("Remember that you are supposed to comply with all orders from SCC Command. Although you may not spawn as a Loyalist, you are the person on the ship that is most beholden to Central Command orders.")))
+			to_chat(H, FONT_LARGE(SPAN_BOLD("This is both due to your status in the hierarchy of the SCC, and also to allow the gamemode as a whole to work. Only very extreme factors may justify you not joining the Loyalists. [SPAN_DANGER("If this is the case, confirm it with admins via adminhelp first!")]")))
+
+	return TRUE
+
+/datum/job/captain/get_access()
+	return get_all_station_access()
+
+/datum/job/captain/announce(mob/living/carbon/human/H)
+	. = ..()
+	GLOB.captain_announcement.Announce("All hands, Captain [H.real_name] on deck!")
+	callHook("captain_spawned", list(H))
+
+/datum/job/xo
+	title = "Executive Officer"
+	flag = XO
+	departments = list(DEPARTMENT_SERVICE = JOBROLE_SUPERVISOR, DEPARTMENT_COMMAND)
+	department_flag = SERVICE
 	faction = "Station"
 	total_positions = 1
 	spawn_positions = 1
+	intro_prefix = "the"
 	supervisors = "the captain"
-	selection_color = "#ddddff"
-	idtype = /obj/item/weapon/card/id/silver
-	req_admin_notify = 1
+	selection_color = "#1e59c9"
 	minimal_player_age = 10
 	economic_modifier = 10
-	ideal_character_age = 50
 
-	access = list(access_sec_doors, access_medical, access_engine, access_change_ids, access_eva, access_heads,
-			            access_all_personal_lockers, access_maint_tunnels, access_bar, access_janitor, access_construction,
-			            access_crematorium, access_kitchen, access_cargo, access_cargo_bot, access_mailsorting, access_qm, access_hydroponics,
-			            access_chapel_office, access_library, access_research, access_mining, access_mining_station, access_janitor,
-			            access_hop, access_RC_announce, access_keycard_auth, access_gateway, access_weapons, access_journalist)
-	minimal_access = list(access_sec_doors, access_medical, access_engine, access_change_ids, access_eva, access_heads,
-			            access_all_personal_lockers, access_maint_tunnels, access_bar, access_janitor, access_construction,
-			            access_crematorium, access_kitchen, access_cargo, access_cargo_bot, access_mailsorting, access_qm, access_hydroponics,
-			            access_chapel_office, access_library, access_research, access_mining, access_mining_station, access_janitor,
-			            access_hop, access_RC_announce, access_keycard_auth, access_gateway, access_weapons, access_journalist)
+	minimum_character_age = list(
+		SPECIES_HUMAN = 30,
+		SPECIES_SKRELL = 80,
+		SPECIES_SKRELL_AXIORI = 80
+	)
 
+	outfit = /obj/outfit/job/xo
 
-	equip(var/mob/living/carbon/human/H)
-		if(!H)
-			return FALSE
-		H.equip_to_slot_or_del(new /obj/item/device/radio/headset/heads/hop(H), slot_l_ear)
-		H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/head_of_personnel(H), slot_w_uniform)
-		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/brown(H), slot_shoes)
-		H.equip_to_slot_or_del(new /obj/item/device/pda/heads/hop(H), slot_belt)
-		if(H.backbag == 1)
-			H.equip_to_slot_or_del(new /obj/item/weapon/storage/box/ids(H), slot_l_hand)
-		else
-			H.equip_to_slot_or_del(new /obj/item/weapon/storage/box/ids(H.back), slot_in_backpack)
-		return TRUE
+	job_access = list(
+		/datum/access/sec_doors::id, /datum/access/medical::id, /datum/access/ship_weapons::id, /datum/access/engine::id, /datum/access/change_ids::id, /datum/access/eva::id, /datum/access/heads::id, /datum/access/all_personal_lockers::id,
+		/datum/access/maint_tunnels::id, /datum/access/bar::id, /datum/access/janitor::id, /datum/access/construction::id, /datum/access/crematorium::id, /datum/access/galley::id, /datum/access/hydroponics::id, /datum/access/chapel_office::id,
+		/datum/access/library::id, /datum/access/research::id, /datum/access/mining::id, /datum/access/mailsorting::id, /datum/access/janitor::id, /datum/access/hop::id, /datum/access/RC_announce::id, /datum/access/keycard_auth::id, /datum/access/gateway::id,
+		/datum/access/weapons::id, /datum/access/journalist::id, /datum/access/bridge_crew::id, /datum/access/intrepid::id, /datum/access/spark::id, /datum/access/quark::id, /datum/access/canary::id, /datum/access/teleporter::id
+	)
+
+	blacklisted_species = list(SPECIES_TAJARA_ZHAN, SPECIES_VAURCA_WORKER, SPECIES_VAURCA_WARRIOR, SPECIES_VAURCA_ATTENDANT, SPECIES_VAURCA_BULWARK, SPECIES_VAURCA_BREEDER)
+
+	skill_requirements = alist(
+		/singleton/skill/pilot_spacecraft = SKILL_LEVEL_PROFESSIONAL
+	)
+
+/obj/outfit/job/xo
+	name = "Executive Officer"
+	jobtype = /datum/job/xo
+
+	head = /obj/item/clothing/head/caphat/xo
+	uniform = /obj/item/clothing/under/rank/xo
+	shoes = /obj/item/clothing/shoes/laceup/brown
+	id = /obj/item/card/id/scc/silver
+
+	headset = /obj/item/radio/headset/heads/xo
+	bowman = /obj/item/radio/headset/heads/xo/alt
+	double_headset = /obj/item/radio/headset/alt/double/xo
+	wrist_radio = /obj/item/radio/headset/wrist/xo
+	clipon_radio = /obj/item/radio/headset/wrist/clip/xo
+
+	tab_pda = /obj/item/modular_computer/handheld/pda/command/xo
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/command/xo
+	tablet = /obj/item/modular_computer/handheld/preset/command/xo
+
+	backpack_contents = list(
+		/obj/item/storage/box/ids = 1
+	)
+
+	messengerbag = /obj/item/storage/backpack/messenger/com
+
+/datum/job/bridge_crew
+	title = "Bridge Crew"
+	flag = BRIDGE_CREW
+	departments = SIMPLEDEPT(DEPARTMENT_COMMAND_SUPPORT)
+	department_flag = ENGSEC
+	faction = "Station"
+	total_positions = 3
+	spawn_positions = 3
+	intro_prefix = "the"
+	supervisors = "the executive officer and the captain"
+	selection_color = "#2b5bb5"
+	minimal_player_age = 20
+	economic_modifier = 5
+
+	minimum_character_age = list(
+		SPECIES_HUMAN = 25,
+		SPECIES_SKRELL = 55,
+		SPECIES_SKRELL_AXIORI = 55
+	)
+
+	outfit = /obj/outfit/job/bridge_crew
+
+	job_access = list(
+		/datum/access/heads::id, /datum/access/eva::id, /datum/access/gateway::id, /datum/access/weapons::id, /datum/access/bridge_crew::id, /datum/access/intrepid::id, /datum/access/intrepid::id, /datum/access/spark::id, /datum/access/quark::id, /datum/access/canary::id,
+		/datum/access/teleporter::id, /datum/access/external_airlocks::id
+	)
+
+	blacklisted_species = list(SPECIES_TAJARA_ZHAN, SPECIES_VAURCA_WORKER, SPECIES_VAURCA_WARRIOR, SPECIES_VAURCA_ATTENDANT, SPECIES_VAURCA_BULWARK, SPECIES_VAURCA_BREEDER)
+
+	skill_requirements = alist(
+		/singleton/skill/pilot_spacecraft = SKILL_LEVEL_PROFESSIONAL
+	)
+
+/obj/outfit/job/bridge_crew
+	name = "Bridge Crew"
+	jobtype = /datum/job/bridge_crew
+
+	head = /obj/item/clothing/head/caphat/bridge_crew
+	uniform = /obj/item/clothing/under/rank/bridge_crew
+	shoes = /obj/item/clothing/shoes/laceup
+	id = /obj/item/card/id/scc/bridge
+
+	headset = /obj/item/radio/headset/headset_com
+	bowman = /obj/item/radio/headset/headset_com/alt
+	double_headset = /obj/item/radio/headset/alt/double/command
+	wrist_radio = /obj/item/radio/headset/wrist/command
+	clipon_radio = /obj/item/radio/headset/wrist/clip/command
+	messengerbag = /obj/item/storage/backpack/messenger/com
+
+	tab_pda = /obj/item/modular_computer/handheld/pda/bridge
+	wristbound = /obj/item/modular_computer/handheld/wristbound/preset/pda/bridge
+	tablet = /obj/item/modular_computer/handheld/preset/bridge
+
+	species_shoes = list(
+		SPECIES_UNATHI = /obj/item/clothing/shoes/winter/toeless,
+		SPECIES_UNATHI_URAWANI = /obj/item/clothing/shoes/winter/toeless,
+		SPECIES_UNATHI_ZIRALIXI = /obj/item/clothing/shoes/winter/toeless,
+		SPECIES_TAJARA = /obj/item/clothing/shoes/laceup/tajara,
+		SPECIES_TAJARA_MSAI = /obj/item/clothing/shoes/laceup/tajara
+	)

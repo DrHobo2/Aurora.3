@@ -10,7 +10,7 @@
 		var/mob/living/carbon/human/H = M
 		if(H.species && H.species.flags & NO_SCAN)
 			return
-			
+
 	for(var/datum/dna/gene/gene in dna_genes)
 		if(!M || !M.dna)
 			return
@@ -39,11 +39,11 @@
 				gene.activate(M,connected,flags)
 				if(M)
 					M.active_genes |= gene.type
-					M.update_icon = 1
+					M.regenerate_icons()
 			// If Gene is NOT active:
 			else
 				testing("[gene.name] deactivated!")
 				gene.deactivate(M,connected,flags)
 				if(M)
 					M.active_genes -= gene.type
-					M.update_icon = 1
+					M.regenerate_icons()

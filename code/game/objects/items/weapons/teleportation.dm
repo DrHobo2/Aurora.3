@@ -1,55 +1,84 @@
 /* Teleportation devices.
  * Contains:
- *		Locator
- *		Hand-tele
+ * * Locator
+ * * Hand-tele
+ * * Closet Teleporter
+ * * Inhibitor handling proc for above
  */
+
+/*
+ * Special inhibitor handling. Different from the one used by teleport datums.
+ */
+/proc/check_inhibitors(var/turf/T)
+	if(!istype(T))
+		return TRUE
+	var/list/invalid_inhibitors
+	for(var/found_inhibitor in GLOB.bluespace_inhibitors)
+		if(!istype(found_inhibitor, /obj/structure/machinery/anti_bluespace))
+			LAZYADD(invalid_inhibitors, found_inhibitor)
+			continue
+		var/obj/structure/machinery/anti_bluespace/AB = found_inhibitor
+		if(QDELETED(AB))
+			LAZYADD(invalid_inhibitors, found_inhibitor)
+			continue
+		if(T.z != AB.z || get_dist(T, AB) > 8 || (AB.stat & (NOPOWER | BROKEN)))
+			continue
+		else
+			if(invalid_inhibitors)
+				GLOB.bluespace_inhibitors -= invalid_inhibitors
+			return FALSE
+	if(invalid_inhibitors)
+		GLOB.bluespace_inhibitors -= invalid_inhibitors
+	return TRUE
 
 /*
  * Locator
  */
-/obj/item/weapon/locator
+
+
+/obj/item/locator
 	name = "locator"
-	desc = "Used to track those with locater implants."
-	icon = 'icons/obj/device.dmi'
-	icon_state = "locator"
+	desc = "A device that can be used to track those with locator implants."
+	icon = 'icons/obj/item/pinpointer.dmi'
+	icon_state = "pinoff"
 	var/temp = null
 	var/frequency = 1451
 	var/broadcasting = null
-	var/listening = 1.0
-	flags = CONDUCT
-	w_class = 2.0
+	var/listening = TRUE
+	obj_flags = OBJ_FLAG_CONDUCTABLE
+	w_class = WEIGHT_CLASS_SMALL
 	item_state = "electronic"
 	throw_speed = 4
 	throw_range = 20
 	origin_tech = list(TECH_MAGNET = 1)
-	matter = list(DEFAULT_WALL_MATERIAL = 400)
+	matter = list(MATERIAL_STEEL = 400)
 
-/obj/item/weapon/locator/attack_self(mob/user as mob)
+/obj/item/locator/attack_self(mob/user as mob)
 	user.set_machine(src)
 	var/dat
 	if (src.temp)
-		dat = "[src.temp]<BR><BR><A href='byond://?src=\ref[src];temp=1'>Clear</A>"
+		dat = "[src.temp]<BR><BR><A href='byond://?src=[REF(src)];temp=1'>Clear</A>"
 	else
 		dat = {"
 <B>Persistent Signal Locator</B><HR>
 Frequency:
-<A href='byond://?src=\ref[src];freq=-10'>-</A>
-<A href='byond://?src=\ref[src];freq=-2'>-</A> [format_frequency(src.frequency)]
-<A href='byond://?src=\ref[src];freq=2'>+</A>
-<A href='byond://?src=\ref[src];freq=10'>+</A><BR>
+<A href='byond://?src=[REF(src)];freq=-10'>-</A>
+<A href='byond://?src=[REF(src)];freq=-2'>-</A> [format_frequency(src.frequency)]
+<A href='byond://?src=[REF(src)];freq=2'>+</A>
+<A href='byond://?src=[REF(src)];freq=10'>+</A><BR>
 
-<A href='?src=\ref[src];refresh=1'>Refresh</A>"}
-	user << browse(dat, "window=radio")
+<A href='byond://?src=[REF(src)];refresh=1'>Refresh</A>"}
+	user << browse(HTML_SKELETON(dat), "window=radio")
 	onclose(user, "radio")
 	return
 
-/obj/item/weapon/locator/Topic(href, href_list)
+/obj/item/locator/Topic(href, href_list)
 	..()
 	if (usr.stat || usr.restrained())
 		return
 	var/turf/current_location = get_turf(usr)//What turf is the user on?
 	if(!current_location||current_location.z==1)//If turf was not found or they're on z level 1.
-		usr << "The [src] is malfunctioning."
+		to_chat(usr, "The [src] is malfunctioning.")
 		return
 	if ((usr.contents.Find(src) || (in_range(src, usr) && istype(src.loc, /turf))))
 		usr.set_machine(src)
@@ -60,8 +89,8 @@ Frequency:
 			if (sr)
 				src.temp += "<B>Located Beacons:</B><BR>"
 
-				for(var/obj/item/device/radio/beacon/W in teleportbeacons)
-					if (W.frequency == src.frequency)
+				for(var/obj/item/radio/beacon/W in GLOB.teleportbeacons)
+					if (W.get_frequency() == src.frequency)
 						var/turf/tr = get_turf(W)
 						if (tr.z == sr.z && tr)
 							var/direct = max(abs(tr.x - sr.x), abs(tr.y - sr.y))
@@ -77,14 +106,14 @@ Frequency:
 										direct = "very weak"
 							src.temp += "[W.code]-[dir2text(get_dir(sr, tr))]-[direct]<BR>"
 
-				src.temp += "<B>Extranneous Signals:</B><BR>"
-				for (var/obj/item/weapon/implant/tracking/W in implants)
+				src.temp += "<B>Extraneous Signals:</B><BR>"
+				for (var/obj/item/implant/tracking/W in GLOB.implants)
 					if (!W.implanted || !(istype(W.loc,/obj/item/organ/external) || ismob(W.loc)))
 						continue
 					else
 						var/mob/M = W.loc
-						if (M.stat == 2)
-							if (M.timeofdeath + 6000 < world.time)
+						if (M.stat == DEAD)
+							if (M.timeofdeath + W.lifespan_postmortem < world.time)
 								continue
 
 					var/turf/tr = get_turf(W)
@@ -100,9 +129,9 @@ Frequency:
 									direct = "weak"
 							src.temp += "[W.id]-[dir2text(get_dir(sr, tr))]-[direct]<BR>"
 
-				src.temp += "<B>You are at \[[sr.x],[sr.y],[sr.z]\]</B> in orbital coordinates.<BR><BR><A href='byond://?src=\ref[src];refresh=1'>Refresh</A><BR>"
+				src.temp += "<B>You are at \[[sr.x],[sr.y],[sr.z]\]</B> in orbital coordinates.<BR><BR><A href='byond://?src=[REF(src)];refresh=1'>Refresh</A><BR>"
 			else
-				src.temp += "<B><FONT color='red'>Processing Error:</FONT></B> Unable to locate orbital position.<BR>"
+				src.temp += "<B><span class='warning'>Processing Error:</span></B> Unable to locate orbital position.<BR>"
 		else
 			if (href_list["freq"])
 				src.frequency += text2num(href_list["freq"])
@@ -122,71 +151,193 @@ Frequency:
 /*
  * Hand-tele
  */
-/obj/item/weapon/hand_tele
+/obj/item/hand_tele
 	name = "hand tele"
-	desc = "A portable item using blue-space technology."
-	icon = 'icons/obj/device.dmi'
+	desc = "A hand-held bluespace teleporter that can rip open portals to a random nearby location, or lock onto a teleporter with a selected teleportation beacon."
+	icon = 'icons/obj/item/hand_tele.dmi'
 	icon_state = "hand_tele"
 	item_state = "electronic"
 	throwforce = 5
-	w_class = 2.0
+	item_flags = ITEM_FLAG_HELD_MAP_TEXT
+	w_class = WEIGHT_CLASS_SMALL
 	throw_speed = 3
 	throw_range = 5
 	origin_tech = list(TECH_MAGNET = 1, TECH_BLUESPACE = 3)
-	matter = list(DEFAULT_WALL_MATERIAL = 10000)
+	matter = list(MATERIAL_STEEL = 10000)
 
-/obj/item/weapon/hand_tele/attack_self(mob/user as mob)
+	var/obj/structure/machinery/teleport/pad/linked_pad
+	var/list/active_teleporters
+
+	var/max_portals = 2
+
+/obj/item/hand_tele/mechanics_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	. += "Ctrl-click to choose which teleportation pad to link to."
+	. += "Use in-hand or alt-click to deploy a portal. "
+	. += "When not linked to a pad, or the pad isn't pointing at a beacon, it will choose a completely random teleportation destination."
+
+/obj/item/hand_tele/feedback_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	if(linked_pad)
+		var/area/A = get_area(linked_pad)
+		var/display_name = get_area_display_name(A)
+		. += SPAN_NOTICE("\The [src] is linked to a teleportation pad in [display_name]")
+	else
+		. += SPAN_WARNING("\The [src] isn't linked to any teleportation pads!")
+
+/obj/item/hand_tele/set_initial_maptext()
+	held_maptext = SMALL_FONTS(7, "Ready")
+
+/obj/item/hand_tele/attack_self(mob/user)
 	var/turf/current_location = get_turf(user)//What turf is the user on?
-	if(!current_location||current_location.z==2||current_location.z>=7)//If turf was not found or they're on z level 2 or >7 which does not currently exist.
-		user << "<span class='notice'>\The [src] is malfunctioning.</span>"
+	if(!current_location || isAdminLevel(current_location.z))
+		to_chat(user, SPAN_WARNING("\The [src] can't get a bearing on anything right now."))
 		return
-	var/list/L = list(  )
-	for(var/obj/machinery/teleport/hub/R in SSmachinery.all_machines)
-		var/obj/machinery/computer/teleporter/com = locate(/obj/machinery/computer/teleporter, locate(R.x - 2, R.y, R.z))
-		if (istype(com, /obj/machinery/computer/teleporter) && com.locked && !com.one_time_use)
-			if(R.icon_state == "tele1")
-				L["[com.id] (Active)"] = com.locked
-			else
-				L["[com.id] (Inactive)"] = com.locked
-	var/list/turfs = list(	)
 
-	for(var/turf/T in orange(10))
-		if(T.x>world.maxx-8 || T.x<8)
-			continue	//putting them at the edge is dumb
-
-		if(T.y>world.maxy-8 || T.y<8)
-			continue
-
-		if(T.density)
-			continue
-
-		var/breakcheck = 0
-		for(var/atom/movable/A in T)
-			if(A.density && A.opacity && A.anchored)
-				breakcheck = 1
-				break
-
-		if(breakcheck)
-			continue
-
-		turfs += T
-
-	if(turfs.len)
-		L["None (Dangerous)"] = pick(turfs)
-	var/t1 = input(user, "Please select a teleporter to lock in on.", "Hand Teleporter") in L
-	if ((user.get_active_hand() != src || user.stat || user.restrained()))
+	//Cannot make one if too close to an inhibitor
+	if(!check_inhibitors(current_location))
+		to_chat(user, SPAN_DANGER("\The [src] can't seem to find a lock. Something in the area must be preventing the portal from opening..."))
 		return
-	var/count = 0	//num of portals from this teleport in world
-	for(var/obj/effect/portal/PO in world)
-		if(PO.creator == src)	count++
-	if(count >= 3)
-		user.show_message("<span class='notice'>\The [src] is recharging!</span>")
+
+	if(LAZYLEN(active_teleporters) >= max_portals)
+		user.show_message(SPAN_WARNING("\The [src] is recharging!"))
 		return
-	var/T = L[t1]
-	for(var/mob/O in hearers(user, null))
-		O.show_message("<span class='notice'>Locked In.</span>", 2)
-	var/obj/effect/portal/P = new /obj/effect/portal( get_turf(src) )
-	P.target = T
-	P.creator = src
-	src.add_fingerprint(user)
-	return
+
+	var/turf/teleport_turf
+	if(linked_pad)
+		if(linked_pad.stat & (NOPOWER|BROKEN))
+			to_chat(user, SPAN_WARNING("The pad \the [src] is connected doesn't seem to be responding!"))
+			return
+		if(!AreConnectedZLevels(current_location.z, linked_pad.z))
+			to_chat(user, SPAN_WARNING("The pad \the [src] is connected to isn't close enough to lock onto now!"))
+			return
+		if(linked_pad.locked_obj)
+			teleport_turf = get_turf(linked_pad.locked_obj.resolve())
+	else
+		var/list/potential_turfs = list()
+		for(var/turf/T in orange(10))
+			if(T.x > world.maxx-8 || T.x < 8)
+				continue	//putting them at the edge is dumb
+			if(T.y > world.maxy-8 || T.y < 8)
+				continue
+			if(T.density || turf_contains_dense_objects(T))
+				continue
+			if(!check_inhibitors(T))
+				continue
+			potential_turfs += T
+		teleport_turf = pick(potential_turfs)
+
+	if(!teleport_turf)
+		to_chat(user, SPAN_WARNING("\The [src] was unable to get a lock onto anything!"))
+		return
+	if(isAdminLevel(teleport_turf.z))
+		to_chat(user, SPAN_WARNING("The signal to the beacon seems to be scrambled!"))
+		return
+
+	var/obj/effect/portal/P = new /obj/effect/portal(get_turf(src), teleport_turf, src)
+	LAZYADD(active_teleporters, P)
+	if(LAZYLEN(active_teleporters) >= max_portals)
+		check_maptext(SMALL_FONTS(6, "Charge"))
+	add_fingerprint(user)
+
+/obj/item/hand_tele/AltClick(mob/user)
+	if(user == loc)
+		attack_self(user)
+		return
+	return ..()
+
+/obj/item/hand_tele/CtrlClick(mob/user)
+	if(user == loc)
+		var/turf/current_location = get_turf(src)
+		var/list/teleport_options = list()
+		for(var/obj/structure/machinery/teleport/pad/P in SSmachinery.machinery)
+			if(AreConnectedZLevels(current_location.z, P.z))
+				var/area/A = get_area(P)
+				var/display_name = get_area_display_name(A)
+				if(P.engaged)
+					teleport_options["[display_name] (Active)"] = P
+				else
+					teleport_options["[display_name] (Inactive)"] = P
+		teleport_options["None (Dangerous)"] = null
+		var/teleport_choice = tgui_input_list(user, "Please select a teleporter to lock in on.", "Hand Teleporter", teleport_options)
+		if(!teleport_choice)
+			return
+		var/old_pad = linked_pad
+		linked_pad = teleport_options[teleport_choice]
+		if(linked_pad)
+			RegisterSignal(linked_pad, COMSIG_QDELETING, PROC_REF(pad_destroyed))
+		if(old_pad && linked_pad != old_pad)
+			UnregisterSignal(old_pad, COMSIG_QDELETING)
+		return
+	return ..()
+
+/obj/item/hand_tele/proc/pad_destroyed()
+	linked_pad = null
+	audible_message("\The [src] beeps, \"Connected pad destroyed, resetting to no-pad.\"", null, 3)
+
+/obj/item/hand_tele/proc/remove_portal(var/obj/effect/portal/P)
+	LAZYREMOVE(active_teleporters, P)
+	if(LAZYLEN(active_teleporters) < max_portals)
+		check_maptext(SMALL_FONTS(7, "Ready"))
+		icon_state = "hand_tele"
+	else
+		icon_state = "hand_tele_recharging"
+
+/obj/item/closet_teleporter
+	name = "closet teleporter"
+	desc = "A device that allows a user to connect two closets into a bluespace network."
+	icon = 'icons/obj/modular_computers/modular_components.dmi'
+	icon_state = "cpu_normal_photonic"
+	obj_flags = OBJ_FLAG_CONDUCTABLE
+	w_class = WEIGHT_CLASS_SMALL
+	origin_tech = list(TECH_MAGNET = 2, TECH_BLUESPACE = 3)
+	matter = list(MATERIAL_STEEL = 400)
+	var/obj/structure/closet/attached_closet
+	var/obj/item/closet_teleporter/linked_teleporter
+	var/last_use = 0
+
+/obj/item/closet_teleporter/antagonist_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	. += "Left-click a closet with this to install."
+	. += "Once two closets have been 'upgraded', step into one closet and close the door to teleport to the linked closet."
+	. += "It has a one minute cooldown after a batch teleport."
+
+/obj/item/closet_teleporter/proc/do_teleport(var/mob/user)
+	if(!attached_closet)
+		to_chat(user, SPAN_WARNING("\The [src] doesn't have an attached closet!"))
+		return FALSE
+	if(!linked_teleporter)
+		to_chat(user, SPAN_WARNING("\The [src] doesn't have a linked teleporter!"))
+		return FALSE
+	if(!linked_teleporter.attached_closet)
+		to_chat(user, SPAN_WARNING("The linked teleporter doesn't have an attached closet!"))
+		return FALSE
+	if(last_use + 600 > world.time)
+		return FALSE
+	if(!check_inhibitors(get_turf(attached_closet)) || !check_inhibitors(get_turf(linked_teleporter.attached_closet)))
+		to_chat(user, SPAN_WARNING("Something near you or your destination is destabilizing the bluespace network between the closets. \The [src] can't get a clear link to the other side!"))
+		return FALSE
+
+	var/obj/structure/closet/target_closet = linked_teleporter.attached_closet
+	user.forceMove(target_closet.opened ? get_turf(target_closet) : target_closet)
+	if(target_closet.opened)
+		if(user.client)
+			user.client.eye = user.client.mob
+			user.client.perspective = MOB_PERSPECTIVE
+		user.visible_message(SPAN_NOTICE("\The [user] steps out of the back of \the [target_closet]."), SPAN_NOTICE("You teleport into the linked closet, stepping out of it."))
+		user.set_fullscreen(FALSE, "closet_impaired", /atom/movable/screen/fullscreen/closet_impaired)
+	else
+		if(user.client)
+			user.client.eye = target_closet
+		target_closet.visible_message(SPAN_WARNING("\The [target_closet] rattles."))
+		to_chat(user, SPAN_NOTICE("You teleport into the target closet, bumping into the closed door."))
+		target_closet.shake_animation()
+		playsound(get_turf(src), 'sound/effects/grillehit.ogg', 100, TRUE)
+	return TRUE
+
+/obj/item/closet_teleporter/Destroy()
+	attached_closet = null
+	if(linked_teleporter?.linked_teleporter == src)
+		linked_teleporter.linked_teleporter = null
+	linked_teleporter = null
+	return ..()

@@ -1,70 +1,64 @@
-var/warrant_uid = 0
-/datum/datacore/var/list/warrants[] = list()
-/datum/data/record/warrant
-	var/warrant_id
-
-/datum/data/record/warrant/New()
-	..()
-	warrant_id = warrant_uid++
-
-
 /datum/computer_file/program/digitalwarrant
 	filename = "digitalwarrant"
 	filedesc = "Warrant Assistant"
 	extended_desc = "Official NTsec program for creation and handling of warrants."
-	program_icon_state = "security"
-	color = LIGHT_COLOR_ORANGE
+	program_icon_state = "warrant"
+	program_key_icon_state = "red_key"
+	color = LIGHT_COLOR_RED
 	size = 8
-	requires_ntnet = 1
-	available_on_ntnet = 1
-	required_access_download = access_hos
-	required_access_run = access_security
-	nanomodule_path = /datum/nano_module/program/digitalwarrant/
+	requires_ntnet = TRUE
+	available_on_ntnet = TRUE
+	required_access_download = /datum/access/hos::id
+	required_access_run = /datum/access/security::id
+	usage_flags = PROGRAM_ALL_REGULAR | PROGRAM_STATIONBOUND
+	tgui_id = "DigitalWarrant"
+	var/datum/record/warrant/active_warrant
 
-/datum/nano_module/program/digitalwarrant/
-	name = "Warrant Assistant"
-	var/datum/data/record/warrant/activewarrant
+/datum/computer_file/program/digitalwarrant/ui_data(mob/user)
+	var/list/data = initial_data()
 
-/datum/nano_module/program/digitalwarrant/ui_interact(mob/user, ui_key = "main", var/datum/nanoui/ui = null, var/force_open = 1, var/datum/topic_state/state = default_state)
-	var/list/data = host.initial_data()
-
-	if(activewarrant)
-		data["warrantname"] = activewarrant.fields["namewarrant"]
-		data["warrantcharges"] = activewarrant.fields["charges"]
-		data["warrantauth"] = activewarrant.fields["auth"]
-		data["type"] = activewarrant.fields["arrestsearch"]
+	if(active_warrant)
+		data["active_warrant"] = list(
+			"name" = active_warrant.name,
+			"charges" = active_warrant.notes,
+			"authorisation" = active_warrant.authorization,
+			"id" = active_warrant.id,
+			"type" = active_warrant.wtype
+		)
 	else
 		var/list/allwarrants = list()
-		for(var/datum/data/record/warrant/W in data_core.warrants)
-			allwarrants.Add(list(list(
-			"warrantname" = W.fields["namewarrant"],
-			"charges" = "[copytext(W.fields["charges"],1,min(length(W.fields["charges"]) + 1, 50))]...",
-			"auth" = W.fields["auth"],
-			"id" = W.warrant_id,
-			"arrestsearch" = W.fields["arrestsearch"]
-		)))
+		for(var/datum/record/warrant/W in SSrecords.warrants)
+			allwarrants += list(list(
+			"name" = W.name,
+			"charges" = "[copytext(W.notes,1,min(length(W.notes) + 1, 50))]...",
+			"authorisation" = W.authorization,
+			"id" = W.id,
+			"wtype" = W.wtype
+		))
 		data["allwarrants"] = allwarrants
+		data["active_warrant"] = null
+	return data
 
-	ui = SSnanoui.try_update_ui(user, src, ui_key, ui, data, force_open)
-	if (!ui)
-		ui = new(user, src, ui_key, "digitalwarrant.tmpl", name, 500, 350, state = state)
-		ui.auto_update_layout = 1
-		ui.set_initial_data(data)
-		ui.open()
+/datum/computer_file/program/digitalwarrant/ui_act(action, list/params, datum/tgui/ui, datum/ui_state/state)
+	. = ..()
+	if(.)
+		return
 
-/datum/nano_module/program/digitalwarrant/Topic(href, href_list)
-	if(..())
-		return 1
+	switch(action)
+		if("sw_menu")
+			active_warrant = null
+			SStgui.update_uis(computer)
 
-	if(href_list["sw_menu"])
-		activewarrant = null
+		if("editwarrant")
+			for(var/datum/record/warrant/W in SSrecords.warrants)
+				if(W.id == text2num(params["editwarrant"]))
+					active_warrant = W
+					break
+			. = TRUE
 
-	if(href_list["editwarrant"])
-		. = 1
-		for(var/datum/data/record/warrant/W in data_core.warrants)
-			if(W.warrant_id == text2num(href_list["editwarrant"]))
-				activewarrant = W
-				break
+		if("back")
+			active_warrant = null
+			SStgui.update_uis(computer)
 
 	// The following actions will only be possible if the user has an ID with security access equipped. This is in line with modular computer framework's authentication methods,
 	// which also use RFID scanning to allow or disallow access to some functions. Anyone can view warrants, editing requires ID.
@@ -72,70 +66,80 @@ var/warrant_uid = 0
 	var/mob/user = usr
 	if(!istype(user))
 		return
-	var/obj/item/weapon/card/id/I = user.GetIdCard()
-	if(!istype(I) || !I.registered_name || !(access_armory in I.access) || issilicon(user))
-		to_chat(user, "Authentication error: Unable to locate ID with appropriate access to allow this operation.")
+	var/obj/item/card/id/I = user.GetIdCard()
+	if(!istype(I) || !I.registered_name || !(/datum/access/security::id in I.access) || issilicon(user))
+		to_chat(user, SPAN_WARNING("Authentication error: Unable to locate ID with appropriate access to allow this operation."))
 		return
 
-	if(href_list["addwarrant"])
-		. = 1
-		var/datum/data/record/warrant/W = new()
-		var/temp = sanitize(input(usr, "Do you want to create a search-, or an arrest warrant?") as null|anything in list("search","arrest"))
-		if(CanInteract(user, default_state))
-			if(temp == "arrest")
-				W.fields["namewarrant"] = "Unknown"
-				W.fields["charges"] = "No charges present"
-				W.fields["auth"] = "Unauthorized"
-				W.fields["arrestsearch"] = "arrest"
-			if(temp == "search")
-				W.fields["namewarrant"] = "No location given"
-				W.fields["charges"] = "No reason given"
-				W.fields["auth"] = "Unauthorized"
-				W.fields["arrestsearch"] = "search"
-			activewarrant = W
+	// Require higher access to edit warrants that have already been authorized
+	if(active_warrant && active_warrant.authorization != "Unauthorized" && !(/datum/access/armory::id in I.access))
+		to_chat(user, SPAN_WARNING("Authentication error: Unable to locate ID with appropriate access to adjust an authorized warrant."))
+		return
 
-	if(href_list["savewarrant"])
-		. = 1
-		data_core.warrants |= activewarrant
-		activewarrant = null
+	switch(action)
+		if("addwarrant")
+			. = TRUE
+			var/datum/record/warrant/W = new()
+			var/temp = sanitize(input(usr, "Do you want to create a search-, or an arrest warrant?") as null|anything in list("search", "arrest"))
+			if(!computer.use_check_and_message(user))
+				if(temp == "arrest")
+					W.name = "Unknown"
+					W.notes = "No charges present"
+					W.authorization = "Unauthorized"
+					W.wtype = "arrest"
+				if(temp == "search")
+					W.name = "No location given"
+					W.notes = "No reason given"
+					W.authorization = "Unauthorized"
+					W.wtype = "search"
+				if(isnull(temp))
+					return
+				active_warrant = W
 
-	if(href_list["deletewarrant"])
-		. = 1
-		data_core.warrants -= activewarrant
-		activewarrant = null
+		if("savewarrant")
+			if(!(active_warrant in SSrecords.warrants))
+				SSrecords.add_record(active_warrant)
+			else
+				SSrecords.update_record(active_warrant)
+			active_warrant = null
+			SStgui.update_uis(computer)
 
-	if(href_list["editwarrantname"])
-		. = 1
-		var/namelist = list()
-		for(var/datum/data/record/t in data_core.general)
-			namelist += t.fields["name"]
-		var/new_name = sanitize(input(usr, "Please input name") as null|anything in namelist)
-		if(CanInteract(user, default_state))
-			if (!new_name)
+		if("deletewarrant")
+			SSrecords.remove_record(active_warrant)
+			active_warrant = null
+			SStgui.update_uis(computer)
+
+		if("editwarrantname")
+			. = TRUE
+			var/namelist = list()
+			for(var/datum/record/general/t in SSrecords.records)
+				namelist += t.name
+			var/new_name = sanitize(input(usr, "Please input name") as null|anything in namelist)
+			if(!computer.use_check_and_message(user))
+				if (!new_name)
+					return
+				active_warrant.name = new_name
+
+		if("editwarrantnamecustom")
+			. = TRUE
+			var/new_name = sanitize(input("Please input name") as null|text)
+			if(!computer.use_check_and_message(user))
+				if (!new_name)
+					return
+				active_warrant.name = new_name
+
+		if("editwarrantcharges")
+			. = TRUE
+			var/new_charges = sanitize(input("Please input charges", "Charges", active_warrant.notes) as null|text)
+			if(!computer.use_check_and_message(user))
+				if (!new_charges)
+					return
+				active_warrant.notes = new_charges
+
+		if("editwarrantauth")
+			if(!(/datum/access/armory::id in I.access))
+				to_chat(user, SPAN_WARNING("Authentication error: Unable to locate ID with appropriate access to allow this operation."))
 				return
-			activewarrant.fields["namewarrant"] = new_name
+			. = TRUE
 
-	if(href_list["editwarrantnamecustom"])
-		. = 1
-		var/new_name = sanitize(input("Please input name") as null|text)
-		if(CanInteract(user, default_state))
-			if (!new_name)
-				return
-			activewarrant.fields["namewarrant"] = new_name
-
-	if(href_list["editwarrantcharges"])
-		. = 1
-		var/new_charges = sanitize(input("Please input charges", "Charges", activewarrant.fields["charges"]) as null|text)
-		if(CanInteract(user, default_state))
-			if (!new_charges)
-				return
-			activewarrant.fields["charges"] = new_charges
-
-	if(href_list["editwarrantauth"])
-		. = 1
-
-		activewarrant.fields["auth"] = "[I.registered_name] - [I.assignment ? I.assignment : "(Unknown)"]"
-
-	if(href_list["back"])
-		. = 1
-		activewarrant = null
+			active_warrant.authorization = "[I.registered_name] - [I.assignment ? I.assignment : "(Unknown)"]"

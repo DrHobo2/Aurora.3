@@ -4,50 +4,96 @@
 	icon = 'icons/obj/clothing/ties.dmi'
 	icon_state = "bluetie"
 	item_state = ""	//no inhands
+	overlay_state = null
 	slot_flags = SLOT_TIE
-	w_class = 2.0
-	var/slot = "decor"
+	w_class = WEIGHT_CLASS_SMALL
+	sprite_sheets = list(
+		BODYTYPE_VAURCA_BULWARK = 'icons/mob/species/bulwark/accessories.dmi'
+	)
+
+	light_system = MOVABLE_LIGHT
+
+	var/slot = ACCESSORY_SLOT_GENERIC
+
+	/// Determines how accessories will layer over eachother, with lower being beneath everything, and upper above
+	var/accessory_layer = ACCESSORY_LAYER_MIDDLE
+
 	var/obj/item/clothing/has_suit = null		//the suit the tie may be attached to
 	var/image/inv_overlay = null	//overlay used when attached to clothing.
-	var/image/mob_overlay = null
-	var/overlay_state = null
+	var/overlay_in_inventory = TRUE // Whether the worn_overlay should apply when attached to an item of clothing.
+	var/image/accessory_mob_overlay = null
+	var/flippable = 0 //whether it has an attack_self proc which causes the icon to flip horizontally
+	var/flipped = 0
+	var/protects_against_weather = FALSE
 
 /obj/item/clothing/accessory/Destroy()
 	on_removed()
 	return ..()
 
-/obj/item/clothing/accessory/proc/get_inv_overlay()
-	if(!inv_overlay)
-		if(!mob_overlay)
-			get_mob_overlay()
+/obj/item/clothing/accessory/Initialize()
+	. = ..()
+	update_icon()
 
-		var/tmp_icon_state = "[overlay_state? "[overlay_state]" : "[icon_state]"]"
+/obj/item/clothing/accessory/proc/get_inv_overlay(var/mob/M, var/force = FALSE)
+	if(!accessory_mob_overlay)
+		get_accessory_mob_overlay(M, force)
+	var/I = accessory_mob_overlay.icon
+	var/tmp_icon_state = "[overlay_state? "[overlay_state]" : "[icon_state]"]"
+	if(!inv_overlay || force)
 		if(icon_override)
-			if("[tmp_icon_state]_tie" in icon_states(icon_override))
+			if(contained_sprite)
+				tmp_icon_state = "[tmp_icon_state]_w"
+			else if("[tmp_icon_state]_tie" in icon_states(icon_override))
 				tmp_icon_state = "[tmp_icon_state]_tie"
-		inv_overlay = image(icon = mob_overlay.icon, icon_state = tmp_icon_state, dir = SOUTH)
-		if(contained_sprite)
-			tmp_icon_state = "[tmp_icon_state]"
-			inv_overlay = image("icon" = icon, "icon_state" = "[tmp_icon_state]_w", dir = SOUTH)
+		else if(contained_sprite)
+			tmp_icon_state = "[tmp_icon_state]_w"
+		inv_overlay = image(icon = I, icon_state = tmp_icon_state, dir = SOUTH)
 	if(color)
 		inv_overlay.color = color
+	if(build_from_parts && overlay_in_inventory)
+		inv_overlay.ClearOverlays()
+		inv_overlay.AddOverlays(overlay_image(I, "[tmp_icon_state]_[worn_overlay]", flags=RESET_COLOR)) //add the overlay w/o coloration of the original sprite
+	if(has_accents)
+		inv_overlay.AddOverlays(overlay_image(I, "[tmp_icon_state]_w_acc", accent_color, flags=accent_flags))
 	return inv_overlay
 
-/obj/item/clothing/accessory/proc/get_mob_overlay()
-	if(!mob_overlay)
-		var/tmp_icon_state = "[overlay_state? "[overlay_state]" : "[icon_state]"]"
-		if(icon_override)
-			if("[tmp_icon_state]_mob" in icon_states(icon_override))
-				tmp_icon_state = "[tmp_icon_state]_mob"
-			mob_overlay = image("icon" = icon_override, "icon_state" = "[tmp_icon_state]")
-		else if(contained_sprite)
-			tmp_icon_state = "[src.item_state][WORN_UNDER]"
-			mob_overlay = image("icon" = icon, "icon_state" = "[tmp_icon_state]")
-		else
-			mob_overlay = image("icon" = INV_ACCESSORIES_DEF_ICON, "icon_state" = "[tmp_icon_state]")
+/obj/item/clothing/accessory/proc/get_accessory_mob_overlay(var/mob/living/carbon/human/H, var/force = FALSE)
+	var/I
+	if(icon_override)
+		I = icon_override
+	else if(istype(H) && (H.species.bodytype in sprite_sheets))
+		I = sprite_sheets[H.species.bodytype]
+		accessory_mob_overlay = null // reset the overlay
+	else if(contained_sprite)
+		I = icon
+		accessory_mob_overlay = null // reset the overlay
+	else
+		I = INV_ACCESSORIES_DEF_ICON
+	var/tmp_icon_state = "[overlay_state? "[overlay_state]" : "[icon_state]"]"
+	if(icon_override)
+		if(contained_sprite)
+			auto_adapt_species(H)
+			tmp_icon_state = "[UNDERSCORE_OR_NULL(src.icon_species_tag)][src.item_state][WORN_ACCESS]"
+		else if("[tmp_icon_state]_mob" in icon_states(I))
+			tmp_icon_state = "[tmp_icon_state]_mob"
+	else if(contained_sprite)
+		auto_adapt_species(H)
+		tmp_icon_state = "[UNDERSCORE_OR_NULL(src.icon_species_tag)][src.item_state][WORN_ACCESS]"
+	accessory_mob_overlay = image("icon" = I, "icon_state" = "[tmp_icon_state]")
+	if(build_from_parts || has_accents)
+		accessory_mob_overlay.ClearOverlays()
+	if(build_from_parts)
+		accessory_mob_overlay.AddOverlays(overlay_image(I, "[tmp_icon_state]_[worn_overlay]", flags=RESET_COLOR)) //add the overlay w/o coloration of the original sprite
+	if(has_accents)
+		accessory_mob_overlay.AddOverlays(overlay_image(I, "[tmp_icon_state]_acc", accent_color, flags=accent_flags))
 	if(color)
-		mob_overlay.color = color
-	return mob_overlay
+		accessory_mob_overlay.color = color
+	accessory_mob_overlay.appearance_flags = RESET_ALPHA|RESET_COLOR
+	return accessory_mob_overlay
+
+/// Gets called before 'can_attach_accessory()' is called in clothing_accessories.dm
+/obj/item/clothing/accessory/proc/before_attached(var/obj/item/clothing/S, var/mob/user)
+	return
 
 //when user attached an accessory to S
 /obj/item/clothing/accessory/proc/on_attached(var/obj/item/clothing/S, var/mob/user)
@@ -55,25 +101,29 @@
 		return
 	has_suit = S
 	loc = has_suit
-	has_suit.add_overlay(get_inv_overlay())
-
+	has_suit.AddOverlays(get_inv_overlay(user))
 	if(user)
-		user << "<span class='notice'>You attach \the [src] to \the [has_suit].</span>"
+		to_chat(user, SPAN_NOTICE("You attach \the [src] to \the [has_suit]."))
 		src.add_fingerprint(user)
+	update_light()
 
 /obj/item/clothing/accessory/proc/on_removed(var/mob/user)
 	if(!has_suit)
 		return
-	has_suit.cut_overlay(get_inv_overlay())
+	has_suit.CutOverlays(get_inv_overlay(user, ATOM_ICON_CACHE_PROTECTED))
 	has_suit = null
 	if(user)
 		usr.put_in_hands(src)
 		src.add_fingerprint(user)
 	else
 		src.forceMove(get_turf(src))
+	update_light()
+
+/obj/item/clothing/accessory/proc/on_clothing_change(var/mob/user)
+	update_light()
 
 //default attackby behaviour
-/obj/item/clothing/accessory/attackby(obj/item/I, mob/user)
+/obj/item/clothing/accessory/attackby(obj/item/attacking_item, mob/user)
 	..()
 
 //default attack_hand behaviour
@@ -82,242 +132,292 @@
 		return	//we aren't an object on the ground so don't call parent
 	..()
 
-/obj/item/clothing/accessory/blue
-	name = "blue tie"
-	icon_state = "bluetie"
+//default attack_self behaviour
+/obj/item/clothing/accessory/attack_self(mob/user as mob)
+	if(flippable)
+		flipped = !flipped
+		update_icon()
+		flip_message(user)
+		update_clothing_icon()
+		inv_overlay = null
+		accessory_mob_overlay = null
+		return
+	..()
 
-/obj/item/clothing/accessory/red
+/obj/item/clothing/accessory/update_icon()
+	. = ..()
+	flip_sprite()
+
+/obj/item/clothing/accessory/proc/flip_sprite()
+	if(flipped)
+		if(!overlay_state)
+			icon_state = "[initial(icon_state)]_flip"
+			item_state = "[initial(item_state)]_flip"
+		else
+			overlay_state = "[overlay_state]_flip"
+	else
+		if(!overlay_state)
+			icon_state = initial(icon_state)
+			item_state = initial(item_state)
+		else
+			overlay_state = initial(overlay_state)
+
+/obj/item/clothing/accessory/proc/flip_message(mob/user)
+	to_chat(user, "You change \the [src] to be on your [src.flipped ? "right" : "left"] side.")
+
+/obj/item/clothing/accessory/update_clothing_icon()
+	if (ismob(loc))
+		var/mob/mob = src.loc
+		mob.update_inv_wear_suit()
+
+/obj/item/clothing/accessory/tie
 	name = "red tie"
+	icon = 'icons/obj/item/clothing/accessory/ties.dmi'
 	icon_state = "redtie"
-
-/obj/item/clothing/accessory/horrible
-	name = "horrible tie"
-	desc = "A neosilk clip-on tie. This one is disgusting."
-	icon_state = "horribletie"
-
-/obj/item/clothing/accessory/tie/blue_clip
-	name = "blue tie with a clip"
-	icon_state = "bluecliptie"
-
-/obj/item/clothing/accessory/tie/blue_long
-	name = "blue long tie"
-	icon_state = "bluelongtie"
+	item_state = "redtie"
+	contained_sprite = TRUE
 
 /obj/item/clothing/accessory/tie/red_clip
 	name = "red tie with a clip"
 	icon_state = "redcliptie"
+	item_state = "redcliptie"
 
-/obj/item/clothing/accessory/tie/red_long
-	name = "red long tie"
-	icon_state = "redlongtie"
-
-/obj/item/clothing/accessory/tie/black
-	name = "black tie"
-	icon_state = "blacktie"
-
-/obj/item/clothing/accessory/tie/darkgreen
-	name = "dark green tie"
-	icon_state = "dgreentie"
+/obj/item/clothing/accessory/tie/orange
+	name = "orange tie"
+	icon_state = "orangetie"
+	icon_state = "orangetie"
 
 /obj/item/clothing/accessory/tie/yellow
 	name = "yellow tie"
 	icon_state = "yellowtie"
+	item_state = "yellowtie"
+
+/obj/item/clothing/accessory/tie/horrible
+	name = "horrible tie"
+	desc = "A neosilk clip-on tie. This one is disgusting."
+	icon_state = "horribletie"
+	item_state = "horribletie"
+
+/obj/item/clothing/accessory/tie/green
+	name = "green tie"
+	icon_state = "greentie"
+	item_state = "greentie"
+
+/obj/item/clothing/accessory/tie/darkgreen
+	name = "dark green tie"
+	icon_state = "dgreentie"
+	item_state = "dgreentie"
+
+/obj/item/clothing/accessory/tie/blue
+	name = "blue tie"
+	icon_state = "bluetie"
+	item_state = "bluetie"
+
+/obj/item/clothing/accessory/tie/blue_clip
+	name = "blue tie with a clip"
+	icon_state = "bluecliptie"
+	item_state = "bluecliptie"
 
 /obj/item/clothing/accessory/tie/navy
 	name = "navy tie"
 	icon_state = "navytie"
+	item_state = "navytie"
+
+/obj/item/clothing/accessory/tie/purple
+	name = "purple tie"
+	icon_state = "purpletie"
+	item_state = "purpletie"
+
+/obj/item/clothing/accessory/tie/black
+	name = "black tie"
+	icon_state = "blacktie"
+	item_state = "blacktie"
 
 /obj/item/clothing/accessory/tie/white
 	name = "white tie"
 	icon_state = "whitetie"
+	item_state = "whitetie"
 
-/obj/item/clothing/accessory/tie/bowtie
-	name = "bowtie"
-	desc = "Snazzy!"
-	icon_state = "bowtie"
+/obj/item/clothing/accessory/tie/colourable
+	name = "tie"
+	icon_state = "whitetie"
+	item_state = "whitetie"
+
+/obj/item/clothing/accessory/tie/colourable/clip
+	name = "tie with a gold clip"
+	build_from_parts = TRUE
+	worn_overlay = "clip"
+
+/obj/item/clothing/accessory/tie/colourable/clip/silver
+	name = "tie with a silver clip"
+	worn_overlay = "sclip"
+
+/obj/item/clothing/accessory/tie/ribbon
+	name = "neck ribbon parent item"
+	desc = DESC_PARENT
+	icon = 'icons/obj/item/clothing/accessory/neck_ribbons.dmi'
+	contained_sprite = TRUE
+
+/obj/item/clothing/accessory/tie/ribbon/neck
+	name = "neck ribbon"
+	desc = "A ribbon for adorning the neck."
+	icon_state = "ribbon"
+	item_state = "ribbon"
+
+/obj/item/clothing/accessory/tie/ribbon/bow
+	name = "neck bow"
+	desc = "A bow for adorning the neck."
+	icon_state = "bow"
+	item_state = "bow"
+
+/obj/item/clothing/accessory/tie/ribbon/bow_tie
+	name = "bow tie"
+	desc = "A bow tie. Snazzy!"
+	icon_state = "bow_tie"
+	item_state = "bow_tie"
+
+/obj/item/clothing/accessory/necklace
+	name = "necklace"
+	desc = "A piece of jewelry that goes around your neck."
+	icon = 'icons/obj/item/clothing/accessory/necklace.dmi'
+	icon_state = "necklace"
+	item_state = "necklace"
+	contained_sprite = TRUE
 
 /obj/item/clothing/accessory/stethoscope
 	name = "stethoscope"
 	desc = "An outdated medical apparatus for listening to the sounds of the human body. It also makes you look like you know what you're doing."
+	icon = 'icons/obj/item/clothing/accessory/stethoscope.dmi'
 	icon_state = "stethoscope"
+	item_state = "stethoscope"
+	contained_sprite = TRUE
+	flippable = 1
+	var/auto_examine = FALSE
 
-/obj/item/clothing/accessory/stethoscope/attack(mob/living/carbon/human/M, mob/living/user, var/target_zone)
+/obj/item/clothing/accessory/stethoscope/mechanics_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	. += "Click on the UI action button toggle between the examination modes."
+	. += "Automatic will use the stethoscope on the person you're examining when adjacent to them, automatically using it on the selected body part."
+	. += "Manual will make it so you don't automatically use it via examine."
+
+/obj/item/clothing/accessory/stethoscope/attack(mob/living/target_mob, mob/living/user, target_zone)
+	var/mob/living/carbon/human/M = target_mob
+
 	if(ishuman(M) && isliving(user))
 		if(user.a_intent == I_HELP)
-			var/body_part = parse_zone(target_zone)
-			if(body_part)
-				var/their = "their"
-				switch(M.gender)
-					if(MALE)	their = "his"
-					if(FEMALE)	their = "her"
-
-				var/sound = "heartbeat"
-				var/sound_strength = "cannot hear"
-				var/heartbeat = 0
-				if(M.species && M.species.has_organ["heart"])
-					var/obj/item/organ/heart/heart = M.internal_organs_by_name["heart"]
-					if(heart && !heart.robotic)
-						heartbeat = 1
-				if(M.stat == DEAD || (M.status_flags&FAKEDEATH))
-					sound_strength = "cannot hear"
-					sound = "anything"
-				else
-					switch(body_part)
-						if("chest")
-							sound_strength = "hear"
-							sound = "no heartbeat"
-							if(heartbeat)
-								var/obj/item/organ/heart/heart = M.internal_organs_by_name["heart"]
-								if(heart.is_bruised() || M.getOxyLoss() > 50)
-									sound = "[pick("odd noises in","weak")] heartbeat"
-								else
-									sound = "healthy heartbeat"
-
-							var/obj/item/organ/heart/L = M.internal_organs_by_name["lungs"]
-							if(!L || M.losebreath)
-								sound += " and no respiration"
-							else if(M.is_lung_ruptured() || M.getOxyLoss() > 50)
-								sound += " and [pick("wheezing","gurgling")] sounds"
-							else
-								sound += " and healthy respiration"
-						if("eyes","mouth")
-							sound_strength = "cannot hear"
-							sound = "anything"
-						else
-							if(heartbeat)
-								sound_strength = "hear a weak"
-								sound = "pulse"
-
-				user.visible_message("[user] places [src] against [M]'s [body_part] and listens attentively.", "You place [src] against [their] [body_part]. You [sound_strength] [sound].")
+			var/obj/item/organ/organ = M.get_organ(user.zone_sel.selecting)
+			if(organ)
+				user.visible_message(SPAN_NOTICE("[user] places \the [src] against [M]'s [organ.name] and listens attentively."),
+										EXAMINE_BLOCK("You place \the [src] against [M]'s [organ.name]. You hear <b>[english_list(organ.listen())]</b>."))
 				return
 	return ..(M,user)
 
+/obj/item/clothing/accessory/stethoscope/attack_self(mob/user)
+	toggle_examine()
 
-//Medals
-/obj/item/clothing/accessory/medal
-	name = "bronze medal"
-	desc = "A bronze medal."
-	icon_state = "bronze"
-	item_state = "bronze"
+/obj/item/clothing/accessory/stethoscope/on_attached(obj/item/clothing/S, mob/user)
+	..()
+	has_suit.verbs += /obj/item/clothing/accessory/stethoscope/verb/toggle_examine
 
-/obj/item/clothing/accessory/medal/conduct
-	name = "distinguished conduct medal"
-	desc = "A bronze medal awarded for distinguished conduct. Whilst a great honor, this is most basic award on offer. It is often awarded by a captain to a member of their crew."
-	icon_state = "bronze_nt"
+/obj/item/clothing/accessory/stethoscope/on_removed(mob/user)
+	if(has_suit)
+		has_suit.verbs -= /obj/item/clothing/accessory/stethoscope/verb/toggle_examine
+	..()
 
-/obj/item/clothing/accessory/medal/bronze_heart
-	name = "bronze heart medal"
-	desc = "A bronze heart-shaped medal awarded for sacrifice. It is often awarded posthumously or for severe injury in the line of duty."
-	icon_state = "bronze_heart"
+/obj/item/clothing/accessory/stethoscope/proc/mode_switch(mob/user)
+	auto_examine = !auto_examine
+	to_chat(user, SPAN_NOTICE("\The [src]'s Examination Mode is now [auto_examine ? "Automatic" : "Manual"]."))
 
-/obj/item/clothing/accessory/medal/nobel_science
-	name = "nobel sciences award"
-	desc = "A bronze medal which represents significant contributions to the field of science or engineering."
+/obj/item/clothing/accessory/stethoscope/verb/toggle_examine()
+	set name = "Toggle Examination Mode"
+	set category = "Object"
+	set src in usr
 
-/obj/item/clothing/accessory/medal/iron
-	name = "iron medal"
-	desc = "A simple iron medal."
-	icon_state = "iron"
-	item_state = "iron"
+	if(!ishuman(usr))
+		return
+	if(usr.incapacitated())
+		return
 
-/obj/item/clothing/accessory/medal/iron/merit
-	name = "iron merit medal"
-	desc = "An iron medal awarded to NanoTrasen employees for merit."
-	icon_state = "iron_nt"
+	var/obj/item/clothing/accessory/stethoscope/stet = get_accessory(/obj/item/clothing/accessory/stethoscope)
+	if(!stet)
+		return
 
-/obj/item/clothing/accessory/medal/silver
-	name = "silver medal"
-	desc = "A silver medal."
-	icon_state = "silver"
-	item_state = "silver"
-
-/obj/item/clothing/accessory/medal/silver/valor
-	name = "medal of valor"
-	desc = "A silver medal awarded for acts of exceptional valor."
-
-/obj/item/clothing/accessory/medal/silver/security
-	name = "robust security award"
-	desc = "An award for distinguished combat and sacrifice in defence of corporate commercial interests. Often awarded to security staff."
-	icon_state = "silver_nt"
-
-/obj/item/clothing/accessory/medal/gold
-	name = "gold medal"
-	desc = "A prestigious golden medal."
-	icon_state = "gold"
-	item_state = "gold"
-
-/obj/item/clothing/accessory/medal/gold/captain
-	name = "medal of captaincy"
-	desc = "A golden medal awarded exclusively to those promoted to the rank of captain. It signifies the codified responsibilities of a captain, and their undisputable authority over their crew."
-	icon_state = "gold_nt"
-
-/obj/item/clothing/accessory/medal/gold/heroism
-	name = "medal of exceptional heroism"
-	desc = "An extremely rare golden medal awarded only by company officials. To receive such a medal is the highest honor and as such, very few exist. This medal is almost never awarded to anybody but commanders."
-	icon_state = "gold_crest"
+	stet.mode_switch(usr)
 
 /obj/item/clothing/accessory/suspenders
 	name = "suspenders"
 	desc = "They suspend the illusion of the mime's play."
+	icon = 'icons/obj/item/clothing/accessory/suspenders.dmi'
 	icon_state = "suspenders"
 	item_state = "suspenders"
+	contained_sprite = TRUE
+	gender = PLURAL
+	slot = ACCESSORY_SLOT_GENERIC
 
 /obj/item/clothing/accessory/scarf
-	name = "white scarf"
+	name = "scarf"
 	desc = "A simple scarf, to protect your neck from the cold of space."
-	icon_state = "whitescarf"
-	item_state = "whitescarf"
+	icon = 'icons/obj/item/clothing/accessory/scarves.dmi'
+	icon_state = "scarf0"
+	item_state = "scarf0"
+	contained_sprite = TRUE
+	var/list/alternatives = list(
+		"drape" = "scarf0",
+		"drape, flipped" = "scarf0_f",
+		"single wrap" = "scarf1",
+		"double wrap" = "scarf2",
+		"parisian" = "scarf3"
+	)
+	var/list/overlay_alternatives = null
 
-/obj/item/clothing/accessory/scarf/yellow
-	name = "yellow scarf"
-	icon_state = "yellowscarf"
-	item_state = "yellowscarf"
+/obj/item/clothing/accessory/scarf/attack_self(mob/user)
+	if(alternatives)
+		var/list/options = list()
+		for(var/i in alternatives)
+			var/image/radial_button = image(icon = icon, icon_state = alternatives[i])
+			if(color)
+				radial_button.color = color
+			if(build_from_parts&&worn_overlay)
+				radial_button.ClearOverlays()
+				radial_button.AddOverlays(overlay_image(icon, "[alternatives[i]]_[worn_overlay]", flags=RESET_COLOR))
+			options[i] = radial_button
+		var/alt = show_radial_menu(user, user, options, radius = 42, tooltips = TRUE)
+		if(!alt)
+			return
+		icon_state = alternatives[alt]
+		item_state = icon_state
+		update_icon()
+		update_clothing_icon()
+		inv_overlay = null
+		accessory_mob_overlay = null
+		to_chat(user, SPAN_NOTICE("You retie \the [src] as \an [alt]."))
+	return ..()
 
-/obj/item/clothing/accessory/scarf/green
-	name = "green scarf"
-	icon_state = "greenscarf"
-	item_state = "greenscarf"
-
-/obj/item/clothing/accessory/scarf/purple
-	name = "purple scarf"
-	icon_state = "purplescarf"
-	item_state = "purplescarf"
-
-/obj/item/clothing/accessory/scarf/black
-	name = "black scarf"
-	icon_state = "blackscarf"
-	item_state = "blackscarf"
-
-/obj/item/clothing/accessory/scarf/red
-	name = "red scarf"
-	icon_state = "redscarf"
-	item_state = "redscarf"
-
-/obj/item/clothing/accessory/scarf/orange
-	name = "orange scarf"
-	icon_state = "orangescarf"
-	item_state = "orangescarf"
-
-/obj/item/clothing/accessory/scarf/light_blue
-	name = "light blue scarf"
-	icon_state = "lightbluescarf"
-	item_state = "lightbluescarf"
-
-/obj/item/clothing/accessory/scarf/dark_blue
-	name = "dark blue scarf"
-	icon_state = "darkbluescarf"
-	item_state = "darkbluescarf"
+/obj/item/clothing/accessory/scarf/random/Initialize()
+	. = ..()
+	color = get_random_colour(lower = 150)
 
 /obj/item/clothing/accessory/scarf/zebra
 	name = "zebra scarf"
-	icon_state = "zebrascarf"
-	item_state = "zebrascarf"
+	build_from_parts = TRUE
+	worn_overlay = "stripes"
+
+/obj/item/clothing/accessory/shawl
+	name = "cozy shawl"
+	desc = "A favored accessory amongst grandmothers and cottagecore enthusiasts."
+	icon = 'icons/obj/item/clothing/accessory/shawl.dmi'
+	icon_state = "shawl"
+	item_state = "shawl"
+	contained_sprite = TRUE
 
 /obj/item/clothing/accessory/chaps
 	name = "brown chaps"
 	desc = "A pair of loose, brown leather chaps."
+	icon = 'icons/obj/item/clothing/accessory/chaps.dmi'
 	icon_state = "chaps"
 	item_state = "chaps"
+	gender = PLURAL
+	slot = ACCESSORY_SLOT_GENERIC
 
 /obj/item/clothing/accessory/chaps/black
 	name = "black chaps"
@@ -332,26 +432,33 @@
 /obj/item/clothing/accessory/poncho
 	name = "poncho"
 	desc = "A simple, comfortable poncho."
+	icon = 'icons/obj/item/clothing/accessory/poncho/poncho.dmi'
 	icon_state = "classicponcho"
 	item_state = "classicponcho"
-	icon_override = 'icons/mob/ties.dmi'
-	allowed = list(/obj/item/weapon/tank/emergency_oxygen)
-	armor = list(melee = 0, bullet = 0, laser = 0,energy = 0, bomb = 0, bio = 0, rad = 0)
+	allowed = list(/obj/item/tank/emergency_oxygen,/obj/item/storage/bible,/obj/item/nullrod,/obj/item/reagent_containers/food/drinks/bottle/holywater)
 	slot_flags = SLOT_OCLOTHING | SLOT_TIE
 	body_parts_covered = UPPER_TORSO|LOWER_TORSO|ARMS|LEGS
 	siemens_coefficient = 0.9
-	w_class = 3
-	slot = "over"
+	w_class = WEIGHT_CLASS_NORMAL
+	slot = ACCESSORY_SLOT_CAPE
+	contained_sprite = TRUE
 	var/allow_tail_hiding = TRUE //in case if you want to allow someone to switch the HIDETAIL var or not
+	protects_against_weather = TRUE
 
 /obj/item/clothing/accessory/poncho/verb/toggle_hide_tail()
-	set name = "Toggle Tail Coverage"
-	set category = "Object"
+	set name = "Toggle Poncho Tail Coverage"
+	set category = "Object.Equipped"
+	set src in usr
 
 	if(allow_tail_hiding)
 		flags_inv ^= HIDETAIL
-		usr << "<span class='notice'>[src] will now [flags_inv & HIDETAIL ? "hide" : "show"] your tail.</span>"
-	..()
+		to_chat(usr, SPAN_NOTICE("[src] will now [flags_inv & HIDETAIL ? "hide" : "show"] your tail."))
+
+/obj/item/clothing/accessory/poncho/big
+	name = "large poncho"
+	desc = "A simple, comfortable poncho. Noticibly larger around the shoulders."
+	item_state = "classicponcho-big"
+	icon_state = "classicponcho-big"
 
 /obj/item/clothing/accessory/poncho/green
 	name = "green poncho"
@@ -359,11 +466,23 @@
 	icon_state = "greenponcho"
 	item_state = "greenponcho"
 
+/obj/item/clothing/accessory/poncho/green/big
+	name = "large green poncho"
+	desc = "A simple, comfortable cloak without sleeves. This one is green. Noticibly larger around the shoulders."
+	icon_state = "greenponcho-big"
+	item_state = "greenponcho-big"
+
 /obj/item/clothing/accessory/poncho/red
 	name = "red poncho"
 	desc = "A simple, comfortable cloak without sleeves. This one is red."
 	icon_state = "redponcho"
 	item_state = "redponcho"
+
+/obj/item/clothing/accessory/poncho/red/big
+	name = "large red poncho"
+	desc = "A simple, comfortable cloak without sleeves. This one is red. Noticibly larger around the shoulders."
+	icon_state = "redponcho-big"
+	item_state = "redponcho-big"
 
 /obj/item/clothing/accessory/poncho/purple
 	name = "purple poncho"
@@ -379,9 +498,15 @@
 
 /obj/item/clothing/accessory/poncho/roles/medical
 	name = "medical poncho"
-	desc = "A simple, comfortable cloak without sleeves. This one is white with green and blue tint, standard Medical colors."
+	desc = "A simple, comfortable cloak without sleeves. This one is white with a green tint, standard Medical colors."
 	icon_state = "medponcho"
 	item_state = "medponcho"
+
+/obj/item/clothing/accessory/poncho/roles/iac
+	name = "IAC poncho"
+	desc = "A simple, comfortable cloak without sleeves. This one is white with a blue tint, standard IAC colors."
+	icon_state = "IACponcho"
+	item_state = "IACponcho"
 
 /obj/item/clothing/accessory/poncho/roles/engineering
 	name = "engineering poncho"
@@ -391,15 +516,86 @@
 
 /obj/item/clothing/accessory/poncho/roles/science
 	name = "science poncho"
-	desc = "A simple, comfortable cloak without sleeves. This one is white with purple trim, standard NanoTrasen Science colors."
+	desc = "A simple, comfortable cloak without sleeves. This one is white with purple trim, standard science colors."
 	icon_state = "sciponcho"
 	item_state = "sciponcho"
 
 /obj/item/clothing/accessory/poncho/roles/cargo
-	name = "cargo poncho"
-	desc = "A simple, comfortable cloak without sleeves. This one is tan and grey, the colors of Cargo."
+	name = "operations poncho"
+	desc = "A simple, comfortable cloak without sleeves. This one is tan and grey, the colors of operations."
 	icon_state = "cargoponcho"
 	item_state = "cargoponcho"
+
+/obj/item/clothing/accessory/poncho/colorable
+	name = "poncho"
+	desc = "A simple, comfortable cloak without sleeves."
+	icon_state = "colourponcho"
+	item_state = "colourponcho"
+	has_accents = TRUE
+
+/obj/item/clothing/accessory/poncho/colorable/alt
+	icon_state = "trimponcho"
+	item_state = "trimponcho"
+
+/obj/item/clothing/accessory/poncho/colorable/gradient
+	icon_state = "gradponcho"
+	item_state = "gradponcho"
+
+/*
+ * Sashes
+ */
+
+/obj/item/clothing/accessory/sash
+	name = "yellow sash"
+	desc = "A yellow sash, designed to be worn over one shoulder and come down to the opposing hip."
+	desc_extended = "Sashes such as this one are a common sight throughout the Empire of Dominia, though they are hardly as fashionable as the typical cape."
+	icon = 'icons/obj/item/clothing/accessory/sash.dmi'
+	item_state = "sash"
+	icon_state = "sash"
+	contained_sprite = TRUE
+
+/obj/item/clothing/accessory/sash/red
+	name = "red sash"
+	desc = "A red sash, designed to be worn over one shoulder and come down to the opposing hip."
+	item_state = "red_sash"
+	icon_state = "red_sash"
+
+/obj/item/clothing/accessory/sash/blue
+	name = "blue sash"
+	desc = "A blue sash, designed to be worn over one shoulder and come down to the opposing hip."
+	item_state = "blue_sash"
+	icon_state = "blue_sash"
+
+/obj/item/clothing/accessory/sash/orange
+	name = "orange sash"
+	desc = "An orange sash, designed to be worn over one shoulder and come down to the opposing hip."
+	item_state = "orange_sash"
+	icon_state = "orange_sash"
+
+/obj/item/clothing/accessory/sash/purple
+	name = "purple sash"
+	desc = "A purple sash, designed to be worn over one shoulder and come down to the opposing hip."
+	item_state = "purple_sash"
+	icon_state = "purple_sash"
+
+/obj/item/clothing/accessory/sash/white
+	name = "white sash"
+	desc = "A white sash, designed to be worn over one shoulder and come down to the opposing hip."
+	item_state = "white_sash"
+	icon_state = "white_sash"
+
+/obj/item/clothing/accessory/sash/colourable
+	name = "sash"
+	desc = "A sash, designed to be worn over one shoulder and come down to the opposing hip."
+	item_state = "sash_colourable"
+	icon_state = "sash_colourable"
+
+/obj/item/clothing/accessory/sash/horizontal
+	name = "horizontal sash"
+	desc = "A sash, designed to be worn around the waist."
+	item_state = "sash_horizontal"
+	icon_state = "sash_horizontal"
+	icon = 'icons/obj/item/clothing/accessory/sash_horizontal.dmi'
 
 /*
  * Cloak
@@ -407,8 +603,10 @@
 /obj/item/clothing/accessory/poncho/roles/cloak
 	name = "quartermaster's cloak"
 	desc = "An elaborate brown and gold cloak."
+	icon = 'icons/obj/item/clothing/accessory/cloaks.dmi'
 	icon_state = "qmcloak"
 	item_state = "qmcloak"
+	contained_sprite = TRUE
 	body_parts_covered = null
 
 /obj/item/clothing/accessory/poncho/roles/cloak/ce
@@ -504,44 +702,778 @@
 /obj/item/clothing/accessory/poncho/shouldercape
 	name = "shoulder cape"
 	desc = "A simple shoulder cape."
-	description_fluff = "In Skrellian tradition, the length of cape typically signifies experience in various fields."
+	desc_extended = "In Skrellian tradition, the length of cape typically signifies experience in various fields."
+	icon = 'icons/obj/item/clothing/accessory/skrell_capes.dmi'
 	icon_state = "starcape"
 	item_state = "starcape"
+	flippable = TRUE
+	contained_sprite = TRUE
+	protects_against_weather = FALSE
 
 /obj/item/clothing/accessory/poncho/shouldercape/star
 	name = "star cape"
 	desc = "A simple looking cape with a couple of runes woven into the fabric."
 	icon_state = "starcape"
 	item_state = "starcape"
+	overlay_state = "starcape"
 
 /obj/item/clothing/accessory/poncho/shouldercape/nebula
 	name = "nebula cape"
 	desc = "A decorated cape. Starry patterns have been woven into the fabric."
 	icon_state = "nebulacape"
 	item_state = "nebulacape"
+	overlay_state = "nebulacape"
 
 /obj/item/clothing/accessory/poncho/shouldercape/nova
 	name = "nova cape"
-	desc = "A heavily decorated cape with emblems on the shoulders. An ornate starry design has been woven into the fabric of it"
+	desc = "A heavily decorated cape with emblems on the shoulders. An ornate starry design has been woven into the fabric of it."
 	icon_state = "novacape"
 	item_state = "novacape"
+	overlay_state = "novacape"
 
 /obj/item/clothing/accessory/poncho/shouldercape/galaxy
 	name = "galaxy cape"
 	desc = "An extremely decorated cape with an intricately made design has been woven into the fabric of this cape with great care."
 	icon_state = "galaxycape"
 	item_state = "galaxycape"
+	overlay_state = "galaxycape"
 
-//tau ceti legion ribbons
-/obj/item/clothing/accessory/legion
-	name = "seniority ribbons"
-	desc = "A ribbon meant to attach to the chest and sling around the shoulder accompanied by two medallions, marking seniority in a Tau Ceti Foreign Legion."
-	icon_state = "senior_ribbon"
-	item_state = "senior_ribbon"
-	slot = "over"
+/obj/item/clothing/accessory/poncho/shouldercape/cosmic
+	name = "cosmic cape"
+	desc = "A heavily decorated cape with emblems on the shoulders. An ornate starry design has been woven into the fabric of it, of constellations and stars visible from Qerrbalak."
+	icon_state = "cosmiccape"
+	item_state = "cosmiccape"
+	overlay_state = "cosmiccape"
 
-/obj/item/clothing/accessory/legion/specialist
-	name = "specialist medallion"
-	desc = "Two small medallions, one worn on the shoulder and the other worn on the chest. Meant to display the rank of specialist troops in a Tau Ceti Foreign Legion."
-	icon_state = "specialist_medallion"
-	item_state = "specialist_medallion"
+/obj/item/clothing/accessory/poncho/shouldercape/qeblak
+	name = "qeblak mantle"
+	desc = "A mantle denoting the wearer as a member of the Qeblak faith."
+	desc_extended = "This mantle denotes the wearer as a member of the Qeblak faith. \
+	It is given to followers after they have completed their coming of age ceremony. \
+	The symbol on the back is of a protostar as it transitions into a main sequence star, \
+	representing the the wearer becoming an adult."
+	icon_state = "qeblak_cape"
+	item_state = "qeblak_cape"
+	flippable = FALSE
+
+/obj/item/clothing/accessory/poncho/shouldercape/weishiirobe
+	name = "weishii robe"
+	desc = "A robe denoting the wearer as a member of the Weishii faith."
+	desc_extended = "This mantle denotes the wearer as a member of the Weishii faith. \
+	It is given to followers after they have spent time on a Weishiin Sanctuary."
+	icon_state = "weishii_robe"
+	item_state = "weishii_robe"
+	flippable = FALSE
+
+/obj/item/clothing/accessory/poncho/shouldercape/qeblak/zeng
+	name = "Nralakk Division Zeng-Hu cloak"
+	desc = "This cloak is given to Zeng-Hu employees who have assisted or worked in collaboration with the Nralakk Federation."
+	desc_extended = "A cloak given to senior level doctors and researchers for Zeng-Hu who has \
+	in the past been given the privilege of working within or in collaboration with the Nralakk Federation \
+	as a show of goodwill between the corporation and federation."
+	icon = 'icons/obj/item/clothing/accessory/zh_cape.dmi'
+	icon_override = 'icons/obj/item/clothing/accessory/zh_cape.dmi'
+	icon_state = "ZH_cape"
+	item_state = "ZH_cape"
+	flippable = FALSE
+	contained_sprite = TRUE
+
+/obj/item/clothing/accessory/poncho/assunzione
+	name = "\improper Luceian cloak"
+	desc = "A violet cloak adorned with gold inlays worn by devout adherents of Luceism, the dominant faith of Assunzione."
+	icon = 'icons/obj/item/clothing/accessory/poncho/assunzione_cloak.dmi'
+	icon_override = null
+	icon_state = "assunzione_robe"
+	item_state = "assunzione_robe"
+	overlay_state = "assunzione_robe"
+	contained_sprite = TRUE
+
+/obj/item/clothing/accessory/poncho/assunzione/get_mob_overlay(var/mob/living/carbon/human/H, var/mob_icon, var/mob_state, var/slot)
+	var/image/I = ..()
+	if(slot == slot_wear_suit_str)
+		var/image/robe_backing = image(mob_icon, null, "robe_backing", H ? H.layer - 0.01 : MOB_LAYER - 0.01)
+		I.AddOverlays(robe_backing)
+	return I
+
+/obj/item/clothing/accessory/poncho/assunzione/get_accessory_mob_overlay(mob/living/carbon/human/H, force)
+	var/image/base = ..()
+	var/image/robe_backing = image(icon, null, "robe_backing", H ? H.layer - 0.01 : MOB_LAYER - 0.01)
+	base.AddOverlays(robe_backing)
+	return base
+
+/obj/item/clothing/accessory/offworlder
+	name = "venter assembly"
+	desc = "A series of complex tubing meant to dissipate heat from the skin passively."
+	icon = 'icons/obj/item/clothing/accessory/offworlder.dmi'
+	contained_sprite = TRUE
+	icon_state = "venter"
+	item_state = "venter"
+	slot = ACCESSORY_SLOT_CAPE
+
+/obj/item/clothing/accessory/offworlder/bracer
+	name = "legbrace"
+	desc = "A lightweight polymer frame meant to brace and hold someone's legs upright comfortably."
+	icon_state = "legbrace"
+	item_state = "legbrace"
+	drop_sound = 'sound/items/drop/gun.ogg'
+
+/obj/item/clothing/accessory/offworlder/bracer/on_attached(obj/item/clothing/S, mob/user)
+	. = ..()
+	if(!user)
+		return
+
+	RegisterSignal(user, COMSIG_GRAVITY_WEAKNESS_EVENT, PROC_REF(negate_weakness))
+
+/obj/item/clothing/accessory/offworlder/bracer/on_removed(mob/user)
+	. = ..()
+	if(!user)
+		return
+
+	UnregisterSignal(user, COMSIG_GRAVITY_WEAKNESS_EVENT)
+
+/obj/item/clothing/accessory/offworlder/bracer/proc/negate_weakness(var/equipee, var/canceled)
+	SIGNAL_HANDLER
+	*canceled = TRUE //TODO: TCJ just make this a component I can shove onto anything.
+
+/obj/item/clothing/accessory/offworlder/bracer/neckbrace
+	name = "neckbrace"
+	desc = "A lightweight polymer frame meant to brace and hold someone's neck upright comfortably."
+	icon_state = "neckbrace"
+	item_state = "neckbrace"
+
+/obj/item/clothing/accessory/tc_pin
+	name = "Republic of Biesel pin"
+	desc = "A small Republic of Biesel flag pin."
+	icon = 'icons/obj/item/clothing/accessory/pins.dmi'
+	icon_state = "tc-pin"
+	item_state = "tc-pin"
+	contained_sprite = TRUE
+	flippable = TRUE
+	drop_sound = 'sound/items/drop/ring.ogg'
+	pickup_sound = 'sound/items/pickup/ring.ogg'
+
+/obj/item/clothing/accessory/sol_pin
+	name = "Sol Alliance pin"
+	desc = "A small pin of the Sol Alliance, shaped like a golden sun."
+	icon = 'icons/obj/item/clothing/accessory/pins.dmi'
+	icon_state = "sol-pin"
+	item_state = "sol-pin"
+	contained_sprite = TRUE
+	flippable = TRUE
+	drop_sound = 'sound/items/drop/ring.ogg'
+	pickup_sound = 'sound/items/pickup/ring.ogg'
+
+/obj/item/clothing/accessory/sol_pin/sfp
+	name = "Sol First Party pin"
+	desc = "A small pin of the Sol Alliance, shaped like a sun and used to indicate party allegiances."
+	icon_state = "sfp-pin"
+	item_state = "sfp-pin"
+
+/obj/item/clothing/accessory/sol_pin/ssup
+	name = "Solarian Socialist Unity Party pin"
+	desc = "A small pin of the Sol Alliance, shaped like a sun and used to indicate party allegiances."
+	icon_state = "ssup-pin"
+	item_state = "ssup-pin"
+
+/obj/item/clothing/accessory/sol_pin/spp
+	name = "Solarian People's Party pin"
+	desc = "A small pin of the Sol Alliance, shaped like a sun and used to indicate party allegiances."
+	icon_state = "spp-pin"
+	item_state = "spp-pin"
+
+/obj/item/clothing/accessory/sol_pin/spdp
+	name = "Solarian Popular Democratic Party pin"
+	desc = "A small pin of the Sol Alliance, shaped like a sun and used to indicate party allegiances."
+	icon_state = "spdp-pin"
+	item_state = "spdp-pin"
+
+/obj/item/clothing/accessory/sol_pin/commie
+	name = "Communist Party of the Sol Alliance pin"
+	desc = "A small pin of the Sol Alliance, shaped like a sun and used to indicate party allegiances."
+	icon_state = "commie-pin"
+	item_state = "commie-pin"
+
+/obj/item/clothing/accessory/dogtags
+	name = "dogtags"
+	desc = "A pair of engraved metal identification tags."
+	icon = 'icons/obj/item/clothing/accessory/dogtags.dmi'
+	icon_state = "dogtags"
+	item_state = "dogtags"
+	contained_sprite = TRUE
+	slot_flags = SLOT_MASK | SLOT_TIE
+	overlay_state = "tags"
+	drop_sound = 'sound/items/drop/accessory.ogg'
+	pickup_sound = 'sound/items/pickup/accessory.ogg'
+	desc_extended = "Use the dogtags on help intent to tuck or untuck them, or on harm intent to separate them."
+	var/can_be_broken = TRUE
+	var/separated = FALSE
+	var/tag_type = /obj/item/dogtag
+	/// If tucked is true, sprite is invisible on the mob; if false, it shows up as normal
+	var/tucked = TRUE
+
+/obj/item/dogtag
+	name = "dogtag"
+	desc = "An engraved metal identification tag."
+	icon = 'icons/obj/item/clothing/accessory/dogtags.dmi'
+	icon_state = "tag"
+	w_class = WEIGHT_CLASS_TINY
+
+/obj/item/clothing/accessory/dogtags/get_mask_examine_text(mob/user)
+	return "around [user.get_pronoun("his")] neck"
+
+/obj/item/clothing/accessory/dogtags/attack_self(mob/user)
+	if(can_be_broken)
+		if(!separated)
+			if(user.a_intent == I_HURT)
+				user.visible_message(SPAN_NOTICE("[user] yanks apart \the [src]!"))
+				separated = TRUE
+				var/obj/item/dogtag/tag = new tag_type(get_turf(user))
+				user.put_in_hands(tag)
+				tag.desc = desc
+				separated = TRUE
+				update_icon()
+		if(user.a_intent == I_HELP)
+			if(ishuman(user))
+				var/mob/living/carbon/human/H = user
+				to_chat(user, SPAN_NOTICE("You [tucked ? "untuck" : "tuck"] \the [src] [tucked ? "from" : "under"] your [H.w_uniform.name]."))
+				tucked = !tucked
+				update_icon()
+
+/obj/item/clothing/accessory/dogtags/update_icon()
+	if(separated)
+		icon_state = "[initial(icon_state)]_single[tucked ? "_tucked" : ""]"
+		item_state = "[initial(item_state)]_single[tucked ? "_tucked" : ""]"
+	else
+		icon_state = "[initial(icon_state)][tucked ? "_tucked" : ""]"
+		item_state = "[initial(item_state)][tucked ? "_tucked" : ""]"
+
+/obj/item/clothing/accessory/namepin
+	name = "pin tag"
+	desc = "A small strip of metal to label its wearer."
+	icon = 'icons/obj/item/clothing/accessory/pins.dmi'
+	icon_state = "namepintag"
+	item_state = "namepintag"
+	contained_sprite = TRUE
+	flippable = TRUE
+	w_class = WEIGHT_CLASS_TINY
+
+/obj/item/clothing/accessory/ribbon
+	name = "ribbon"
+	desc = "A small ribbon to commemorate or support a cause."
+	icon = 'icons/obj/item/clothing/accessory/ribbon.dmi'
+	icon_state = "ribbon"
+	item_state = "ribbon"
+	contained_sprite = TRUE
+	slot_flags = SLOT_TIE
+	w_class = WEIGHT_CLASS_TINY
+
+/obj/item/clothing/accessory/sleevepatch
+	name = "sleeve patch"
+	desc = "An embroidered patch which can be attached to the shoulder sleeve of clothing."
+	icon = 'icons/obj/item/clothing/accessory/patches.dmi'
+	icon_state = "patch"
+	item_state = "patch"
+	contained_sprite = TRUE
+	flippable = TRUE
+	drop_sound = 'sound/items/drop/gloves.ogg'
+	pickup_sound = 'sound/items/pickup/gloves.ogg'
+
+/obj/item/clothing/accessory/sleevepatch/scc
+	name = "Stellar Corporate Conglomerate patch"
+	desc = "An embroidered patch, adorned with the logo of the Stellar Corporate Conglomerate, which can be attached to the shoulder sleeve of clothing."
+	desc_extended = "The Stellar Corporate Conglomerate, also known as Chainlink, is a joint alliance between the NanoTrasen Corporation, Hephaestus Industries, Idris Incorporated, Zeng-Hu Pharmaceuticals and Zavodskoi Interstellar to exercise an undisputed economic dominance over the Orion Spur."
+	icon_state = "scc_patch"
+	item_state = "scc_patch"
+
+/obj/item/clothing/accessory/sleevepatch/zavodskoi
+	name = "\improper Zavodskoi Interstellar sleeve patch"
+	desc = "An embroidered patch which can be attached to the shoulder sleeve of clothing. This one bears the Zavodskoi Interstellar logo."
+	icon_state = "necro_patch"
+	item_state = "necro_patch"
+
+/obj/item/clothing/accessory/sleevepatch/zavodskoisec
+	name = "\improper Zavodskoi Interstellar Security sleeve patch"
+	desc = "An embroidered patch which can be attached to the shoulder sleeve of clothing. This one bears the Zavodskoi Interstellar logo with an insignia."
+	icon_state = "necrosec_patch"
+	item_state = "necrosec_patch"
+
+/obj/item/clothing/accessory/sleevepatch/erisec
+	name = "\improper EPMC sleeve patch"
+	desc = "A digital patch which can be attached to the shoulder sleeve of clothing. This one denotes the wearer as an Eridani Private Military Contractor."
+	icon_state = "erisec_patch"
+	item_state = "erisec_patch"
+
+/obj/item/clothing/accessory/sleevepatch/idrissec
+	name = "\improper Idris Incorporated sleeve patch"
+	desc = "A digital patch which can be attached to the shoulder sleeve of clothing. This one shows the Idris Incorporated logo with a flashing chevron."
+	icon_state = "idrissec_patch"
+	item_state = "idrissec_patch"
+
+/obj/item/clothing/accessory/sleevepatch/kog/pra
+	name = "\improper KOG Motorheads shoulder tabs"
+	desc = "A patch attached to the shoulders of a uniform or armor. This one denotes the wearer as a member of KOG's PRA division the Motorheads."
+	desc_extended = "Kazarrhaldiye Operations Group splits employees based on nationality to remove possible political tensions. The PRA division, called the Motorheads, specializes in motorized warfare and quick response force operations."
+	icon = 'icons/obj/item/clothing/accessory/kog_tabs.dmi'
+	icon_state = "kog_tabs_pra"
+	item_state = "kog_tabs_pra"
+	flippable = FALSE
+
+/obj/item/clothing/accessory/sleevepatch/kog/ala
+	name = "\improper KOG Last Chancers shoulder tabs"
+	desc = "A patch attached to the shoulders of a uniform or armor. This one denotes the wearer as a member of KOG's DPRA/ALA division the Last Chancers."
+	desc_extended = "Kazarrhaldiye Operations Group splits employees based on nationality to remove possible political tensions. The ALA/DPRA division, known as the Last Chancers, focus on sabatoge and explosives. They have become infamous for nighttime infiltrations wherein their explosive expertise leads to devastating effects."
+	icon = 'icons/obj/item/clothing/accessory/kog_tabs.dmi'
+	icon_state = "kog_tabs_ala"
+	item_state = "kog_tabs_ala"
+	flippable = FALSE
+
+/obj/item/clothing/accessory/sleevepatch/kog/nka
+	name = "\improper KOG Starry Knights shoulder tabs"
+	desc = "A patch attached to the shoulders of a uniform or armor. This one denotes the wearer as a member of KOG's NKA division the Starry Knights."
+	desc_extended = "Kazarrhaldiye Operations Group splits employees based on nationality to remove possible political tensions. The NKA divison, called the Starry Knights, are the defensive experts of the KOG. Using datasets regarding various entities of the Spur, the Starry Knights are capable of preparing an adaptable and formidable defense."
+	icon = 'icons/obj/item/clothing/accessory/kog_tabs.dmi'
+	icon_state = "kog_tabs_nka"
+	item_state = "kog_tabs_nka"
+	flippable = FALSE
+
+/obj/item/clothing/accessory/kneepads
+	name = "kneepads"
+	desc = "A pair of synthetic kneepads. Doesn't provide protection from more than arthritis."
+	icon = 'icons/obj/item/clothing/accessory/kneepads.dmi'
+	icon_state = "kneepads"
+	item_state = "kneepads"
+	contained_sprite = TRUE
+	gender = PLURAL
+	slot = ACCESSORY_SLOT_PANTS
+
+/obj/item/clothing/accessory/blood_patch
+	name = "O- blood patch"
+	desc = "An embroidered patch indicating the wearer's blood type as O NEGATIVE."
+	icon = 'icons/obj/item/clothing/accessory/blood_patch.dmi'
+	icon_state = "onegtag"
+	contained_sprite = TRUE
+
+/obj/item/clothing/accessory/blood_patch/opos
+	name = "O+ blood patch"
+	desc = "An embroidered patch indicating the wearer's blood type as O POSITIVE."
+	icon_state = "opostag"
+
+/obj/item/clothing/accessory/blood_patch/apos
+	name = "A+ blood patch"
+	desc = "An embroidered patch indicating the wearer's blood type as A POSITIVE."
+	icon_state = "apostag"
+
+/obj/item/clothing/accessory/blood_patch/aneg
+	name = "A- blood patch"
+	desc = "An embroidered patch indicating the wearer's blood type as A NEGATIVE."
+	icon_state = "anegtag"
+
+/obj/item/clothing/accessory/blood_patch/bpos
+	name = "B+ blood patch"
+	desc = "An embroidered patch indicating the wearer's blood type as B POSITIVE."
+	icon_state = "bpostag"
+
+/obj/item/clothing/accessory/blood_patch/bneg
+	name = "B- blood patch"
+	desc = "An embroidered patch indicating the wearer's blood type as B NEGATIVE."
+	icon_state = "bnegtag"
+
+/obj/item/clothing/accessory/blood_patch/abpos
+	name = "AB+ blood patch"
+	desc = "An embroidered patch indicating the wearer's blood type as AB POSITIVE."
+	icon_state = "abpostag"
+
+/obj/item/clothing/accessory/blood_patch/abneg
+	name = "AB- blood patch"
+	desc = "An embroidered patch indicating the wearer's blood type as AB NEGATIVE."
+	icon_state = "abnegtag"
+
+/obj/item/clothing/accessory/blood_patch/sbs
+	name = "SBS blood patch"
+	desc = "An embroidered patch indicating the wearer's blood type as SYNTHETIC BLOOD SUBSTITUTE."
+	icon_state = "sbstag"
+
+
+// Corporate Liaison stuff.
+
+/obj/item/clothing/accessory/tie/corporate
+	name = "corporate tie"
+	icon = 'icons/obj/item/clothing/department_uniforms/service.dmi'
+	icon_state = "nt_tie"
+	item_state = "nt_tie"
+	contained_sprite = TRUE
+
+/obj/item/clothing/accessory/tie/corporate/zeng
+	icon_state = "zeng_tie"
+	item_state = "zeng_tie"
+
+/obj/item/clothing/accessory/tie/corporate/zavod
+	icon_state = "zav_tie"
+	item_state = "zav_tie"
+
+/obj/item/clothing/accessory/tie/corporate/heph
+	icon_state = "heph_tie"
+	item_state = "heph_tie"
+
+/obj/item/clothing/accessory/tie/corporate/pmc
+	icon_state = "pmc_tie"
+	item_state = "pmc_tie"
+
+/obj/item/clothing/accessory/tie/corporate/idris
+	icon_state = "idris_tie"
+	item_state = "idris_tie"
+
+/obj/item/clothing/accessory/tie/corporate/orion
+	icon_state = "orion_tie"
+	item_state = "orion_tie"
+
+/obj/item/clothing/accessory/pin/corporate
+	name = "corporate badge"
+	desc = "A shiny button which reads, <i>'NanoTrasen - The leader in all things Phoron!'</i>"
+	icon = 'icons/obj/item/clothing/department_uniforms/service.dmi'
+	icon_state = "nt_liaison_badge"
+	item_state = "nt_liaison_badge"
+	drop_sound = 'sound/items/drop/ring.ogg'
+	pickup_sound = 'sound/items/pickup/ring.ogg'
+	contained_sprite = TRUE
+
+/obj/item/clothing/accessory/pin/corporate/zeng
+	desc = "A shiny button which reads, <i>'Zeng-Hu - Building a brighter future.'</i>"
+	icon_state = "zeng_liaison_badge"
+	item_state = "zeng_liaison_badge"
+
+/obj/item/clothing/accessory/pin/corporate/zavod
+	desc = "A shiny button which reads, <i>'Zavodskoi Interstellar - Even one matters in the battlefield.'</i>"
+	icon_state = "zav_liaison_badge"
+	item_state = "zav_liaison_badge"
+
+/obj/item/clothing/accessory/pin/corporate/heph
+	desc = "A shiny button which reads, <i>'Hephaestus Industries - The anvil upon which the world is shaped.'</i>"
+	icon_state = "heph_liaison_badge"
+	item_state = "heph_liaison_badge"
+
+/obj/item/clothing/accessory/pin/corporate/pmc
+	desc = "A shiny button which reads, <i>'PMCG - Always on guard, always on watch.'</i>"
+	icon_state = "pmc_liaison_badge"
+	item_state = "pmc_liaison_badge"
+
+/obj/item/clothing/accessory/pin/corporate/idris
+	desc = "A shiny button which reads, <i>'Idris, Inc. - Astronomical Figures. Unlimited Power.'</i>"
+	icon_state = "idris_liaison_badge"
+	item_state = "idris_liaison_badge"
+
+/obj/item/clothing/accessory/pin/corporate/orion
+	desc = "A shiny button which reads, <i>'Orion Express - For all your logistical needs!'</i>"
+	icon_state = "orion_liaison_badge"
+	item_state = "orion_liaison_badge"
+
+/obj/item/clothing/accessory/poncho/burzsian_mantle
+	name = "\improper Burzsian shoulder mantle"
+	desc = "A uniform mantle made out of rudimentary metallic plates. The sigil of Burzsia is pressed into the front of it."
+	desc_extended = "A uniform mantle of metallic plates that provide positronics in Burzsia cheap, rudimentary protection from industrial hazards and shrapnel; it's also been chemically treated to withstand the surface of Burzsia I. Operation history and specifications are printed underneath the back plate, as a failsafe for field operators to quickly identify the unit in the event it is damaged to the point where said information cannot be discerned through other means."
+	icon = 'icons/obj/item/clothing/accessory/bz_mantle.dmi'
+	icon_state = "ipcmantle"
+	item_state = "ipcmantle"
+	contained_sprite = TRUE
+	icon_override = null
+	body_parts_covered = UPPER_TORSO
+
+/obj/item/clothing/accessory/poncho/burzsian_mantle/native
+	name = "native Burzsian shoulder mantle"
+	desc = "A uniform mantle made out of inexpensive leather. The sigil of Burzsia is imprinted on the front."
+	desc_extended = "Native Burzsians within Burzsia II, also known as the Obsidian Belt, wear these leather mantles that, unlike the IPCs' mantles from the same system, are designed to be comfortable for humans and less encumbering, nonetheless providing them partial skin protection from the harsh dwarf star."
+	icon = 'icons/obj/item/clothing/accessory/bz_mantle.dmi'
+	icon_state = "burzsianmantle"
+	item_state = "burzsianmantle"
+	contained_sprite = TRUE
+
+/obj/item/clothing/accessory/goon_coif
+	name = "tactical coif"
+	desc = "A comfortable tactical coif that goes around the head."
+	icon = 'icons/obj/item/clothing/accessory/goon_coif.dmi'
+	body_parts_covered = HEAD
+	icon_state = "goon_coif"
+	item_state = "goon_coif"
+	contained_sprite = TRUE
+	icon_auto_adapt = TRUE
+	icon_supported_species_tags = list("una", "taj")
+	slot_flags = SLOT_MASK | SLOT_EARS | SLOT_TIE
+
+/obj/item/clothing/accessory/goon_coif/get_ear_examine_text(var/mob/user, var/ear_text = "left")
+	return "on [user.get_pronoun("his")] head"
+
+/obj/item/clothing/accessory/goon_coif/get_mask_examine_text(var/mob/user)
+	return "on [user.get_pronoun("his")] head"
+
+/********** Aprons Start **********/
+// Apron
+/obj/item/clothing/accessory/apron
+	name = "apron"
+	desc = "An apron."
+	icon = 'icons/obj/item/clothing/accessory/aprons.dmi'
+	icon_state = "apron"
+	item_state = "apron"
+	contained_sprite = TRUE
+	slot_flags = SLOT_OCLOTHING | SLOT_TIE
+	body_parts_covered = UPPER_TORSO | LOWER_TORSO
+	no_overheat = TRUE
+	allowed = list(
+		/obj/item/reagent_containers/food/drinks/shaker,
+		/obj/item/material/kitchen/utensil,
+		/obj/item/reagent_containers/food/condiment,
+		/obj/item/reagent_containers/food/drinks/bottle
+	)
+
+// Random Colour Apron
+/obj/item/clothing/accessory/apron/random/Initialize() // Random colour.
+	. = ..()
+	color = get_random_colour(lower = 150)
+
+// Hydroponics Apron
+/obj/item/clothing/accessory/apron/blue // Used for hydroponics.
+	color = "#3429d1"
+	allowed = list(
+		/obj/item/reagent_containers/spray/plantbgone,
+		/obj/item/analyzer/plant_analyzer,
+		/obj/item/seeds,
+		/obj/item/reagent_containers/glass/fertilizer,
+		/obj/item/material/minihoe
+	)
+
+// Surgical Apron
+/obj/item/clothing/accessory/apron/surgery
+	name = "surgical apron"
+	desc = "A surgical apron."
+	icon_state = "apron_surgeon"
+	item_state = "apron_surgeon"
+	allowed = list(
+		/obj/item/stack/medical,
+		/obj/item/reagent_containers/dropper,
+		/obj/item/reagent_containers/hypospray,
+		/obj/item/reagent_containers/syringe,
+		/obj/item/healthanalyzer,
+		/obj/item/flashlight,
+		/obj/item/radio,
+		/obj/item/tank/emergency_oxygen,
+		/obj/item/breath_analyzer,
+		/obj/item/reagent_containers/blood
+	)
+
+// Zeng-Hu Surgical Apron
+/obj/item/clothing/accessory/apron/surgery/zeng
+	name = "zeng-hu vinyl apron"
+	desc = "A key design element in the labwear was utility and compatibility with the Zeng-Hu positronic chassis workers that are ubiquitous throughout the corporation. \
+	As a result they are breathable yet non-porous, allowing for ample airflow while retaining the cleanroom standards expected of a medical and scientific uniform."
+	icon_state = "apron_surgeon_zeng"
+	item_state = "apron_surgeon_zeng"
+
+// Chef Apron
+/obj/item/clothing/accessory/apron/chef
+	name = "chef apron"
+	desc = "A basic, dull, white chef apron."
+	icon_state = "apron_chef"
+	item_state = "apron_chef"
+	allowed = list(
+		/obj/item/reagent_containers/food/drinks/shaker,
+		/obj/item/material/kitchen/utensil,
+		/obj/item/reagent_containers/food/condiment,
+		/obj/item/reagent_containers/food/drinks/bottle,
+		/obj/item/material/knife
+	)
+// goblinstev's stuff
+/obj/item/clothing/accessory/apron/qeburgerapron
+	name = "Quick-E-Burger Food Technician Apron"
+	desc = "For industrious employees hard at work, the Quick-E-Burger Food Technician Apron is the perfect protection! Supplied and manufactured in bulk by Quick-E-Burger's parent company, Orion Express, the Food Technician Apron is constructed from highly-resistant rubber with ergonomic quick-fastening security straps to ensure it can be made to fit any employee, of any species, anywhere!"
+	icon_state = "quickeburger_apron"
+	item_state = "quickeburger_apron"
+	allowed = list(
+		/obj/item/reagent_containers/food/drinks/shaker,
+		/obj/item/material/kitchen/utensil,
+		/obj/item/reagent_containers/food/condiment,
+		/obj/item/reagent_containers/food/drinks/bottle,
+		/obj/item/material/knife
+	)
+/********** Aprons End **********/
+
+/********** Overalls Start **********/
+// Overalls
+/obj/item/clothing/accessory/overalls
+	name = "overalls"
+	desc = "A set of denim overalls."
+	icon = 'icons/obj/item/clothing/accessory/overalls.dmi'
+	icon_state = "overalls"
+	item_state = "overalls"
+	contained_sprite = TRUE
+	slot_flags = SLOT_OCLOTHING | SLOT_TIE
+	body_parts_covered = UPPER_TORSO | LOWER_TORSO | LEGS
+
+// Random Colour Overalls
+/obj/item/clothing/accessory/overalls/random/Initialize() // Random colour.
+	. = ..()
+	color = get_random_colour(lower = 150)
+
+// Hydroponics Overalls
+/obj/item/clothing/accessory/overalls/blue // Used for hydroponics.
+	color = "#3429d1"
+
+// High Back Overalls
+/obj/item/clothing/accessory/overalls/high_back
+	name = "high back overalls"
+	desc = "A set of denim overalls with a high back."
+	icon_state = "overalls_high"
+	item_state = "overalls_high"
+
+// X-shaped Back Overalls
+/obj/item/clothing/accessory/overalls/x_shaped_back
+	name = "\improper X-shaped back overalls"
+	desc = "A set of denim overalls with a high back."
+	icon_state = "overalls_x"
+	item_state = "overalls_x"
+
+// Overall Shorts
+/obj/item/clothing/accessory/overalls/shorts
+	name = "overall shorts"
+	desc = "A set of denim overall shorts."
+	icon_state = "overall_shorts"
+	item_state = "overall_shorts"
+	body_parts_covered = UPPER_TORSO | LOWER_TORSO
+
+// High Back Overall Shorts
+/obj/item/clothing/accessory/overalls/shorts/high_back
+	name = "high back overall shorts"
+	desc = "A set of denim overall shorts with a high back."
+	icon_state = "overall_shorts_high"
+	item_state = "overall_shorts_high"
+
+// X-shaped Back Overall Shorts
+/obj/item/clothing/accessory/overalls/shorts/x_shaped_back
+	name = "\improper X-shaped back overall shorts"
+	desc = "A set of denim overall shorts with a high back."
+	icon_state = "overall_shorts_x"
+	item_state = "overall_shorts_x"
+
+// Overall Skirt
+/obj/item/clothing/accessory/overalls/skirt
+	name = "overall skirt"
+	desc = "A denim overall skirt."
+	icon_state = "overall_skirt"
+	item_state = "overall_skirt"
+	body_parts_covered = UPPER_TORSO | LOWER_TORSO
+
+// High Back Overall Skirt
+/obj/item/clothing/accessory/overalls/skirt/high_back
+	name = "high back overall skirt"
+	desc = "A denim overall skirt with a high back."
+	icon_state = "overall_skirt_high"
+	item_state = "overall_skirt_high"
+
+// X-shaped Back Overall Skirt
+/obj/item/clothing/accessory/overalls/skirt/x_shaped_back
+	name = "\improper X-shaped back overall skirt"
+	desc = "A denim overall skirt with a high back."
+	icon_state = "overall_skirt_x"
+	item_state = "overall_skirt_x"
+/********** Overalls End **********/
+
+// Pronoun pins
+/obj/item/clothing/accessory/pronoun
+	name = "any/all pronouns pin"
+	desc = "A pin denoting the wearer's pronouns: any/all."
+	icon = 'icons/obj/item/clothing/accessory/pronoun_pin.dmi'
+	icon_state = "pronounpin"
+	item_state = "pronounpin"
+	worn_overlay = "over"
+	drop_sound = 'sound/items/drop/card.ogg'
+	pickup_sound = 'sound/items/pickup/card.ogg'
+	contained_sprite = TRUE
+	build_from_parts = TRUE
+	overlay_in_inventory = FALSE
+
+/obj/item/clothing/accessory/pronoun/hehim
+	name = "he/him pronouns pin"
+	desc = "A pin denoting the wearer's pronouns: he/him."
+
+/obj/item/clothing/accessory/pronoun/hethey
+	name = "he/they pronouns pin"
+	desc = "A pin denoting the wearer's pronouns: he/they."
+
+/obj/item/clothing/accessory/pronoun/sheher
+	name = "she/her pronouns pin"
+	desc = "A pin denoting the wearer's pronouns: she/her."
+
+/obj/item/clothing/accessory/pronoun/shethey
+	name = "she/they pronouns pin"
+	desc = "A pin denoting the wearer's pronouns: she/they."
+
+/obj/item/clothing/accessory/pronoun/theythem
+	name = "they/them pronouns pin"
+	desc = "A pin denoting the wearer's pronouns: they/them."
+
+/obj/item/clothing/accessory/pronoun/itits
+	name = "it/its pronouns pin"
+	desc = "A pin denoting the wearer's pronouns: it/its."
+
+/obj/item/clothing/accessory/pronoun/ask
+	name = "please ask! pronouns pin"
+	desc = "A pin asking others to ask for their pronouns."
+
+/obj/item/clothing/accessory/led_collar
+	name = "\improper LED collar"
+	desc = "A collar, usually worn around the neck of a voidsuit, that allows others to easily identify the wearer."
+	icon = 'icons/obj/item/clothing/accessory/led_collar.dmi'
+	icon_state = "led_collar"
+	item_state = "led_collar"
+	contained_sprite = TRUE
+	slot = ACCESSORY_SLOT_UTILITY_MINOR
+	var/mutable_appearance/inventory_emissive
+
+/obj/item/clothing/accessory/led_collar/Initialize()
+	. = ..()
+	color = pick("#00FFFF", "#FF0000", "#FF00FF", "#FF6600", "#CC00CC")
+	AddOverlays(emissive_appearance(icon, icon_state))
+	set_light_range_power_color(0.5, 0.4, color)
+	set_light_on(TRUE)
+
+/obj/item/clothing/accessory/led_collar/get_inv_overlay(mob/M, force = FALSE)
+	var/image/I = ..()
+	if(!inventory_emissive)
+		inventory_emissive = emissive_appearance(I.icon, I.icon_state)
+	I.AddOverlays(inventory_emissive)
+	return I
+
+/// Update the light mode to one used by accessories when it gets attached.
+/obj/item/clothing/accessory/led_collar/on_attached(obj/item/clothing/S, mob/user)
+	. = ..()
+	set_light_flags(LIGHT_ATTACHED)
+
+/// Clears LIGHT_ATTACHED tracking when the collar is detached from clothing.
+/obj/item/clothing/accessory/led_collar/on_removed(mob/user)
+	. = ..()
+	set_light_flags(NONE)
+
+/obj/item/clothing/accessory/led_collar/attack_self(mob/user)
+	. = ..()
+	var/new_color = input(user, "Select the color of \the [src]", "LED Collar Color Selection", color) as null|color
+	if(new_color)
+		color = new_color
+		set_light_range_power_color(0.5, 0.4, color)
+
+/obj/item/clothing/accessory/led_collar/get_accessory_mob_overlay(var/mob/living/carbon/human/H, var/force = FALSE)
+	var/image/I = ..()
+	I.AddOverlays(emissive_appearance(I.icon, I.icon_state))
+	return I
+
+/obj/item/clothing/accessory/newgibson_uraniumglass_necklace
+	name = "uranium glass bead necklace"
+	desc = "A beaded necklace made out of a radiofluorescent, green, uranium glass. It is only marginally radioactive. Commonly seen worn by New Gibsonites."
+	icon = 'icons/obj/item/clothing/accessory/human/biesel/newgibson_uraniumglass_necklace.dmi'
+	icon_state = "newgibson_necklace"
+	item_state = "newgibson_necklace"
+	plane = ABOVE_LIGHTING_PLANE
+	contained_sprite = TRUE
+
+/obj/item/clothing/accessory/newgibson_uraniumglass_necklace/get_accessory_mob_overlay(var/mob/living/carbon/human/H, var/force = FALSE)
+	var/image/I = ..()
+	I.plane = ABOVE_LIGHTING_PLANE
+	I.appearance_flags |= KEEP_APART
+	return I

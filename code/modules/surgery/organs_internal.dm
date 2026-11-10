@@ -1,409 +1,547 @@
 // Internal surgeries.
-/datum/surgery_step/internal
+/singleton/surgery_step/internal
 	priority = 2
-	can_infect = 1
+	can_infect = TRUE
 	blood_level = 1
+	skill_requirements = alist(SURGERY_SKILL_COMPONENT = SKILL_LEVEL_TRAINED)
+	skill_diff_fail_modifier = SURGERY_DIFFICULTY_EXTREME
 
-/datum/surgery_step/internal/can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-
-	if (!hasorgans(target))
-		return 0
+/singleton/surgery_step/internal/can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	if(!..())
+		return FALSE
 
 	var/obj/item/organ/external/affected = target.get_organ(target_zone)
-	return affected && affected.open == (affected.encased ? 3 : 2)
+	if(!affected)
+		return FALSE
+	if(affected.encased)
+		return IS_ORGAN_FULLY_OPEN
+	if(BP_IS_ROBOTIC(affected))
+		return affected.augment_limit && affected.open == ORGAN_ENCASED_RETRACTED
+	else
+		return affected.augment_limit && affected.open == ORGAN_OPEN_RETRACTED
 
 //////////////////////////////////////////////////////////////////
 //				CHEST INTERNAL ORGAN SURGERY					//
 //////////////////////////////////////////////////////////////////
-/datum/surgery_step/internal/fix_organ
+/singleton/surgery_step/internal/fix_organ
+	name = "Repair Internal Organs"
 	allowed_tools = list(
 	/obj/item/stack/medical/advanced/bruise_pack= 100,		\
 	/obj/item/stack/medical/bruise_pack = 20
 	)
+	base_surgery_time = 7 SECONDS
+	skill_requirements = alist(SURGERY_SKILL_COMPONENT = SKILL_LEVEL_TRAINED)
 
-	min_duration = 70
-	max_duration = 90
+/singleton/surgery_step/internal/fix_organ/can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	if(!..())
+		return FALSE
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	var/is_organ_damaged = FALSE
+	for(var/obj/item/organ/internal/I in affected.internal_organs)
+		if(I.is_damaged())
+			if(BP_IS_ROBOTIC(I))
+				to_chat(user, SPAN_NOTICE("You notice that \the [I] in [user]'s [affected.name] is a mechanical organ, and is also damaged."))
+				continue
+			is_organ_damaged = TRUE
+	return is_organ_damaged
 
-	can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+/singleton/surgery_step/internal/fix_organ/begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	if(!..())
+		return FALSE
 
-		if (!hasorgans(target))
-			return
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		if(!affected)
-			return
-		var/is_organ_damaged = 0
-		for(var/obj/item/organ/I in affected.internal_organs)
-			if(I.damage > 0)
-				is_organ_damaged = 1
-				break
-		return ..() && is_organ_damaged
+	var/tool_name = "\the [tool]"
+	if(istype(tool, /obj/item/stack/medical/advanced/bruise_pack))
+		tool_name = "regenerative membrane"
+	else if(istype(tool, /obj/item/stack/medical/bruise_pack))
+		tool_name = "some bandaids"
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
 
-	begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/tool_name = "\the [tool]"
-		if (istype(tool, /obj/item/stack/medical/advanced/bruise_pack))
-			tool_name = "regenerative membrane"
-		else if (istype(tool, /obj/item/stack/medical/bruise_pack))
-			tool_name = "the bandaid"
+	for(var/obj/item/organ/internal/I in affected.internal_organs)
+		if(I && I.is_damaged() && !BP_IS_ROBOTIC(I) && (~I.status & ORGAN_DEAD || I.can_recover()))
+			user.visible_message("[user] starts treating damage to [target]'s [I.name] with [tool_name].", \
+			"You start treating damage to [target]'s [I.name] with [tool_name]." )
+	target.custom_pain("The pain in your [affected.name] is living hell!",100, affecting = affected)
+	..()
 
-		if (!hasorgans(target))
-			return
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
+/singleton/surgery_step/internal/fix_organ/end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/tool_name = "\the [tool]"
+	if(istype(tool, /obj/item/stack/medical/advanced/bruise_pack))
+		tool_name = "regenerative membrane"
+	if(istype(tool, /obj/item/stack/medical/bruise_pack))
+		tool_name = "some bandaids"
 
-		for(var/obj/item/organ/I in affected.internal_organs)
-			if(I && I.damage > 0)
-				if(I.robotic < 2)
-					user.visible_message("[user] starts treating damage to [target]'s [I.name] with [tool_name].", \
-					"You start treating damage to [target]'s [I.name] with [tool_name]." )
+	if(!ishuman(target))
+		return
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
 
-		target.custom_pain("The pain in your [affected.name] is living hell!",1)
-		..()
+	for(var/obj/item/organ/internal/I in affected.internal_organs)
+		if(I && I.is_damaged() && !BP_IS_ROBOTIC(I))
+			if(I.status & ORGAN_DEAD && I.can_recover())
+				user.visible_message(SPAN_NOTICE("\The [user] treats damage to [target]'s [I.name] with [tool_name], though it needs to be recovered further."), \
+				SPAN_NOTICE("You treat damage to [target]'s [I.name] with [tool_name], though it needs to be recovered further.") )
+			else
+				user.visible_message(SPAN_NOTICE("[user] treats damage to [target]'s [I.name] with [tool_name]."), \
+				SPAN_NOTICE("You treat damage to [target]'s [I.name] with [tool_name]."))
+			I.surgical_fix(user)
+			user.visible_message("\The [user] finishes treating damage within \the [target]'s [affected.name] with [tool_name].", \
+			"You finish treating damage within \the [target]'s [affected.name] with [tool_name].")
+			if(I.status & ORGAN_DEAD)
+				to_chat(user, SPAN_DANGER("This organ is still dead! You must remove the dead tissue with a scalpel!"))
 
-	end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/tool_name = "\the [tool]"
-		if (istype(tool, /obj/item/stack/medical/advanced/bruise_pack))
-			tool_name = "regenerative membrane"
-		if (istype(tool, /obj/item/stack/medical/bruise_pack))
-			tool_name = "the bandaid"
+/singleton/surgery_step/internal/fix_organ/fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	if(!ishuman(target))
+		return
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
 
-		if (!hasorgans(target))
-			return
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	user.visible_message(SPAN_WARNING("[user]'s hand slips, getting mess and tearing the inside of [target]'s [affected.name] with \the [tool]!"), \
+		SPAN_WARNING("Your hand slips, getting mess and tearing the inside of [target]'s [affected.name] with \the [tool]!"))
+	var/dam_amt = 2
 
-		for(var/obj/item/organ/I in affected.internal_organs)
-			if(I && I.damage > 0)
-				if(I.robotic < 2)
-					user.visible_message("<span class='notice'>[user] treats damage to [target]'s [I.name] with [tool_name].</span>", \
-					"<span class='notice'>You treat damage to [target]'s [I.name] with [tool_name].</span>" )
-					I.damage = 0
-					var/obj/item/organ/brain/sponge = target.internal_organs_by_name["brain"]
-					if(sponge && istype(I, sponge))
-						target.cure_all_traumas(cure_type = CURE_SURGERY)
+	if(istype(tool, /obj/item/stack/medical/advanced/bruise_pack))
+		target.adjustToxLoss(5)
 
-	fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	else if(istype(tool, /obj/item/stack/medical/bruise_pack))
+		dam_amt = 5
+		target.adjustToxLoss(10)
+		target.apply_damage(5, DAMAGE_BRUTE, target_zone, 0, tool)
 
-		if (!hasorgans(target))
-			return
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	for(var/obj/item/organ/internal/I in affected.internal_organs)
+		if(I && I.is_damaged())
+			I.take_damage(dam_amt,0)
 
-		user.visible_message("<span class='warning'>[user]'s hand slips, getting mess and tearing the inside of [target]'s [affected.name] with \the [tool]!</span>", \
-		"<span class='warning'>Your hand slips, getting mess and tearing the inside of [target]'s [affected.name] with \the [tool]!</span>")
-		var/dam_amt = 2
-
-		if (istype(tool, /obj/item/stack/medical/advanced/bruise_pack))
-			target.adjustToxLoss(5)
-
-		else if (istype(tool, /obj/item/stack/medical/bruise_pack))
-			dam_amt = 5
-			target.adjustToxLoss(10)
-			affected.createwound(CUT, 5)
-
-		for(var/obj/item/organ/I in affected.internal_organs)
-			if(I && I.damage > 0)
-				I.take_damage(dam_amt,0)
-
-/datum/surgery_step/internal/detatch_organ
-
+/singleton/surgery_step/internal/fix_organ_robotic //For artificial organs
+	name = "Repair Robotic Organ"
 	allowed_tools = list(
-	/obj/item/weapon/scalpel = 100,
-	/obj/item/weapon/material/knife = 75,
-	/obj/item/weapon/material/shard = 50
+	/obj/item/stack/nanopaste = 100,
+	/obj/item/surgery/bone_gel = 30,
+	TOOL_SCREWDRIVER = 70
 	)
+	base_surgery_time = 7 SECONDS
+	skill_requirements = alist(ROBOTICS_SKILL_COMPONENT = SKILL_LEVEL_FAMILIAR)
 
-	min_duration = 90
-	max_duration = 110
+/singleton/surgery_step/internal/fix_organ_robotic/can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	if(!..())
+		return FALSE
 
-	can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	var/is_organ_damaged = 0
+	for(var/obj/item/organ/internal/I in affected.internal_organs)
+		if(I.is_damaged())
+			if(!BP_IS_ROBOTIC(I))
+				to_chat(user, SPAN_NOTICE("You notice that \the [I] in [user]'s [affected.name] is a biological organ, and is also damaged."))
+				continue
+			is_organ_damaged = TRUE
+	return is_organ_damaged && IS_ORGAN_FULLY_OPEN
 
-		if (!..())
-			return 0
+/singleton/surgery_step/internal/fix_organ_robotic/begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	if(!ishuman(target))
+		return
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
 
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	for(var/obj/item/organ/internal/I in affected.internal_organs)
+		if(I && I.is_damaged())
+			if(I.robotic >= 2)
+				user.visible_message("<b>[user]</b> starts mending the damage to [target]'s [I.name]'s mechanisms.", \
+					SPAN_NOTICE("You start mending the damage to [target]'s [I.name]'s mechanisms." ))
 
-		if(!(affected && !(affected.status & ORGAN_ROBOT)))
-			return 0
+	target.custom_pain("The pain in your [affected.name] is living hell!", 75, affecting = affected)
+	..()
 
-		target.op_stage.current_organ = null
+/singleton/surgery_step/internal/fix_organ_robotic/end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	if(!ishuman(target))
+		return
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
 
-		var/list/attached_organs = list()
-		for(var/organ in target.internal_organs_by_name)
-			var/obj/item/organ/I = target.internal_organs_by_name[organ]
-			if(I && !(I.status & ORGAN_CUT_AWAY) && I.parent_organ == target_zone)
-				attached_organs |= organ
+	for(var/obj/item/organ/internal/I in affected.internal_organs)
+		if(I && I.is_damaged())
+			if(I.robotic >= 2)
+				user.visible_message("<b>[user]</b> repairs [target]'s [I.name] with [tool].", \
+					SPAN_NOTICE("You repair [target]'s [I.name] with [tool].") )
+				I.surgical_fix(user)
+				START_PROCESSING(SSprocessing, I)
+				if(istype(tool, /obj/item/stack/nanopaste))
+					var/obj/item/stack/nanopaste/nanopaste = tool
+					nanopaste.use(1)
+					return
 
-		var/organ_to_remove = input(user, "Which organ do you want to prepare for removal?") as null|anything in attached_organs
-		if(!organ_to_remove)
-			return 0
+/singleton/surgery_step/internal/fix_organ_robotic/fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	if(!ishuman(target))
+		return
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
 
-		target.op_stage.current_organ = organ_to_remove
+	user.visible_message(SPAN_WARNING("[user]'s hand slips, gumming up the mechanisms inside of [target]'s [affected.name] with \the [tool]!"), \
+		SPAN_WARNING("Your hand slips, gumming up the mechanisms inside of [target]'s [affected.name] with \the [tool]!"))
 
-		return ..() && organ_to_remove
+	target.adjustToxLoss(5)
+	target.apply_damage(5, DAMAGE_BRUTE, target_zone, 0, tool, damage_flags = tool.damage_flags())
 
-	begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	for(var/obj/item/organ/internal/I in affected.internal_organs)
+		if(I)
+			I.take_damage(rand(3,5),0)
 
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-
-		user.visible_message("[user] starts to separate [target]'s [target.op_stage.current_organ] with \the [tool].", \
-		"You start to separate [target]'s [target.op_stage.current_organ] with \the [tool]." )
-		target.custom_pain("The pain in your [affected.name] is living hell!",1)
-		..()
-
-	end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		user.visible_message("<span class='notice'>[user] has separated [target]'s [target.op_stage.current_organ] with \the [tool].</span>" , \
-		"<span class='notice'>You have separated [target]'s [target.op_stage.current_organ] with \the [tool].</span>")
-
-		var/obj/item/organ/I = target.internal_organs_by_name[target.op_stage.current_organ]
-		if(I && istype(I))
-			I.status |= ORGAN_CUT_AWAY
-
-	fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		user.visible_message("<span class='warning'>[user]'s hand slips, slicing an artery inside [target]'s [affected.name] with \the [tool]!</span>", \
-		"<span class='warning'>Your hand slips, slicing an artery inside [target]'s [affected.name] with \the [tool]!</span>")
-		affected.createwound(CUT, rand(30,50), 1)
-
-/datum/surgery_step/internal/remove_organ
-
+/singleton/surgery_step/internal/detach_organ
+	name = "Separate Organ"
+	priority = 1
 	allowed_tools = list(
-	/obj/item/weapon/hemostat = 100,	\
-	/obj/item/weapon/wirecutters = 75,	\
-	/obj/item/weapon/material/kitchen/utensil/fork = 20
+	TOOL_SCALPEL = 100,
+	/obj/item/material/knife = 75,
+	/obj/item/material/shard = 50
 	)
+	base_surgery_time = 9 SECONDS
+	skill_requirements = alist(SURGERY_SKILL_COMPONENT = SKILL_LEVEL_TRAINED)
 
-	min_duration = 60
-	max_duration = 80
+/singleton/surgery_step/internal/detach_organ/get_surgery_skill_requirements(mob/living/user, mob/living/carbon/human/target, target_zone, preferred_skill_component)
+	return get_internal_organ_removal_skill_requirements(user, target, target_zone, FALSE, preferred_skill_component)
 
-	can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+/singleton/surgery_step/internal/detach_organ/can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	if(!..())
+		return FALSE
 
-		if (!..())
-			return 0
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
 
-		target.op_stage.current_organ = null
+	if(!(affected && !BP_IS_ROBOTIC(affected)))
+		return FALSE
 
-		var/list/removable_organs = list()
-		for(var/organ in target.internal_organs_by_name)
-			var/obj/item/organ/I = target.internal_organs_by_name[organ]
-			if((I.status & ORGAN_CUT_AWAY) && I.parent_organ == target_zone)
-				removable_organs |= organ
+	target.op_stage.current_organ = null
 
-		var/organ_to_remove = input(user, "Which organ do you want to remove?") as null|anything in removable_organs
-		if(!organ_to_remove)
-			return 0
+	var/list/attached_organs = list()
+	for(var/organ in target.internal_organs_by_name)
+		var/obj/item/organ/I = target.internal_organs_by_name[organ]
+		/// Zombie organs can't be removed. Mainly to stop the zombie parasite from being removed.
+		if(I && (I.status & ORGAN_ZOMBIFIED))
+			continue
+		if(I && !(I.status & ORGAN_CUT_AWAY) && I.parent_organ == target_zone)
+			attached_organs |= organ
 
-		target.op_stage.current_organ = organ_to_remove
-		return ..()
+	var/organ_to_remove = tgui_input_list(user, "Which organ do you want to prepare for removal?", "Surgery", attached_organs)
+	if(!organ_to_remove)
+		return FALSE
 
-	begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		user.visible_message("[user] starts removing [target]'s [target.op_stage.current_organ] with \the [tool].", \
+	target.op_stage.current_organ = organ_to_remove
+
+	return organ_to_remove
+
+/singleton/surgery_step/internal/detach_organ/begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+
+	user.visible_message("<b>[user]</b> starts to separate [target]'s [target.op_stage.current_organ] with \the [tool].", \
+		SPAN_NOTICE("You start to separate [target]'s [target.op_stage.current_organ] with \the [tool]." ))
+	target.custom_pain("The pain in your [affected.name] is living hell!", 75)
+	..()
+
+/singleton/surgery_step/internal/detach_organ/end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	user.visible_message("<b>[user]</b> has separated [target]'s [target.op_stage.current_organ] with \the [tool]." , \
+		SPAN_NOTICE("You have separated [target]'s [target.op_stage.current_organ] with \the [tool]."))
+
+	var/obj/item/organ/I = target.internal_organs_by_name[target.op_stage.current_organ]
+	if(I && istype(I))
+		I.status |= ORGAN_CUT_AWAY
+
+	target.update_body()
+	target.updatehealth()
+	target.UpdateDamageIcon()
+
+/singleton/surgery_step/internal/detach_organ/fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	user.visible_message(SPAN_WARNING("[user]'s hand slips, slicing an artery inside [target]'s [affected.name] with \the [tool]!"), \
+		SPAN_WARNING("Your hand slips, slicing an artery inside [target]'s [affected.name] with \the [tool]!"))
+	affected.sever_artery()
+	target.apply_damage(rand(30, 50), DAMAGE_BRUTE, target_zone, 0, tool, damage_flags = tool.damage_flags())
+
+/singleton/surgery_step/internal/remove_organ
+	name = "Remove Organ"
+	allowed_tools = list(
+	TOOL_HEMOSTAT = 100,	\
+	TOOL_WIRECUTTER = 75,	\
+	/obj/item/material/kitchen/utensil/fork = 20
+	)
+	base_surgery_time = 6 SECONDS
+	skill_requirements = alist(SURGERY_SKILL_COMPONENT = SKILL_LEVEL_TRAINED)
+
+/singleton/surgery_step/internal/remove_organ/get_surgery_skill_requirements(mob/living/user, mob/living/carbon/human/target, target_zone, preferred_skill_component)
+	return get_internal_organ_removal_skill_requirements(user, target, target_zone, TRUE, preferred_skill_component)
+
+/**
+ * Organ separation and extraction follow the organ being handled rather than
+ * the organic housing around it. Assisted organs may use either skill, as may
+ * organic brains due to the overlap in medical and roboticist responsibilities.
+ */
+/singleton/surgery_step/internal/proc/get_internal_organ_removal_skill_requirements(mob/living/user, mob/living/carbon/human/target, target_zone, organ_must_be_cut_away, preferred_skill_component)
+	var/list/permitted_skills = list()
+	var/obj/item/organ/selected_organ = target.internal_organs_by_name[target.op_stage.current_organ]
+
+	if(selected_organ \
+		&& selected_organ.parent_organ == target_zone \
+		&& (organ_must_be_cut_away || !(selected_organ.status & ORGAN_ZOMBIFIED)) \
+		&& !!(selected_organ.status & ORGAN_CUT_AWAY) == !!organ_must_be_cut_away)
+		add_internal_organ_removal_skills(selected_organ, permitted_skills)
+	else
+		for(var/obj/item/organ/internal/organ in target.internal_organs)
+			if(organ.parent_organ != target_zone)
+				continue
+			if(!organ_must_be_cut_away && (organ.status & ORGAN_ZOMBIFIED))
+				continue
+			if(!!(organ.status & ORGAN_CUT_AWAY) != !!organ_must_be_cut_away)
+				continue
+			add_internal_organ_removal_skills(organ, permitted_skills)
+
+	return get_alternative_surgery_skill_requirements(user, permitted_skills, SKILL_LEVEL_TRAINED, preferred_skill_component)
+
+/singleton/surgery_step/internal/proc/add_internal_organ_removal_skills(obj/item/organ/organ, list/permitted_skills)
+	if(BP_IS_ROBOTIC(organ) || organ.robotic >= ROBOTIC_MECHANICAL)
+		permitted_skills |= ROBOTICS_SKILL_COMPONENT
+	else if(organ.organ_tag == BP_BRAIN \
+		|| (organ.status & ORGAN_ASSISTED) \
+		|| organ.robotic >= ROBOTIC_ASSISTED)
+		permitted_skills |= list(SURGERY_SKILL_COMPONENT, ROBOTICS_SKILL_COMPONENT)
+	else
+		permitted_skills |= SURGERY_SKILL_COMPONENT
+
+/singleton/surgery_step/internal/remove_organ/can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	if(!..())
+		return FALSE
+
+	target.op_stage.current_organ = null
+
+	var/list/removable_organs = list()
+	for(var/organ in target.internal_organs_by_name)
+		var/obj/item/organ/I = target.internal_organs_by_name[organ]
+		if((I.status & ORGAN_CUT_AWAY) && I.parent_organ == target_zone)
+			removable_organs |= organ
+
+	var/organ_to_remove = tgui_input_list(user, "Which organ do you want to remove?", "Surgery", removable_organs)
+	if(!organ_to_remove)
+		return FALSE
+
+	target.op_stage.current_organ = organ_to_remove
+	return ..()
+
+/singleton/surgery_step/internal/remove_organ/begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	user.visible_message("[user] starts removing [target]'s [target.op_stage.current_organ] with \the [tool].", \
 		"You start removing [target]'s [target.op_stage.current_organ] with \the [tool].")
-		target.custom_pain("Someone's ripping out your [target.op_stage.current_organ]!",1)
-		..()
+	target.custom_pain("Someone's ripping out your [target.op_stage.current_organ]!", 75)
+	..()
 
-	end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		user.visible_message("<span class='notice'>[user] has removed [target]'s [target.op_stage.current_organ] with \the [tool].</span>", \
-		"<span class='notice'>You have removed [target]'s [target.op_stage.current_organ] with \the [tool].</span>")
+/singleton/surgery_step/internal/remove_organ/end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	user.visible_message(SPAN_NOTICE("[user] has removed [target]'s [target.op_stage.current_organ] with \the [tool]."), \
+		SPAN_NOTICE("You have removed [target]'s [target.op_stage.current_organ] with \the [tool]."))
 
-		// Extract the organ!
-		if(target.op_stage.current_organ)
-			var/obj/item/organ/O = target.internal_organs_by_name[target.op_stage.current_organ]
-			if(O && istype(O))
-				O.removed(user)
-			target.op_stage.current_organ = null
-			playsound(target.loc, 'sound/effects/squelch1.ogg', 50, 1)
+	// Extract the organ!
+	if(target.op_stage.current_organ)
+		var/obj/item/organ/O = target.internal_organs_by_name[target.op_stage.current_organ]
+		if(O && istype(O))
+			O.removed(target, user)
+		target.op_stage.current_organ = null
+		if(!(O.status & ORGAN_ROBOT))
+			playsound(target.loc, 'sound/effects/squelch1.ogg', 15, 1)
+		else
+			playsound(target.loc, 'sound/items/wrench.ogg', 50, 1)
 
-	fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		user.visible_message("<span class='warning'>[user]'s hand slips, damaging [target]'s [affected.name] with \the [tool]!</span>", \
-		"<span class='warning'>Your hand slips, damaging [target]'s [affected.name] with \the [tool]!</span>")
-		affected.createwound(BRUISE, 20)
+		target.update_body()
+		target.updatehealth()
+		target.UpdateDamageIcon()
 
-/datum/surgery_step/internal/replace_organ
+/singleton/surgery_step/internal/remove_organ/fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	user.visible_message(SPAN_WARNING("[user]'s hand slips, damaging [target]'s [affected.name] with \the [tool]!"), \
+		SPAN_WARNING("Your hand slips, damaging [target]'s [affected.name] with \the [tool]!"))
+	target.apply_damage(20, DAMAGE_BRUTE, target_zone, 0, tool, damage_flags = tool.damage_flags())
+
+/singleton/surgery_step/internal/replace_organ
+	name = "Replace Organ"
 	allowed_tools = list(
 	/obj/item/organ = 100
 	)
+	base_surgery_time = 6 SECONDS
+	skill_requirements = alist(SURGERY_SKILL_COMPONENT = SKILL_LEVEL_TRAINED)
 
-	min_duration = 60
-	max_duration = 80
+/singleton/surgery_step/internal/replace_organ/can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	if(!..())
+		testing("Attempting to install [tool] failed with parent check!")
+		return FALSE
 
-	can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/O = tool
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	var/organ_compatible
+	var/organ_missing
 
-		var/obj/item/organ/O = tool
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		if(!affected) return
-		var/organ_compatible
-		var/organ_missing
+	if(!istype(O))
+		return FALSE
 
-		if(!istype(O))
-			return 0
+	if(BP_IS_ROBOTIC(affected) && !BP_IS_ROBOTIC(O))
+		to_chat(user, SPAN_DANGER("You cannot install a naked organ into a robotic body."))
+		return SURGERY_FAILURE
 
-		if((affected.status & ORGAN_ROBOT) && !(O.status & ORGAN_ROBOT))
-			user << "<span class='danger'>You cannot install a naked organ into a robotic body.</span>"
+	if(!target.species)
+		to_chat(user, SPAN_DANGER("You have no idea what species this person is. Report this on the bug tracker."))
+		return SURGERY_FAILURE
+
+	var/o_is = (O.gender == PLURAL) ? "are" : "is"
+	var/o_a =  (O.gender == PLURAL) ? "" : "a "
+	var/o_do = (O.gender == PLURAL) ? "don't" : "doesn't"
+
+	if(O.organ_tag == "limb")
+		return FALSE
+	else if(target.species.has_organ[O.organ_tag] || O.is_augment)
+
+		if(O.get_damage() > (O.max_damage * 0.75))
+			to_chat(user, SPAN_WARNING("\The [O.organ_tag] [o_is] in no state to be transplanted."))
 			return SURGERY_FAILURE
 
-		if(!target.species)
-			user << "<span class='danger'>You have no idea what species this person is. Report this on the bug tracker.</span>"
-			return SURGERY_FAILURE
-
-		var/o_is = (O.gender == PLURAL) ? "are" : "is"
-		var/o_a =  (O.gender == PLURAL) ? "" : "a "
-		var/o_do = (O.gender == PLURAL) ? "don't" : "doesn't"
-
-		if(O.organ_tag == "limb")
-			return 0
-		else if(target.species.has_organ[O.organ_tag])
-
-			if(O.damage > (O.max_damage * 0.75))
-				user << "<span class='warning'>\The [O.organ_tag] [o_is] in no state to be transplanted.</span>"
+		if(O.species_restricted)
+			if(!(target.species.name in O.species_restricted))
+				to_chat(user, SPAN_WARNING("\The [O] is not compatible with \the [target]'s biology."))
 				return SURGERY_FAILURE
 
-			if(!target.internal_organs_by_name[O.organ_tag])
-				organ_missing = 1
+		if(O.is_augment)
+			if(affected.augment_limit)
+				var/total_augments
+				for(var/obj/item/organ/internal/I in affected.internal_organs)
+					if(I.is_augment)
+						total_augments += 1
+					if(total_augments >= affected.augment_limit)
+						to_chat(user, SPAN_WARNING("There is no space left in \the [affected] to implant \the [O]."))
+						return SURGERY_FAILURE
 			else
-				user << "<span class='warning'>\The [target] already has [o_a][O.organ_tag].</span>"
+				to_chat(user, SPAN_WARNING("There is no space in \the [affected] to implant \the [O]."))
 				return SURGERY_FAILURE
 
-			if(O && affected.limb_name == O.parent_organ)
-				organ_compatible = 1
-			else
-				user << "<span class='warning'>\The [O.organ_tag] [o_do] normally go in \the [affected.name].</span>"
-				return SURGERY_FAILURE
+		if(!target.internal_organs_by_name[O.organ_tag])
+			organ_missing = TRUE
 		else
-			user << "<span class='warning'>You're pretty sure [target.species.name_plural] don't normally have [o_a][O.organ_tag].</span>"
+			to_chat(user, SPAN_WARNING("\The [target] already has [o_a][O.organ_tag]."))
 			return SURGERY_FAILURE
 
-		return ..() && organ_missing && organ_compatible
+		if(O && affected.limb_name == O.parent_organ)
+			organ_compatible = TRUE
+		else
+			to_chat(user, SPAN_WARNING("\The [O.organ_tag] [o_do] normally go in \the [affected.name]."))
+			return SURGERY_FAILURE
+	else
+		to_chat(user, SPAN_WARNING("You're pretty sure [target.species.name_plural] don't normally have [o_a][O.organ_tag]."))
+		return SURGERY_FAILURE
 
-	begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		user.visible_message("[user] starts transplanting \the [tool] into [target]'s [affected.name].", \
+	return organ_missing && organ_compatible
+
+/singleton/surgery_step/internal/replace_organ/begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	user.visible_message("[user] starts transplanting \the [tool] into [target]'s [affected.name].", \
 		"You start transplanting \the [tool] into [target]'s [affected.name].")
-		target.custom_pain("Someone's rooting around in your [affected.name]!",1)
-		..()
+	target.custom_pain("Someone's rooting around in your [affected.name]!", 75, affecting = affected)
+	..()
 
-	end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		user.visible_message("<span class='notice'>[user] has transplanted \the [tool] into [target]'s [affected.name].</span>", \
-		"<span class='notice'>You have transplanted \the [tool] into [target]'s [affected.name].</span>")
-		var/obj/item/organ/O = tool
-		if(istype(O))
-			user.remove_from_mob(O)
-			O.replaced(target,affected)
-			playsound(target.loc, 'sound/effects/squelch1.ogg', 50, 1)
+/singleton/surgery_step/internal/replace_organ/end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	user.visible_message(SPAN_NOTICE("[user] has transplanted \the [tool] into [target]'s [affected.name]."), \
+		SPAN_NOTICE("You have transplanted \the [tool] into [target]'s [affected.name]."))
+	var/obj/item/organ/O = tool
+	if(istype(O) && user.unEquip(O))
+		O.replaced(target,affected)
+		playsound(target.loc, 'sound/effects/squelch1.ogg', 50, 1)
 
-	fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		user.visible_message("<span class='warning'>[user]'s hand slips, damaging \the [tool]!</span>", \
-		"<span class='warning'>Your hand slips, damaging \the [tool]!</span>")
-		var/obj/item/organ/I = tool
-		if(istype(I))
-			I.take_damage(rand(3,5),0)
+		target.update_body()
+		target.updatehealth()
+		target.UpdateDamageIcon()
 
-/datum/surgery_step/internal/attach_organ
+/singleton/surgery_step/internal/replace_organ/fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	user.visible_message(SPAN_WARNING("[user]'s hand slips, damaging \the [tool]!"), \
+		SPAN_WARNING("Your hand slips, damaging \the [tool]!"))
+	var/obj/item/organ/I = tool
+	if(istype(I))
+		I.take_damage(rand(3,5),0)
+
+/singleton/surgery_step/internal/attach_organ
+	name = "Attach Organ"
 	allowed_tools = list(
-	/obj/item/weapon/FixOVein = 100, \
-	/obj/item/stack/cable_coil = 75
+	/obj/item/surgery/fix_o_vein = 100, \
+	TOOL_CABLECOIL = 75
 	)
+	base_surgery_time = 10 SECONDS
+	skill_requirements = alist(SURGERY_SKILL_COMPONENT = SKILL_LEVEL_TRAINED)
 
-	min_duration = 100
-	max_duration = 120
+/singleton/surgery_step/internal/attach_organ/can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	if(!..())
+		return FALSE
 
-	can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	target.op_stage.current_organ = null
 
-		if (!..())
-			return 0
+	var/list/removable_organs = list()
+	for(var/organ in target.internal_organs_by_name)
+		var/obj/item/organ/I = target.internal_organs_by_name[organ]
+		if(I && (I.status & ORGAN_CUT_AWAY) && !BP_IS_ROBOTIC(I) && I.parent_organ == target_zone)
+			removable_organs |= organ
 
-		target.op_stage.current_organ = null
+	var/organ_to_replace = tgui_input_list(user, "Which organ do you want to reattach?", "Surgery", removable_organs)
+	if(!organ_to_replace)
+		return FALSE
 
-		var/list/removable_organs = list()
-		for(var/organ in target.internal_organs_by_name)
-			var/obj/item/organ/I = target.internal_organs_by_name[organ]
-			if(I && (I.status & ORGAN_CUT_AWAY) && !(I.status & ORGAN_ROBOT) && I.parent_organ == target_zone)
-				removable_organs |= organ
+	target.op_stage.current_organ = organ_to_replace
+	return TRUE
 
-		var/organ_to_replace = input(user, "Which organ do you want to reattach?") as null|anything in removable_organs
-		if(!organ_to_replace)
-			return 0
-
-		target.op_stage.current_organ = organ_to_replace
-		return ..()
-
-	begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		user.visible_message("[user] begins reattaching [target]'s [target.op_stage.current_organ] with \the [tool].", \
+/singleton/surgery_step/internal/attach_organ/begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	user.visible_message("[user] begins reattaching [target]'s [target.op_stage.current_organ] with \the [tool].", \
 		"You start reattaching [target]'s [target.op_stage.current_organ] with \the [tool].")
-		target.custom_pain("Someone's digging needles into your [target.op_stage.current_organ]!",1)
-		..()
+	target.custom_pain("Someone's digging needles into your [target.op_stage.current_organ]!", 75)
+	..()
 
-	end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		user.visible_message("<span class='notice'>[user] has reattached [target]'s [target.op_stage.current_organ] with \the [tool].</span>" , \
-		"<span class='notice'>You have reattached [target]'s [target.op_stage.current_organ] with \the [tool].</span>")
+/singleton/surgery_step/internal/attach_organ/end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	user.visible_message(SPAN_NOTICE("[user] has reattached [target]'s [target.op_stage.current_organ] with \the [tool].") , \
+		SPAN_NOTICE("You have reattached [target]'s [target.op_stage.current_organ] with \the [tool]."))
 
-		var/obj/item/organ/I = target.internal_organs_by_name[target.op_stage.current_organ]
-		if(I && istype(I))
-			I.status &= ~ORGAN_CUT_AWAY
+	var/obj/item/organ/I = target.internal_organs_by_name[target.op_stage.current_organ]
+	if(I && istype(I))
+		I.status &= ~ORGAN_CUT_AWAY
 
-	fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		user.visible_message("<span class='warning'>[user]'s hand slips, damaging the flesh in [target]'s [affected.name] with \the [tool]!</span>", \
-		"<span class='warning'>Your hand slips, damaging the flesh in [target]'s [affected.name] with \the [tool]!</span>")
-		affected.createwound(BRUISE, 20)
+		target.update_body()
+		target.updatehealth()
+		target.UpdateDamageIcon()
 
-/datum/surgery_step/internal/lobotomize
+/singleton/surgery_step/internal/attach_organ/fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	user.visible_message(SPAN_WARNING("[user]'s hand slips, damaging the flesh in [target]'s [affected.name] with \the [tool]!"), \
+		SPAN_WARNING("Your hand slips, damaging the flesh in [target]'s [affected.name] with \the [tool]!"))
+	target.apply_damage(20, DAMAGE_BRUTE, target_zone, 0, tool, damage_flags = tool.damage_flags())
+
+/singleton/surgery_step/internal/prepare
+	name = "Prepare Brain"
 	allowed_tools = list(
-	/obj/item/weapon/scalpel/manager = 95,
-	/obj/item/weapon/surgicaldrill = 75,
-	/obj/item/weapon/pickaxe/ = 5
+	/obj/item/surgery/scalpel/manager = 95,
+	TOOL_DRILL = 75,
+	/obj/item/pickaxe/ = 5
 	)
+	base_surgery_time = 10 SECONDS
+	skill_requirements = alist(ROBOTICS_SKILL_COMPONENT = SKILL_LEVEL_TRAINED)
 
-	min_duration = 100
-	max_duration = 120
+/singleton/surgery_step/internal/prepare/can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	if(!..())
+		return FALSE
 
-	can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	var/obj/item/organ/internal/brain/sponge = target.internal_organs_by_name[BP_BRAIN]
+	if(!istype(sponge) || !(sponge in affected.internal_organs))
+		return FALSE
 
-		if (!..())
-			return 0
+	if(!sponge.can_prepare || sponge.prepared)
+		return FALSE
 
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		var/obj/item/organ/brain/sponge = target.internal_organs_by_name["brain"]
-		if (!affected || !istype(sponge) || !(sponge in affected.internal_organs))
-			return 0
+	target.op_stage.current_organ = sponge
+	return TRUE
 
-		if (!sponge.can_lobotomize || sponge.lobotomized)
-			return 0
+/singleton/surgery_step/internal/prepare/begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/internal/brain/B = target.op_stage.current_organ
+	user.visible_message("[user] begins to modify [target]'s [B] to prepare it for Man-Machine-Interface compatibility with \the [tool].", \
+		"You start to modify [target]'s [B] to prepare it for Man-Machine-Interface compatibility with \the [tool].")
+	target.custom_pain("Someone's scraping away at your [B]!", 75)
+	..()
 
-		target.op_stage.current_organ = sponge
-		return ..()
+/singleton/surgery_step/internal/prepare/end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/internal/brain/B = target.op_stage.current_organ
+	user.visible_message(SPAN_NOTICE("[user] has modified [target]'s [B] to prepare it for Man-Machine-Interface compatibility with \the [tool].") , \
+		SPAN_NOTICE("You prepare \the [target]'s brain for Man-Machine-Interface compatibility with \the [tool]."))
+	B.prepared = TRUE
 
-	begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/brain/B = target.op_stage.current_organ
-		user.visible_message("[user] begins to modify [target]'s [B] to remove their memory recall with \the [tool].", \
-		"You start to modify [target]'s [B] to remove their memory recall with \the [tool].")
-		target.custom_pain("Someone's scraping away at your [B]!",1)
-		..()
-
-	end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/brain/B = target.op_stage.current_organ
-		user.visible_message("<span class='notice'>[user] has modified [target]'s [B] to remove their memory recall with \the [tool].</span>" , \
-		"<span class='notice'>You have removed [target]'s memory recall with \the [tool].</span>")
-		B.lobotomize(user)
-
-	fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		user.visible_message("<span class='warning'>[user]'s hand slips, damaging the flesh in [target]'s [affected.name] with \the [tool]!</span>", \
-		"<span class='warning'>Your hand slips, damaging the flesh in [target]'s [affected.name] with \the [tool]!</span>")
-		affected.createwound(BRUISE, 20)
-
-//////////////////////////////////////////////////////////////////
-//						HEART SURGERY							//
-//////////////////////////////////////////////////////////////////
-// To be finished after some tests.
-// /datum/surgery_step/ribcage/heart/cut
-//	allowed_tools = list(
-//	/obj/item/weapon/scalpel = 100,		\
-//	/obj/item/weapon/material/knife = 75,	\
-//	/obj/item/weapon/material/shard = 50, 		\
-//	)
-
-//	min_duration = 30
-//	max_duration = 40
-
-//	can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-//		return ..() && target.op_stage.ribcage == 2
-
+/singleton/surgery_step/internal/prepare/fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	user.visible_message(SPAN_WARNING("[user]'s hand slips, damaging the flesh in [target]'s [affected.name] with \the [tool]!"), \
+		SPAN_WARNING("Your hand slips, damaging the flesh in [target]'s [affected.name] with \the [tool]!"))
+	target.apply_damage(20, DAMAGE_BRUTE, target_zone, 0, tool, damage_flags = tool.damage_flags())

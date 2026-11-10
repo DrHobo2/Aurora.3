@@ -1,66 +1,71 @@
 /* Weapons
  * Contains:
- *		Sword
- *		Classic Baton
+ * * Sword
+ * * Classic Baton
  */
 
 
 /*
  * Classic Baton
  */
-/obj/item/weapon/melee/classic_baton
+
+/obj/item/melee/classic_baton
 	name = "police baton"
 	desc = "A wooden truncheon for beating criminal scum."
 	icon = 'icons/obj/weapons.dmi'
 	icon_state = "baton"
 	item_state = "classic_baton"
 	slot_flags = SLOT_BELT
-	force = 10
+	force = 15
+	drop_sound = 'sound/items/drop/crowbar.ogg'
+	pickup_sound = 'sound/items/pickup/crowbar.ogg'
 
-/obj/item/weapon/melee/classic_baton/attack(mob/M as mob, mob/living/user as mob, var/target_zone)
-	if ((CLUMSY in user.mutations) && prob(50))
-		user << "<span class='warning'>You club yourself over the head.</span>"
+/obj/item/melee/classic_baton/attack(mob/living/target_mob, mob/living/user, target_zone)
+	if ((user.is_clumsy()) && prob(50))
+		to_chat(user, SPAN_WARNING("You club yourself over the head."))
 		user.Weaken(3 * force)
 		if(ishuman(user))
 			var/mob/living/carbon/human/H = user
-			H.apply_damage(2*force, BRUTE, "head")
+			H.apply_damage(2*force, DAMAGE_BRUTE, BP_HEAD)
 		else
 			user.take_organ_damage(2*force)
 		return
 	return ..()
 
 //Telescopic baton
-/obj/item/weapon/melee/telebaton
+/obj/item/melee/telebaton
 	name = "telescopic baton"
 	desc = "A compact yet rebalanced personal defense weapon. Can be concealed when folded."
-	icon = 'icons/obj/weapons.dmi'
+	icon = 'icons/obj/item/melee/telebaton.dmi'
 	icon_state = "telebaton_0"
 	item_state = "telebaton_0"
+	var/state_extended = "telebaton_1"
+	contained_sprite = TRUE
 	slot_flags = SLOT_BELT
-	w_class = 2
+	w_class = WEIGHT_CLASS_SMALL
 	force = 3
-	var/on = 0
+	drop_sound = 'sound/items/drop/crowbar.ogg'
+	pickup_sound = 'sound/items/pickup/crowbar.ogg'
+	var/on = FALSE
 
+/obj/item/melee/telebaton/proc/do_special_effects(var/mob/living/carbon/human/H)
+	return
 
-/obj/item/weapon/melee/telebaton/attack_self(mob/user as mob)
+/obj/item/melee/telebaton/attack_self(mob/user)
 	on = !on
 	if(on)
-		user.visible_message("<span class='warning'>With a flick of their wrist, [user] extends their telescopic baton.</span>",\
-		"<span class='warning'>You extend the baton.</span>",\
-		"You hear an ominous click.")
-		icon_state = "telebaton_1"
-		item_state = "nullrod"
-		w_class = 3
-		force = 15//quite robust
+		user.visible_message(SPAN_WARNING("With a flick of their wrist, [user] extends their telescopic baton."), SPAN_WARNING("You extend the baton."), SPAN_WARNING("You hear an ominous click."))
+		icon_state = state_extended
+		item_state = state_extended
+		w_class = WEIGHT_CLASS_NORMAL
+		force = 22 //quite robust
 		attack_verb = list("smacked", "struck", "slapped")
 	else
-		user.visible_message("<span class='notice'>\The [user] collapses their telescopic baton.</span>",\
-		"<span class='notice'>You collapse the baton.</span>",\
-		"You hear a click.")
-		icon_state = "telebaton_0"
-		item_state = "telebaton_0"
-		w_class = 2
-		force = 3//not so robust now
+		user.visible_message(SPAN_NOTICE("\The [user] collapses their telescopic baton."), SPAN_NOTICE("You collapse the baton."), SPAN_NOTICE("You hear a click."))
+		icon_state = initial(icon_state)
+		item_state = initial(item_state)
+		w_class = WEIGHT_CLASS_SMALL
+		force = 3 //not so robust now
 		attack_verb = list("hit", "punched")
 
 	if(istype(user,/mob/living/carbon/human))
@@ -68,39 +73,46 @@
 		H.update_inv_l_hand()
 		H.update_inv_r_hand()
 
-	playsound(src.loc, 'sound/weapons/empty.ogg', 50, 1)
+	playsound(src.loc, 'sound/weapons/click.ogg', 50, 1)
 	add_fingerprint(user)
 
 	if(blood_overlay && blood_DNA && (blood_DNA.len >= 1)) //updates blood overlay, if any
-		cut_overlay(blood_overlay, TRUE)
+		CutOverlays(blood_overlay, ATOM_ICON_CACHE_PROTECTED)
 		var/icon/I = new /icon(src.icon, src.icon_state)
 		I.Blend(new /icon('icons/effects/blood.dmi', rgb(255,255,255)),ICON_ADD)
 		I.Blend(new /icon('icons/effects/blood.dmi', "itemblood"),ICON_MULTIPLY)
 		blood_overlay = image(I)
 		blood_overlay.color = blood_color
-		add_overlay(blood_overlay, TRUE)
+		AddOverlays(blood_overlay, ATOM_ICON_CACHE_PROTECTED)
 		update_icon()
 
 	return
 
-/obj/item/weapon/melee/telebaton/attack(mob/target as mob, mob/living/user as mob, var/target_zone)
+/obj/item/melee/telebaton/attack(mob/living/target_mob, mob/living/user, target_zone)
 	if(on)
-		if ((CLUMSY in user.mutations) && prob(50))
-			user << "<span class='warning'>You club yourself over the head.</span>"
+		do_special_effects(target_mob)
+		if(user.is_clumsy() && prob(50))
+			to_chat(user, SPAN_WARNING("You club yourself over the head."))
 			user.Weaken(3 * force)
 			if(ishuman(user))
 				var/mob/living/carbon/human/H = user
-				H.apply_damage(2*force, BRUTE, "head")
+				H.apply_damage(2 * force, DAMAGE_BRUTE, BP_HEAD)
 			else
-				user.take_organ_damage(2*force)
+				user.take_organ_damage(2 * force)
 			return
-		if(..() == 1)
-			if(user.a_intent == I_DISARM)
-				if(ishuman(target))
-					var/mob/living/carbon/human/T = target
-					var/armor = T.run_armor_check(target_zone,"melee")
-
-					T.apply_damage(40, HALLOSS, target_zone, armor)
+		if(..() && user.a_intent == I_DISARM)
+			if(ishuman(target_mob))
+				var/mob/living/carbon/human/T = target_mob
+				T.apply_damage(40, DAMAGE_PAIN, target_zone)
 		return
-	else
-		return ..()
+	return ..()
+
+/obj/item/melee/telebaton/nlom
+	name = "nlomkala baton"
+	icon_state = "nlom_telebaton_0"
+	item_state = "nlom_telebaton_0"
+	state_extended = "nlom_telebaton_1"
+	force = 11
+
+/obj/item/melee/telebaton/nlom/do_special_effects(var/mob/living/carbon/human/H)
+	spark(H, 5)

@@ -28,12 +28,13 @@
 	var/corpseidicon = null //For setting it to be a gold, silver, centcomm etc ID
 
 /obj/effect/landmark/mobcorpse/Initialize()
+	. = ..()
 	createCorpse()
 
 /obj/effect/landmark/mobcorpse/proc/createCorpse() //Creates a mob and checks for gear in each slot before attempting to equip it.
 	var/mob/living/carbon/human/M = new /mob/living/carbon/human (src.loc)
 	M.real_name = src.name
-	M.stat = 2 //Kills the new mob
+	M.set_stat(DEAD)
 	if(src.corpseuniform)
 		M.equip_to_slot_or_del(new src.corpseuniform(M), slot_w_uniform)
 	if(src.corpsesuit)
@@ -59,7 +60,7 @@
 	if(src.corpseback)
 		M.equip_to_slot_or_del(new src.corpseback(M), slot_back)
 	if(src.corpseid == 1)
-		var/obj/item/weapon/card/id/W = new(M)
+		var/obj/item/card/id/W = new(M)
 		W.name = "[M.real_name]'s ID Card"
 		var/datum/job/jobdatum
 		for(var/jobtype in typesof(/datum/job))
@@ -88,70 +89,49 @@
 	name = "Syndicate Operative"
 	corpseuniform = /obj/item/clothing/under/syndicate
 	corpsesuit = /obj/item/clothing/suit/armor/vest
-	corpseshoes = /obj/item/clothing/shoes/swat
+	corpseshoes = /obj/item/clothing/shoes/combat
 	corpsegloves = /obj/item/clothing/gloves/swat
-	corpseradio = /obj/item/device/radio/headset
+	corpseradio = /obj/item/radio/headset
 	corpsemask = /obj/item/clothing/mask/gas
 	corpsehelmet = /obj/item/clothing/head/helmet/swat
-	corpseback = /obj/item/weapon/storage/backpack
+	corpseback = /obj/item/storage/backpack
 	corpseid = 1
 	corpseidjob = "Operative"
 	corpseidaccess = "Syndicate"
 
-
+/obj/effect/landmark/mobcorpse/syndicatesoldier/unknown
+	name = "unknown operative"
 
 /obj/effect/landmark/mobcorpse/syndicatecommando
 	name = "Syndicate Commando"
 	corpseuniform = /obj/item/clothing/under/syndicate
 	corpsesuit = /obj/item/clothing/suit/space/void/merc
-	corpseshoes = /obj/item/clothing/shoes/swat
+	corpseshoes = /obj/item/clothing/shoes/combat
 	corpsegloves = /obj/item/clothing/gloves/swat
-	corpseradio = /obj/item/device/radio/headset
+	corpseradio = /obj/item/radio/headset
 	corpsemask = /obj/item/clothing/mask/gas/syndicate
 	corpsehelmet = /obj/item/clothing/head/helmet/space/void/merc
-	corpseback = /obj/item/weapon/tank/jetpack/oxygen
-	corpsepocket1 = /obj/item/weapon/tank/emergency_oxygen
+	corpseback = /obj/item/tank/jetpack/oxygen
+	corpsepocket1 = /obj/item/tank/emergency_oxygen
 	corpseid = 1
 	corpseidjob = "Operative"
 	corpseidaccess = "Syndicate"
 
-
-
-/obj/effect/landmark/mobcorpse/clown
-	name = "Clown"
-	corpseuniform = /obj/item/clothing/under/rank/clown
-	corpseshoes = /obj/item/clothing/shoes/clown_shoes
-	corpseradio = /obj/item/device/radio/headset
-	corpsemask = /obj/item/clothing/mask/gas/clown_hat
-	corpsepocket1 = /obj/item/weapon/bikehorn
-	corpseback = /obj/item/weapon/storage/backpack/clown
-	corpseid = 1
-	corpseidjob = "Clown"
-	corpseidaccess = "Clown"
-
-
-
 /obj/effect/landmark/mobcorpse/pirate
 	name = "Pirate"
-	corpseuniform = /obj/item/clothing/under/pirate
 	corpseshoes = /obj/item/clothing/shoes/jackboots
 	corpseglasses = /obj/item/clothing/glasses/eyepatch
-	corpsehelmet = /obj/item/clothing/head/bandana
-
-
+	corpsehelmet = /obj/item/clothing/head/bandana/pirate
 
 /obj/effect/landmark/mobcorpse/pirate/ranged
 	name = "Pirate Gunner"
 	corpsesuit = /obj/item/clothing/suit/pirate
 	corpsehelmet = /obj/item/clothing/head/pirate
 
-
-
 /obj/effect/landmark/mobcorpse/russian
 	name = "Russian"
-	corpseuniform = /obj/item/clothing/under/soviet
 	corpseshoes = /obj/item/clothing/shoes/jackboots
 	corpsehelmet = /obj/item/clothing/head/bearpelt
 
 /obj/effect/landmark/mobcorpse/russian/ranged
-	corpsehelmet = /obj/item/clothing/head/ushanka
+	corpsehelmet = /obj/item/clothing/head/ushanka/grey

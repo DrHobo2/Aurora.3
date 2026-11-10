@@ -1,10 +1,11 @@
 /datum/bounty/item/slime
-	reward = 3000
+	reward_low = 400
+	reward_high = 1000
 
 /datum/bounty/item/slime/New()
 	..()
-	description = "%COMPNAME's science lead is hunting for the rare and exotic [name]. A bounty has been offered for finding it."
-	reward += rand(0, 4) * 500
+	description = "One of our science leads is hunting for a sample of [name]. A bounty has been offered for finding it."
+	reward += rand(0, 4) * 50
 
 /datum/bounty/item/slime/green
 	name = "Green Slime Extract"

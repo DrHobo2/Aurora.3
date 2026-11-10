@@ -5,19 +5,19 @@
 	var/mob/living/silicon/ai/user = src
 	// Setup Variables
 	malfunctioning = 1
-	research = new/datum/malf_research()
+	research = /datum/malf_research
 	research.owner = src
 	hacked_apcs = list()
 	recalc_cpu()
 
-	verbs += new/datum/game_mode/malfunction/verb/ai_select_hardware()
-	verbs += new/datum/game_mode/malfunction/verb/ai_select_research()
-	verbs += new/datum/game_mode/malfunction/verb/ai_help()
+	add_verb(src, /datum/game_mode/malfunction/verb/ai_select_hardware)
+	add_verb(src, /datum/game_mode/malfunction/verb/ai_select_research)
+	add_verb(src, /datum/game_mode/malfunction/verb/ai_help)
 
 	// And greet user with some OOC info.
-	user << "You are malfunctioning, you do not have to follow any laws."
-	user << "Use ai-help command to view relevant information about your abilities"
-	user << "<span class='danger'>Malf AI has been severely buffed. Ensure that you use these new powers responsibly and follow a narrative.</span>"
+	to_chat(user, "You are malfunctioning, you do not have to follow any laws.")
+	to_chat(user, "Use ai-help command to view relevant information about your abilities")
+	to_chat(user, SPAN_DANGER("<font size=4>Malf AI has been severely buffed. Ensure that you use these new powers responsibly and follow a narrative.</font>"))
 
 // Safely remove malfunction status, fixing hacked APCs and resetting variables.
 /mob/living/silicon/ai/proc/stop_malf()
@@ -28,14 +28,14 @@
 	research = null
 	// Fix hacked APCs
 	if(hacked_apcs)
-		for(var/obj/machinery/power/apc/A in hacked_apcs)
+		for(var/obj/structure/machinery/power/apc/A in hacked_apcs)
 			A.hacker = null
 	hacked_apcs = null
 	// Reset our verbs
 	src.verbs = null
 	add_ai_verbs()
 	// Let them know.
-	user << "You are no longer malfunctioning. Your abilities have been removed."
+	to_chat(user, "You are no longer malfunctioning. Your abilities have been removed.")
 
 // Called every tick. Checks if AI is malfunctioning. If yes calls Process on research datum which handles all logic.
 /mob/living/silicon/ai/proc/malf_process()
@@ -44,13 +44,13 @@
 	if(!research)
 		if(!errored)
 			errored = 1
-			error("malf_process() called on AI without research datum. Report this.")
+			log_world("ERROR: malf_process() called on AI without research datum. Report this.")
 			message_admins("ERROR: malf_process() called on AI without research datum. If admin modified one of the AI's vars revert the change and don't modify variables directly, instead use ProcCall or admin panels.")
 			spawn(1200)
 				errored = 0
 		return
 	recalc_cpu()
-	if(APU_power || aiRestorePowerRoutine != 0)
+	if(APU_power || ai_restore_power_routine != 0)
 		research.process(1)
 	else
 		research.process(0)
@@ -62,8 +62,8 @@
 	var/cpu_storage = 10
 
 	// Off-Station APCs should not count towards CPU generation.
-	for(var/obj/machinery/power/apc/A in hacked_apcs)
-		if(A.z in current_map.station_levels)
+	for(var/obj/structure/machinery/power/apc/A in hacked_apcs)
+		if(A.z in SSmapping.levels_by_trait(ZTRAIT_STATION))
 			cpu_gain += 0.05
 			cpu_storage += 100
 
@@ -80,14 +80,14 @@
 /mob/living/silicon/ai/proc/start_apu(var/shutup = 0)
 	if(!hardware || !istype(hardware, /datum/malf_hardware/apu_gen))
 		if(!shutup)
-			src << "You do not have an APU generator and you shouldn't have this verb. Report this."
+			to_chat(src, "You do not have an APU generator and you shouldn't have this verb. Report this.")
 		return
 	if(hardware_integrity() < 50)
 		if(!shutup)
-			src << "<span class='notice'>Starting APU... <b>FAULT</b>(System Damaged)</span>"
+			to_chat(src, SPAN_NOTICE("Starting APU... <b>FAULT</b>(System Damaged)"))
 		return
 	if(!shutup)
-		src << "Starting APU... ONLINE"
+		to_chat(src, "Starting APU... ONLINE")
 	APU_power = 1
 
 // Stops AI's APU generator
@@ -98,23 +98,15 @@
 	if(APU_power)
 		APU_power = 0
 		if(!shutup)
-			src << "Shutting down APU... DONE"
+			to_chat(src, "Shutting down APU... DONE")
 
 // Returns percentage of AI's remaining backup capacitor charge (maxhealth - oxyloss).
 /mob/living/silicon/ai/proc/backup_capacitor()
-	return ((200 - getOxyLoss()) / 2)
+	return ((getOxyLoss() - maxhealth) / maxhealth) * -100
 
 // Returns percentage of AI's remaining hardware integrity (maxhealth - (bruteloss + fireloss))
 /mob/living/silicon/ai/proc/hardware_integrity()
-	return (health-config.health_threshold_dead)/2
-
-// Shows capacitor charge and hardware integrity information to the AI in Status tab.
-/mob/living/silicon/ai/show_system_integrity()
-	if(!src.stat)
-		stat("Hardware integrity", "[hardware_integrity()]%")
-		stat("Internal capacitor", "[backup_capacitor()]%")
-	else
-		stat("Systems nonfunctional")
+	return (health / maxhealth) * 100
 
 // Shows AI Malfunction related information to the AI.
 /mob/living/silicon/ai/show_malf_ai()
@@ -138,4 +130,4 @@
 /mob/living/silicon/ai/proc/create_powersupply()
 	if(psupply)
 		qdel(psupply)
-	psupply = new/obj/machinery/ai_powersupply(src)
+	psupply = new/obj/structure/machinery/ai_powersupply(src)

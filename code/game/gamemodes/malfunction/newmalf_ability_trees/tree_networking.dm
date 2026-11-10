@@ -10,52 +10,56 @@
 // BEGIN RESEARCH DATUMS
 
 /datum/malf_research_ability/networking/basic_hack
-	ability = new/datum/game_mode/malfunction/verb/basic_encryption_hack()
+	ability = /datum/game_mode/malfunction/verb/basic_encryption_hack
 	price = 25
-	next = new/datum/malf_research_ability/networking/advanced_hack()
+	next = /datum/malf_research_ability/networking/advanced_hack
 	name = "Basic Encryption Hack"
 
 /datum/malf_research_ability/networking/advanced_hack
-	ability = new/datum/game_mode/malfunction/verb/advanced_encryption_hack()
+	ability = /datum/game_mode/malfunction/verb/advanced_encryption_hack
 	price = 400
-	next = new/datum/malf_research_ability/networking/elite_hack()
+	next = /datum/malf_research_ability/networking/elite_hack
 	name = "Advanced Encryption Hack"
 
 /datum/malf_research_ability/networking/elite_hack
-	ability = new/datum/game_mode/malfunction/verb/elite_encryption_hack()
+	ability = /datum/game_mode/malfunction/verb/elite_encryption_hack
 	price = 1000
-	next = new/datum/malf_research_ability/networking/system_override()
+	next = /datum/malf_research_ability/networking/system_override
 	name = "Elite Encryption Hack"
 
 
 /datum/malf_research_ability/networking/system_override
-	ability = new/datum/game_mode/malfunction/verb/system_override()
+	ability = /datum/game_mode/malfunction/verb/system_override
 	price = 5000
 	name = "System Override"
 
 // END RESEARCH DATUMS
 // BEGIN ABILITY VERBS
 
-/datum/game_mode/malfunction/verb/basic_encryption_hack(obj/machinery/power/apc/A as obj in get_unhacked_apcs(src))
+/datum/game_mode/malfunction/verb/basic_encryption_hack(obj/structure/machinery/power/apc/A as obj in get_unhacked_apcs(src))
 	set category = "Software"
 	set name = "Basic Encryption Hack"
 	set desc = "10 CPU - Basic encryption hack that allows you to overtake APCs on the station."
 	var/price = 10
+
 	var/mob/living/silicon/ai/user = usr
+	if(user.stat == DEAD)
+		to_chat(user, SPAN_WARNING("You are dead!"))
+		return
 
 	if(!A)
 		return
 
 	if(!istype(A))
-		user << "This is not an APC!"
+		to_chat(user, "This is not an APC!")
 		return
 
 	if(A)
 		if(A.hacker && A.hacker == user)
-			user << "You already control this APC!"
+			to_chat(user, "You already control this APC!")
 			return
 		else if(A.aidisabled)
-			user << "<span class='notice'>Unable to connect to APC. Please verify wire connection and try again.</span>"
+			to_chat(user, SPAN_NOTICE("Unable to connect to APC. Please verify wire connection and try again."))
 			return
 	else
 		return
@@ -65,29 +69,33 @@
 
 	log_ability_use(user, "basic encryption hack", A, 0)	// Does not notify admins, but it's still logged for reference.
 	user.hacking = 1
-	user << "Beginning APC system override..."
+	to_chat(user, "Beginning APC system override...")
 	sleep(300)
-	user << "APC hack completed. Uploading modified operation software.."
+	to_chat(user, "APC hack completed. Uploading modified operation software..")
 	sleep(200)
-	user << "Restarting APC to apply changes.."
+	to_chat(user, "Restarting APC to apply changes..")
 	sleep(100)
 	if(A)
 		A.ai_hack(user)
 		if(A.hacker == user)
-			user << "Hack successful. You now have full control over the APC."
+			to_chat(user, "Hack successful. You now have full control over the APC.")
 		else
-			user << "<span class='notice'>Hack failed. Connection to APC has been lost. Please verify wire connection and try again.</span>"
+			to_chat(user, SPAN_NOTICE("Hack failed. Connection to APC has been lost. Please verify wire connection and try again."))
 	else
-		user << "<span class='notice'>Hack failed. Unable to locate APC. Please verify the APC still exists.</span>"
+		to_chat(user, SPAN_NOTICE("Hack failed. Unable to locate APC. Please verify the APC still exists."))
 	user.hacking = 0
 
 
 /datum/game_mode/malfunction/verb/advanced_encryption_hack()
 	set category = "Software"
 	set name = "Advanced Encryption Hack"
-	set desc = "75 CPU - Attempts to bypass encryption on the Command Quantum Relay, giving you ability to fake legitimate messages. Has chance of failing."
+	set desc = "75 CPU - Attempts to bypass encryption on the Command Bluespace Relay, giving you ability to fake legitimate messages. Has chance of failing."
 	var/price = 75
+
 	var/mob/living/silicon/ai/user = usr
+	if(user.stat == DEAD)
+		to_chat(user, SPAN_WARNING("You are dead!"))
+		return
 
 	if(!ability_prechecks(user, price))
 		return
@@ -97,11 +105,13 @@
 	var/reporttype = input(usr, "Choose whether to use a template or custom report.", "Create Command Report") in list("Template", "Custom", "Cancel")
 	switch(reporttype)
 		if("Template")
-			establish_db_connection(dbcon)
-			if (!dbcon.IsConnected())
-				src << "<span class='notice'>Unable to connect to the database.</span>"
+			if(!GLOB.config.sql_enabled)
+				to_chat(src, SPAN_NOTICE("DB Connection Disabled."))
 				return
-			var/DBQuery/query = dbcon.NewQuery("SELECT title, message FROM ss13_ccia_general_notice_list WHERE deleted_at IS NULL")
+			if (!establish_db_connection(GLOB.dbcon))
+				to_chat(src, SPAN_NOTICE("Unable to connect to the database."))
+				return
+			var/datum/db_query/query = SSdbcore.NewQuery("SELECT title, message FROM ss13_ccia_general_notice_list WHERE deleted_at IS NULL")
 			query.Execute()
 
 			var/list/template_names = list()
@@ -111,9 +121,11 @@
 				template_names += query.item[1]
 				templates[query.item[1]] = query.item[2]
 
+			qdel(query)
+
 			// Catch empty list
 			if (!templates.len)
-				src << "<span class='notice'>There are no templates in the database.</span>"
+				to_chat(src, SPAN_NOTICE("There are no templates in the database."))
 				return
 
 			reporttitle = input(usr, "Please select a command report template.", "Create Command Report") in template_names
@@ -130,21 +142,20 @@
 			return
 
 	if (reporttype == "Template")
-		sanitizeSafe(alert(usr, "Would you like it to appear as if CCIAMS made the report?",,"Yes","No"))
-		if ("Yes")
+		var/resp = tgui_alert(usr, "Would you like it to appear as if CCIAMS made the report?", , list("Yes", "No"))
+		if (resp == "Yes")
 			reportbody += "\n\n- CCIAMS, [commstation_name()]"
-		else
 
-	switch(alert("Should this be announced to the general population?",,"Yes","No"))
+	switch(tgui_alert(usr, "Should this be announced to the general population?", , list("Yes", "No")))
 		if("Yes")
 			if(!reporttitle || !reportbody || !ability_pay(user, price))
-				user << "Hack Aborted due to no title, no body message, or you do not have enough CPU for this action."
+				to_chat(user, "Hack Aborted due to no title, no body message, or you do not have enough CPU for this action.")
 				return
 
 			log_ability_use(user, "advanced encryption hack")
 			// Commented out while trialing the malf ai buff
 			//if(prob(50) && user.hack_can_fail)
-			//	user << "Hack Failed."
+			//	to_chat(user, "Hack Failed.")
 			//	if(prob(5))
 			//		user.hack_fails ++
 			//		announce_hack_failure(user, "quantum message relay")
@@ -157,13 +168,13 @@
 
 		if("No")
 			if(!reporttitle || !reportbody || !ability_pay(user, price))
-				user << "Hack Aborted due to no title, no body message, or you do not have enough CPU for this action."
+				to_chat(user, "Hack Aborted due to no title, no body message, or you do not have enough CPU for this action.")
 				return
 
 			log_ability_use(user, "advanced encryption hack")
 			// Commented out while trialing the malf ai buffs
 			//if(prob(50) && user.hack_can_fail)
-			//	user << "Hack Failed."
+			//	to_chat(user, "Hack Failed.")
 			//	if(prob(5))
 			//		user.hack_fails ++
 			//		announce_hack_failure(user, "quantum message relay")
@@ -172,8 +183,8 @@
 			//	log_ability_use(user, "advanced encryption hack (FAIL - title: [reporttitle])")
 			//	return
 			log_ability_use(user, "advanced encryption hack (SUCCESS - title: [reporttitle])")
-			to_world("<span class='alert'>New [current_map.company_name] Update available at all communication consoles.</span>")
-			to_world(sound('sound/AI/commandreport.ogg'))
+			to_world(SPAN_ALERT("New [SSatlas.current_map.company_name] Update available at all communication consoles."))
+			sound_to_playing_players('sound/AI/commandreport.ogg')
 			post_comm_message(reporttitle, reportbody)
 
 /datum/game_mode/malfunction/verb/elite_encryption_hack()
@@ -181,17 +192,18 @@
 	set name = "Elite Encryption Hack"
 	set desc = "200 CPU - Allows you to hack station's ALERTCON system, changing alert level. Has high chance of failing."
 	var/price = 200
+
 	var/mob/living/silicon/ai/user = usr
 	if(!ability_prechecks(user, price))
 		return
 
-	var/alert_target = input("Select new alert level:") in list("green", "blue", "red", "delta", "CANCEL")
+	var/alert_target = input("Select new alert level:") in list("green", "blue", "red", "yellow", "CANCEL")
 	if(!alert_target || !ability_pay(user, price) || alert_target == "CANCEL")
-		user << "Hack Aborted"
+		to_chat(user, "Hack Aborted")
 		return
 	//Reduced from 60-10 to 20-5 while trialing the malf ai buffs
 	if(prob(20) && user.hack_can_fail)
-		user << "Hack Failed."
+		to_chat(user, "Hack Failed.")
 		if(prob(5))
 			user.hack_fails ++
 			announce_hack_failure(user, "alert control system")
@@ -208,33 +220,38 @@
 	set name = "System Override"
 	set desc = "500 CPU - Begins hacking station's primary firewall, quickly overtaking remaining APC systems. When completed grants access to station's self-destruct mechanism. Network administrators will probably notice this."
 	var/price = 500
+
 	var/mob/living/silicon/ai/user = usr
-	if (alert(user, "Begin system override? This cannot be stopped once started. The network administrators will probably notice this.", "System Override:", "Yes", "No") != "Yes")
+	if(user.stat == DEAD)
+		to_chat(user, SPAN_WARNING("You are dead!"))
+		return
+
+	if (tgui_alert(user, "Begin system override? This cannot be stopped once started. The network administrators will probably notice this.", "System Override:", list("Yes", "No")) != "Yes")
 		return
 	if (!ability_prechecks(user, price) || !ability_pay(user, price) || user.system_override)
 		if(user.system_override)
-			user << "You already started the system override sequence."
+			to_chat(user, "You already started the system override sequence.")
 		return
 	log_ability_use(user, "system override (STARTED)")
 	var/list/remaining_apcs = list()
-	for(var/obj/machinery/power/apc/A in SSmachinery.processing_machines)
-		if(!(A.z in current_map.station_levels)) 		// Only station APCs
+	for(var/obj/structure/machinery/power/apc/A in SSmachinery.processing)
+		if(!is_station_level(A.z)) // Only station APCs
 			continue
 		if(A.hacker == user || A.aidisabled) 		// This one is already hacked, or AI control is disabled on it.
 			continue
 		remaining_apcs += A
 
-	var/duration = (remaining_apcs.len * 100)		// Calculates duration for announcing system
-	if(duration > 3000)								// Two types of announcements. Short hacks trigger immediate warnings. Long hacks are more "progressive".
+	var/duration = (remaining_apcs.len * 50)		// Calculates duration for announcing system
+	if(duration > 1500)								// Two types of announcements. Short hacks trigger immediate warnings. Long hacks are more "progressive".
 		spawn(0)
 			sleep(duration/5)
 			if(!user || user.stat == DEAD)
 				return
-			command_announcement.Announce("Info: Abnormal network activity detected. Ongoing hacking attempts detcted. Automatic countermeasures activated. Trace activated.", "Network Monitoring")
+			command_announcement.Announce("Info: Abnormal network activity detected. Ongoing hacking attempts detected. Automatic countermeasures activated. Trace activated.", "Network Monitoring")
 			sleep(duration/5)
 			if(!user || user.stat == DEAD)
 				return
-			command_announcement.Announce("Notice: Trace Update. Abnormal network activity originating from: Network terminal aboard [current_map.station_name]. External network connections disabled. Trace cancelled.", "Network Monitoring")
+			command_announcement.Announce("Notice: Trace Update. Abnormal network activity originating from: Network terminal aboard [SSatlas.current_map.station_name]. External network connections disabled. Trace cancelled.", "Network Monitoring")
 			sleep(duration/5)
 			if(!user || user.stat == DEAD)
 				return
@@ -245,35 +262,35 @@
 			command_announcement.Announce("Error: Network firewall breached. Network integrity compromised.", "Network Monitoring")
 	else
 		command_announcement.Announce("Error: Ongoing hacking attempt. Automatic countermeasures ineffective. Network firewall breached. Network integrity compromised. External network connections disabled.", "Network Monitoring")
-	user << "## BEGINNING SYSTEM OVERRIDE."
-	user << "## ESTIMATED DURATION: [round((duration+300)/600)] MINUTES"
+	to_chat(user, "## BEGINNING SYSTEM OVERRIDE.")
+	to_chat(user, "## ESTIMATED DURATION: [round((duration+300)/600)] MINUTES")
 	user.hacking = 1
 	user.system_override = 1
-	// Now actually begin the hack. Each APC takes 10 seconds.
-	for(var/obj/machinery/power/apc/A in shuffle(remaining_apcs))
-		sleep(100)
+	// Now actually begin the hack. Each APC takes 5 seconds.
+	for(var/obj/structure/machinery/power/apc/A in shuffle(remaining_apcs))
+		sleep(50)
 		if(!user || user.stat == DEAD)
 			return
 		if(!A || !istype(A) || A.aidisabled)
 			continue
 		A.ai_hack(user)
 		if(A.hacker == user)
-			user << "## OVERRIDDEN: [A.name]"
+			to_chat(user, "## OVERRIDDEN: [A.name]")
 
-	user << "## REACHABLE APC SYSTEMS OVERTAKEN. BYPASSING PRIMARY FIREWALL."
+	to_chat(user, "## REACHABLE APC SYSTEMS OVERTAKEN. BYPASSING PRIMARY FIREWALL.")
 	sleep(300)
 	// Hack all APCs, including those built during hack sequence.
-	for(var/obj/machinery/power/apc/A in SSmachinery.processing_machines)
-		if((!A.hacker || A.hacker != src) && !A.aidisabled && A.z in current_map.station_levels)
+	for(var/obj/structure/machinery/power/apc/A in SSmachinery.processing)
+		if((!A.hacker || A.hacker != src) && !A.aidisabled && is_station_level(A.z))
 			A.ai_hack(src)
 
 	log_ability_use(user, "system override (FINISHED)")
-	user << "## PRIMARY FIREWALL BYPASSED. YOU NOW HAVE FULL SYSTEM CONTROL."
+	to_chat(user, "## PRIMARY FIREWALL BYPASSED. YOU NOW HAVE FULL SYSTEM CONTROL.")
 	command_announcement.Announce("Our system administrators just reported that we've been locked out from your control network. Whoever did this now has full access to the station's systems.", "Network Administration Center")
 	user.hack_can_fail = 0
 	user.hacking = 0
 	user.system_override = 2
-	user.verbs += new/datum/game_mode/malfunction/verb/ai_destroy_station()
+	add_verb(user, /datum/game_mode/malfunction/verb/ai_destroy_station)
 
 
 // END ABILITY VERBS

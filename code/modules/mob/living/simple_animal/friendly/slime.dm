@@ -1,32 +1,38 @@
 /mob/living/simple_animal/slime
 	name = "pet slime"
 	desc = "A lovable, domesticated slime."
-	icon = 'icons/mob/slimes.dmi'
+	icon = 'icons/mob/npc/slimes.dmi'
 	icon_state = "grey baby slime"
 	icon_living = "grey baby slime"
 	icon_dead = "grey baby slime dead"
 	speak_emote = list("chirps")
 	health = 100
-	maxHealth = 100
-	response_help  = "pets"
+	maxhealth = 100
+	accent = ACCENT_BLUESPACE
+	response_help   = "pets"
 	response_disarm = "shoos"
 	response_harm   = "stomps on"
 	emote_see = list("jiggles", "bounces in place")
 	var/colour = "grey"
 	mob_size = 3
-	composition_reagent = "slimejelly"
+	composition_reagent = /singleton/reagent/slimejelly
+
+/mob/living/simple_animal/slime/Initialize()
+	. = ..()
+	add_language(LANGUAGE_TCB)
+	default_language = GLOB.all_languages[LANGUAGE_TCB]
 
 /mob/living/simple_animal/slime/can_force_feed(var/feeder, var/food, var/feedback)
 	if(feedback)
-		feeder << "Where do you intend to put \the [food]? \The [src] doesn't have a mouth!"
+		to_chat(feeder, "Where do you intend to put \the [food]? \The [src] doesn't have a mouth!")
 	return 0
 
 /mob/living/simple_animal/adultslime
 	name = "pet slime"
 	desc = "A lovable, domesticated slime."
-	icon = 'icons/mob/slimes.dmi'
+	icon = 'icons/mob/npc/slimes.dmi'
 	health = 200
-	maxHealth = 200
+	maxhealth = 200
 	icon_state = "grey adult slime"
 	icon_living = "grey adult slime"
 	icon_dead = "grey baby slime dead"
@@ -36,11 +42,11 @@
 	emote_see = list("jiggles", "bounces in place")
 	var/colour = "grey"
 	mob_size = 6
-	composition_reagent = "slimejelly"
+	composition_reagent = /singleton/reagent/slimejelly
 
 /mob/living/simple_animal/adultslime/Initialize()
 	. = ..()
-	add_overlay("aslime-:33")
+	AddOverlays("aslime-:33")
 
 
 /mob/living/simple_animal/adultslime/death()

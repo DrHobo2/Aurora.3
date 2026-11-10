@@ -1,4 +1,4 @@
-/obj/item/weapon/spirit_board
+/obj/item/spirit_board
 	name = "spirit board"
 	desc = "A wooden board with letters etched into it, used in seances."
 	icon = 'icons/obj/toy.dmi'
@@ -7,41 +7,41 @@
 	var/planchette = "A"
 	var/lastuser = null
 
-/obj/item/weapon/spirit_board/examine(mob/user)
-	..(user)
-	to_chat(user, "The planchette is sitting at \"[planchette]\".")
+/obj/item/spirit_board/feedback_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	. += "The planchette is sitting at \"[planchette]\"."
 
-/obj/item/weapon/spirit_board/attack_hand(mob/user)
+/obj/item/spirit_board/attack_hand(mob/user)
 	if(!isturf(loc)) //so if you want to play the use the board, you need to put it down somewhere
 		..()
 	else
 		spirit_board_pick_letter(user)
 
-/obj/item/weapon/spirit_board/MouseDrop(mob/user as mob)
-	if((user == usr && (!use_check(user))) && (user.contents.Find(src) || in_range(src, user)))
-		if(ishuman(usr))
-			forceMove(get_turf(usr))
-			usr.put_in_hands(src)
+/obj/item/spirit_board/mouse_drop_dragged(atom/over, mob/user, src_location, over_location, params)
+	if((over == user && (!use_check(over))) && (over.contents.Find(src) || in_range(src, over)))
+		if(ishuman(user))
+			forceMove(get_turf(user))
+			user.put_in_hands(src)
 
-/obj/item/weapon/spirit_board/attack_ghost(var/mob/abstract/observer/user)
+/obj/item/spirit_board/attack_ghost(var/mob/abstract/ghost/user)
 	spirit_board_pick_letter(user)
 	return ..()
 
-/obj/item/weapon/spirit_board/proc/spirit_board_pick_letter(mob/M)
+/obj/item/spirit_board/proc/spirit_board_pick_letter(mob/M)
 	if(!spirit_board_checks(M))
 		return 0
-	planchette = input("Choose the letter.", "Seance!") as null|anything in list(
+	planchette = tgui_input_list(M, "Choose the letter.", "Seance!", list(
 		"A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z",
 		"1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
-		"YES", "NO", "GOODBYE")
+		"YES", "NO", "GOODBYE"))
 	if(!planchette || !Adjacent(M) || next_use > world.time)
 		return	next_use = world.time + rand(30,50)
 
 	lastuser = M.ckey
 
-	visible_message("<span class='notice'>The planchette slowly moves... and stops at the letter \"[planchette]\".</span>")
+	visible_message(SPAN_NOTICE("The planchette slowly moves... and stops at the letter \"[planchette]\"."))
 
-/obj/item/weapon/spirit_board/proc/spirit_board_checks(mob/M)
+/obj/item/spirit_board/proc/spirit_board_checks(mob/M)
 	//cooldown
 	var/bonus = 0
 	if(M.ckey == lastuser)
@@ -57,7 +57,7 @@
 
 
 	if(light_amount > 0.2)
-		to_chat(M, "<span class='warning'>It's too bright here to use \the [src]!</span>")
+		to_chat(M, SPAN_WARNING("It's too bright here to use \the [src]!"))
 		return 0
 
 	//mobs in range check
@@ -65,12 +65,18 @@
 	for(var/mob/living/L in orange(1,src))
 		if(L.ckey)
 			if(L.stat != CONSCIOUS || L.restrained())
-				to_chat(M, "<span class='warning'>\The [L] does not seem to be paying attention to the [src].</span>")
+				to_chat(M, SPAN_WARNING("\The [L] does not seem to be paying attention to the [src]."))
 			else
 				users_in_range++
 
 	if(users_in_range < 2)
-		to_chat(M, "<span class='warning'>There are not enough people to use \the [src]!</span>")
+		to_chat(M, SPAN_WARNING("There are not enough people to use \the [src]!"))
 		return 0
 
 	return 1
+
+
+/obj/item/spirit_board/tajara
+	name = "ghostly board"
+	desc = "An adhomian ghostly board, used in divination rituals. This one is blue and has the symbol of a moon on it."
+	icon_state = "tajara_board"

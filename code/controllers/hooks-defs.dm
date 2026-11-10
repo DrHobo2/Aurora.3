@@ -17,13 +17,6 @@
 /hook/roundend
 
 /**
- * Death hook.
- * Called in death.dm when someone dies.
- * Parameters: var/mob/living/carbon/human, var/gibbed
- */
-/hook/death
-
-/**
  * Cloning hook.
  * Called in cloning.dm when someone is brought back by the wonders of modern science.
  * Parameters: var/mob/living/carbon/human
@@ -33,7 +26,7 @@
 /**
  * Debrained hook.
  * Called in brain_item.dm when someone gets debrained.
- * Parameters: var/obj/item/organ/brain
+ * Parameters: var/obj/item/organ/internal/brain
  */
 /hook/debrain
 
@@ -68,14 +61,14 @@
 /**
  * Employee reassignment hook.
  * Called in card.dm when someone's card is reassigned at the HoP's desk.
- * Parameters: var/obj/item/weapon/card/id
+ * Parameters: var/obj/item/card/id
  */
 /hook/reassign_employee
 
 /**
  * Employee suspension hook.
  * Called in card.dm when someone's card is suspended at the HoP's desk.
- * Parameters: var/obj/item/weapon/card/id
+ * Parameters: var/obj/item/card/id
  */
 /hook/suspend_employee
 
@@ -85,3 +78,17 @@
  * Parameters: var/obj/structure/closet/crate/sold, var/area/shuttle
  */
 /hook/sell_crate
+
+/**
+ * Captain spawned.
+ * Called whenever a captain is spawned.
+ * Parameters: var/mob/living/carbon/human
+ */
+/hook/captain_spawned
+
+/**
+ * Shuttle moved.
+ * Called whenever a shuttle performs a "long jump" or "short jump"
+ * Parameters: var/area/departing, var/area/destination
+ */
+/hook/shuttle_moved

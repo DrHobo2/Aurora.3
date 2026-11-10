@@ -1,26 +1,34 @@
 // SEE code/modules/materials/materials.dm FOR DETAILS ON INHERITED DATUM.
 // This class of weapons takes force and appearance data from a material datum.
 // They are also fragile based on material data and many can break/smash apart.
-/obj/item/weapon/material
+/obj/item/material
 	health = 10
-	hitsound = 'sound/weapons/bladeslice.ogg'
 	gender = NEUTER
 	throw_speed = 3
 	throw_range = 7
-	w_class = 3
+	w_class = WEIGHT_CLASS_NORMAL
 	sharp = 0
-	edge = 0
+	edge = FALSE
+	icon = 'icons/obj/weapons.dmi'
 
-	var/applies_material_colour = 1
+	var/use_material_name = TRUE // Does the finished item put the material name in front of it?
+	var/use_material_sound = TRUE
+	var/use_material_shatter = TRUE // If it has a custom shatter message.
+	var/applies_material_colour = TRUE
 	var/unbreakable
 	var/force_divisor = 0.5
+	var/max_force = 40	 //any damage above this is added to armor penetration value
+	var/max_pen = 100 //any penetration above this value is ignored
 	var/thrown_force_divisor = 0.5
-	var/default_material = DEFAULT_WALL_MATERIAL
-	var/material/material
-	var/drops_debris = 1
+	var/default_material = MATERIAL_STEEL
+	var/singleton/material/material
+	var/drops_debris = TRUE
 
-/obj/item/weapon/material/New(var/newloc, var/material_key)
-	..(newloc)
+	/// Multiplies the amount this item is worth with the following calculation: material.value * worth_multiplier
+	var/worth_multiplier = 1
+
+/obj/item/material/Initialize(var/newloc, var/material_key)
+	. = ..()
 	if(!material_key)
 		material_key = default_material
 	set_material(material_key)
@@ -28,29 +36,42 @@
 		qdel(src)
 		return
 
-	matter = material.get_matter()
-	if(matter.len)
-		for(var/material_type in matter)
-			if(!isnull(matter[material_type]))
-				matter[material_type] *= force_divisor // May require a new var instead.
+/obj/item/material/should_equip()
+	return TRUE
 
-/obj/item/weapon/material/get_material()
+/obj/item/material/get_material()
 	return material
 
-/obj/item/weapon/material/proc/update_force()
+/obj/item/material/proc/update_force()
+	var/new_force
 	if(edge || sharp)
-		force = material.get_edge_damage()
+		new_force = material.get_edge_damage()
 	else
-		force = material.get_blunt_damage()
-	force = round(force*force_divisor)
+		new_force = material.get_blunt_damage()
+	new_force = round(new_force*force_divisor)
+	force = min(new_force, max_force)
+
+	if(new_force > max_force)
+		armor_penetration = initial(armor_penetration) + new_force - max_force
+	armor_penetration += 2*max(0, material.protectiveness - 2)
+	armor_penetration = min(max_pen, armor_penetration)
+
 	throwforce = round(material.get_blunt_damage()*thrown_force_divisor)
 
-/obj/item/weapon/material/proc/set_material(var/new_material)
-	material = get_material_by_name(new_material)
+/obj/item/material/proc/set_material(var/new_material)
+	material = SSmaterials.get_material_by_id(new_material)
 	if(!material)
 		qdel(src)
 	else
-		name = "[material.display_name] [initial(name)]"
+		if(use_material_name)
+			name = "[material.display_name] [initial(name)]"
+		if(use_material_sound)
+			if(!sharp || material.weapon_hitsound == 'sound/weapons/metalhit.ogg')
+				// wooden swords don't sound like metal swords.
+				// metalhit check is so swords when metal use their regular slice sfx.
+				hitsound = material.weapon_hitsound
+				drop_sound = material.weapon_drop_sound
+				pickup_sound = material.weapon_pickup_sound
 		health = round(material.integrity/10)
 		if(applies_material_colour)
 			color = material.icon_colour
@@ -58,11 +79,16 @@
 			START_PROCESSING(SSprocessing, src)
 		update_force()
 
-/obj/item/weapon/material/Destroy()
+		matter = material.get_matter()
+		for(var/material_type in matter)
+			if(!isnull(matter[material_type]))
+				matter[material_type] *= force_divisor // May require a new var instead.
+
+/obj/item/material/Destroy()
 	STOP_PROCESSING(SSprocessing, src)
 	return ..()
 
-/obj/item/weapon/material/apply_hit_effect()
+/obj/item/material/apply_hit_effect()
 	. = ..()
 	if(!unbreakable)
 		if(material.is_brittle())
@@ -71,17 +97,17 @@
 			health--
 		check_health()
 
-/obj/item/weapon/material/proc/check_health(var/consumed)
+/obj/item/material/proc/check_health(var/consumed)
 	if(health<=0)
 		shatter(consumed)
 
-/obj/item/weapon/material/proc/shatter(var/consumed)
+/obj/item/material/proc/shatter(var/consumed)
 	var/turf/T = get_turf(src)
-	T.visible_message("<span class='danger'>\The [src] [material.destruction_desc]!</span>")
+	if(use_material_shatter)
+		T.visible_message(SPAN_DANGER("\The [src] [material.destruction_desc]!"))
 	if(istype(loc, /mob/living))
 		var/mob/living/M = loc
 		M.drop_from_inventory(src)
-	playsound(src, "shatter", 70, 1)
+	playsound(src, material.shatter_sound, 70, 1)
 	if(!consumed && drops_debris) material.place_shard(T)
 	qdel(src)
-

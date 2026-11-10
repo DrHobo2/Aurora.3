@@ -67,226 +67,208 @@
 
 //internal organs
 
-/obj/item/organ/kidneys/autakh
-	name = "toxin screen"
-	icon_state = "screen"
-	robotic = 1
-	robotic_name = null
-	robotic_sprite = null
-
-/obj/item/organ/kidneys/autakh/Initialize()
-	mechassist()
-	. = ..()
-
-/obj/item/organ/anchor
+/obj/item/organ/internal/anchor
 	name = "soul anchor"
 	icon_state = "anchor"
 	organ_tag = "anchor"
-	parent_organ = "head"
-	robotic = 2
+	parent_organ = BP_HEAD
+	robotic = ROBOTIC_MECHANICAL
+	var/suffered_revelation = FALSE
 
-/obj/item/organ/anchor/Initialize()
+/obj/item/organ/internal/anchor/Initialize()
 	robotize()
 	. = ..()
 
-/obj/item/organ/eyes/autakh
-	name = "bionic eyeballs"
-	icon_state = "mk1eyes"
-	singular_name = "bionic eye"
-	action_button_name = "Toggle Bionic Eyes Sensors"
-	robotic_name = null
-	robotic_sprite = null
-	robotic = 2
+/obj/item/organ/internal/anchor/process()
 
-	var/static/list/hud_types = list(
-		"Disabled",
-		"Security",
-		"Medical")
-
-	var/selected_hud = "Disabled"
-	var/disabled = FALSE
-
-/obj/item/organ/eyes/autakh/Initialize()
-	robotize()
-	. = ..()
-
-/obj/item/organ/eyes/autakh/refresh_action_button()
-	. = ..()
-	if(.)
-		action.button_icon_state = "mk1eyes"
-		if(action.button)
-			action.button.UpdateIcon()
-
-/obj/item/organ/eyes/autakh/attack_self(var/mob/user)
-	. = ..()
-
-	if(.)
-
-		if(owner.last_special > world.time)
-			to_chat(owner, "<span class='danger'>\The [src] is still recharging!</span>")
-			return
-
-		if(owner.stat || owner.paralysis || owner.stunned || owner.weakened)
-			to_chat(owner, "<span class='danger'>You can not use your \the [src] in your current state!</span>")
-			return
-
-		if(disabled || is_broken())
-			to_chat(owner, "<span class='danger'>\The [src] shudders and sparks, unable to change its sensors!</span>")
-			return
-
-		owner.last_special = world.time + 100
-
-		var/choice = input("Select the Sensor Type.", "Bionic Eyes Sensors") as null|anything in hud_types
-
-		selected_hud = choice
-
-/obj/item/organ/eyes/autakh/process()
 	..()
 
 	if(!owner)
 		return
-	if(disabled)
-		return
 
-	switch(selected_hud)
+	if(!suffered_revelation)
+		if(prob(0.1))
+			revelation()
+			suffered_revelation = TRUE
 
-		if("Security")
-			req_access = list(access_security)
-			if(allowed(owner))
-				process_sec_hud(owner, 1)
+/obj/item/organ/internal/anchor/emp_act(severity)
+	. = ..()
 
-		if("Medical")
-			req_access = list(access_medical)
-			if(allowed(owner))
-				process_med_hud(owner, 1)
+	revelation()
 
-/obj/item/organ/eyes/autakh/flash_act()
+/obj/item/organ/internal/anchor/proc/revelation()
 	if(owner)
-		to_chat(owner, "<span class='notice'>\The [src]'s retinal overlays are overloaded by the strong light!</span>")
-		owner.eye_blind = 5
-		owner.eye_blurry = 5
-		spark(get_turf(owner), 3)
-	disabled = TRUE
-	selected_hud = "Disabled"
-	addtimer(CALLBACK(src, .proc/rearm), 40 SECONDS)
-	return
+		owner.hallucination += 20
 
-/obj/item/organ/eyes/autakh/emp_act(severity)
-	..()
-	disabled = TRUE
-	selected_hud = "Disabled"
-	addtimer(CALLBACK(src, .proc/rearm), 40 SECONDS)
-
-/obj/item/organ/eyes/autakh/proc/rearm()
-	if(!disabled)
-		return
-	disabled = FALSE
-
-	if(owner)
-		to_chat(owner, "<span class='notice'>\The [src]'s retinal overlays clicks and shifts!</span>")
-
-/obj/item/organ/adrenal
-	name = "adrenal management system"
+/obj/item/organ/internal/augment/calf_override
+	name = "calf overdrive"
 	icon_state = "ams"
-	organ_tag = "adrenal"
-	parent_organ = "chest"
-	robotic = 2
-	action_button_name = "Activate Adrenal Management System"
+	organ_tag = BP_AUG_CALF_OVERRIDE
+	parent_organ = BP_GROIN
+	action_button_icon = "ams"
+	action_button_name = "Activate Calf Override"
+	cooldown = 30
+	var/online = FALSE
+	activable = TRUE
 
-/obj/item/organ/adrenal/Initialize()
-	robotize()
+/obj/item/organ/internal/augment/calf_override/attack_self(var/mob/user)
 	. = ..()
 
-/obj/item/organ/adrenal/refresh_action_button()
+	if(!.)
+		return FALSE
+
+	if(!online)
+		online = TRUE
+		to_chat(owner, SPAN_NOTICE("\The [src] activates!"))
+	else
+		online = FALSE
+		to_chat(owner, SPAN_NOTICE("\The [src] deactivates!"))
+
+/obj/item/organ/internal/augment/calf_override/proc/do_run_act()
+	owner.apply_damage(1, DAMAGE_BRUTE, BP_GROIN, armor_pen = 100)
+
+/obj/item/organ/internal/augment/protein_valve
+	name = "protein breakdown valve"
+	icon_state = "screen"
+	organ_tag = "protein valve"
+	parent_organ = BP_CHEST
+	action_button_icon = "screen"
+	action_button_name = "Activate Protein Breakdown Valve"
+	cooldown = 300
+	activable = TRUE
+	var/expended = FALSE
+
+/obj/item/organ/internal/augment/protein_valve/attack_self(var/mob/user)
 	. = ..()
-	if(.)
-		action.button_icon_state = "ams"
-		if(action.button)
-			action.button.UpdateIcon()
 
-/obj/item/organ/adrenal/attack_self(var/mob/user)
-	. = ..()
+	if(!.)
+		return FALSE
 
-	if(.)
+	if(expended)
+		to_chat(owner, SPAN_WARNING("\The [src] has already been used up!"))
+		return
 
-		if(owner.last_special > world.time)
-			to_chat(owner, "<span class='danger'>\The [src] is still recharging!</span>")
-			return
+	if(owner.reagents)
+		to_chat(owner, SPAN_NOTICE("\The [src] activates, releasing a stream of chemicals into your veins!"))
+		owner.reagents.add_reagent(/singleton/reagent/adrenaline, 15)
+		expended = TRUE
 
-		if(owner.stat || owner.paralysis || owner.stunned || owner.weakened)
-			to_chat(owner, "<span class='danger'>You can not use \the [src] in your current state!</span>")
-			return
-
-		owner.last_special = world.time + 500
-		to_chat(owner, "<span class='notice'>\The [src] activates, releasing a stream of chemicals into your veins!</span>")
-
-		if(owner.reagents)
-
-			if(is_bruised())
-				owner.reagents.add_reagent("toxin", 10)
-
-			if(is_broken())
-				owner.reagents.add_reagent("toxin", 25)
-				return
-
-
-			owner.vessel.remove_reagent("blood",rand(15,30))
-			owner.adjustToxLoss(rand(5,25))
-			owner.reagents.add_reagent("paracetamol", 5)
-			owner.reagents.add_reagent("inaprovaline", 5)
-
-/obj/item/organ/haemodynamic
-	name = "haemodynamic control system"
+/obj/item/organ/internal/augment/venomous_rest
+	name = "venomous rest implant"
 	icon_state = "stabilizer"
-	organ_tag = "haemodynamic"
-	parent_organ = "chest"
-	robotic = 1
-	action_button_name = "Activate Haemodynamic Control System"
+	organ_tag = "venomous rest"
+	parent_organ = BP_CHEST
+	action_button_name = "Activate Venomous Rest Implant"
+	action_button_icon = "stabilizer"
+	cooldown = 300
+	activable = TRUE
+	var/expended = FALSE
 
-/obj/item/organ/haemodynamic/Initialize()
-	mechassist()
+/obj/item/organ/internal/augment/venomous_rest/attack_self(var/mob/user)
 	. = ..()
 
-/obj/item/organ/haemodynamic/Initialize()
-	robotize()
+	if(!.)
+		return FALSE
+
+	if(expended)
+		to_chat(owner, SPAN_WARNING("\The [src] has already been used up!"))
+		return
+
+	if(owner.reagents)
+		owner.reagents.add_reagent(/singleton/reagent/inaprovaline, 10)
+		owner.reagents.add_reagent(/singleton/reagent/tricordrazine, 10)
+		owner.reagents.add_reagent(/singleton/reagent/soporific, 15)
+		to_chat(owner, SPAN_NOTICE("\The [src] activates, releasing a stream of chemicals into your veins!"))
+		expended = TRUE
+
+/obj/item/organ/internal/augment/farseer_eye
+	name = "farseer eye"
+	icon_state = "hunterseye"
+	organ_tag = "farseer eye"
+	parent_organ = BP_HEAD
+	action_button_name = "Activate Farseer Eye"
+	action_button_icon = "hunterseye"
+	cooldown = 30
+	activable = TRUE
+	zoom_out_message = " eyes whirrs loudly as the zoom lenses retract."
+
+/obj/item/organ/internal/augment/farseer_eye/attack_self(var/mob/user)
 	. = ..()
 
-/obj/item/organ/haemodynamic/refresh_action_button()
-	. = ..()
-	if(.)
-		action.button_icon_state = "stabilizer"
-		if(action.button)
-			action.button.UpdateIcon()
+	if(!.)
+		return FALSE
 
-/obj/item/organ/haemodynamic/attack_self(var/mob/user)
-	. = ..()
-
-	if(.)
-
-		if(owner.last_special > world.time)
-			to_chat(owner, "<span class='danger'>\The [src] is still recharging!</span>")
+	if(zoom)
+		owner.visible_message("<b>[user]'s</b> eyes whirrs loudly as the zoom lenses retract.", range = 3)
+	else
+		owner.visible_message("<b>[user]'s</b> eyes whirrs loudly as the zoom lenses begin sliding into place...", range = 3)
+		if(!do_after(user, 1.5 SECONDS))
 			return
+		owner.visible_message("<b>[user]'s</b> eyes clicks loudly as they focus ahead.", range = 3)
 
-		if(owner.stat || owner.paralysis || owner.stunned || owner.weakened)
-			to_chat(owner, "<span class='danger'>You can not use \the [src] in your current state!</span>")
+	zoom(owner, 6, 7, FALSE, FALSE)
+
+/obj/item/organ/internal/augment/eye_flashlight
+	name = "eye flashlight"
+	icon_state = "mk1eyes"
+	organ_tag = "eye flashlight"
+	parent_organ = BP_HEAD
+	action_button_name = "Activate Eye Flashlight"
+	action_button_icon = "mk1eyes"
+	cooldown = 50
+	activable = TRUE
+	var/online = FALSE
+	var/warning_level = 0
+
+/obj/item/organ/internal/augment/eye_flashlight/attack_self(var/mob/user)
+	. = ..()
+
+	if(!.)
+		return FALSE
+
+	if(!online)
+		set_light(3, 2, LIGHT_COLOR_RED)
+		owner.change_eye_color(250, 130, 130)
+		owner.update_eyes()
+		online = TRUE
+		addtimer(CALLBACK(src, PROC_REF(add_warning)), 5 MINUTES)
+		addtimer(CALLBACK(src, PROC_REF(add_warning)), 6 MINUTES)
+	else
+		turn_off()
+
+/obj/item/organ/internal/augment/eye_flashlight/proc/turn_off()
+	online = FALSE
+	set_light(0)
+	if(owner.client)
+		owner.change_eye_color(owner.client.prefs.r_eyes, owner.client.prefs.g_eyes, owner.client.prefs.b_eyes)
+		owner.update_eyes()
+	warning_level = 0
+
+/obj/item/organ/internal/augment/eye_flashlight/emp_act(severity)
+	. = ..()
+
+	turn_off()
+
+/obj/item/organ/internal/augment/eye_flashlight/proc/add_warning()
+	if(online)
+
+		warning_level = min(warning_level+1,2)
+
+		if(warning_level >= 1)
+			to_chat(owner, SPAN_DANGER ("Your eyes are feeling warm!"))
+
+/obj/item/organ/internal/augment/eye_flashlight/process()
+
+	..()
+
+	if(!owner)
+		return
+
+	if(warning_level >= 2)
+		var/obj/item/organ/internal/eyes/E = owner.get_eyes()
+		if(!E)
 			return
-
-		owner.last_special = world.time + 500
-
-		owner.adjustNutritionLoss(300)
-		owner.adjustHydrationLoss(300)
-
-		if(is_broken())
-			owner.vessel.remove_reagent("blood",rand(50,75))
-			return
-
-		to_chat(owner, "<span class='notice'>\The [src] activates, releasing a stream of chemicals into your veins!</span>")
-
-		if(is_bruised())
-			owner.vessel.remove_reagent("blood",rand(25,50))
-
-		if(owner.reagents)
-			owner.reagents.add_reagent("coagulant", 15)
+		E.take_damage(1)
 
 //limb implants
 
@@ -300,7 +282,7 @@
 	if(.)
 		action.button_icon_state = "digitool"
 		if(action.button)
-			action.button.UpdateIcon()
+			action.button.update_icon()
 
 /obj/item/organ/external/hand/right/autakh/tool/attack_self(var/mob/user)
 	. = ..()
@@ -308,19 +290,19 @@
 	if(.)
 
 		if(owner.last_special > world.time)
-			to_chat(owner, "<span class='danger'>\The [src] is still recharging!</span>")
+			to_chat(owner, SPAN_DANGER("\The [src] is still recharging!"))
 			return
 
 		if(owner.stat || owner.paralysis || owner.stunned || owner.weakened)
-			to_chat(owner, "<span class='danger'>You can not use \the [src] in your current state!</span>")
+			to_chat(owner, SPAN_DANGER("You can not use \the [src] in your current state!"))
 			return
 
 		if(owner.get_active_hand())
-			to_chat(owner, "<span class='danger'>You must empty your active hand before enabling your [src]!</span>")
+			to_chat(owner, SPAN_DANGER("You must empty your active hand before enabling your [src]!"))
 			return
 
 		if(is_broken())
-			to_chat(owner, "<span class='danger'>\The [src] is too damaged to be used!</span>")
+			to_chat(owner, SPAN_DANGER("\The [src] is too damaged to be used!"))
 			return
 
 		if(is_bruised())
@@ -329,39 +311,53 @@
 		owner.last_special = world.time + 100
 		var/obj/item/M = new augment_type(owner)
 		owner.put_in_active_hand(M)
-		owner.visible_message("<span class='notice'>\The [M] slides out of \the [owner]'s [src].</span>","<span class='notice'>You deploy \the [M]!</span>")
+		owner.visible_message(SPAN_NOTICE("\The [M] slides out of \the [owner]'s [src]."),
+								SPAN_NOTICE("You deploy \the [M]!"))
 
 /obj/item/combitool/robotic
 	name = "robotic combitool"
 	desc = "An integrated combitool module."
 	icon_state = "digitool"
+	item_state = "digitool"
+	w_class = WEIGHT_CLASS_BULKY
+	tools = list(
+		"crowbar",
+		"screwdriver",
+		"wrench",
+		"wirecutters"
+		)
 
 /obj/item/combitool/robotic/throw_at()
 	usr.drop_from_inventory(src)
 
 /obj/item/combitool/robotic/dropped()
+	. = ..()
 	loc = null
 	qdel(src)
 
 /obj/item/organ/external/hand/right/autakh/tool/mining
-	name = "engineering grasper"
+	name = "mining grasper"
 	action_button_name = "Deploy Mounted Drill"
-	augment_type = /obj/item/weapon/pickaxe/drill/integrated
+	augment_type = /obj/item/pickaxe/drill/integrated
 
-/obj/item/organ/external/hand/right/autakh/mining/refresh_action_button()
+/obj/item/organ/external/hand/right/autakh/tool/mining/refresh_action_button()
 	. = ..()
 	if(.)
 		action.button_icon_state = "drill"
 		if(action.button)
-			action.button.UpdateIcon()
+			action.button.update_icon()
 
-/obj/item/weapon/pickaxe/drill/integrated
+/obj/item/pickaxe/drill/integrated
 	name = "integrated mining drill"
+	desc = "A integrated mining drill that is installed on the hand of the user, it can retract at the user's command."
+	icon_state = "integrateddrill"
+	item_state = "integrateddrill"
 
-/obj/item/weapon/pickaxe/drill/integrated/throw_at()
+/obj/item/pickaxe/drill/integrated/throw_at()
 	usr.drop_from_inventory(src)
 
-/obj/item/weapon/pickaxe/drill/integrated/dropped()
+/obj/item/pickaxe/drill/integrated/dropped()
+	. = ..()
 	loc = null
 	qdel(src)
 
@@ -369,12 +365,16 @@
 	name = "medical grasper"
 	action_button_name = "Deploy Mounted Health Scanner"
 
+/obj/item/organ/external/hand/right/autakh/medical/Initialize(mapload)
+	. = ..()
+	src.LoadComponent(/datum/component/health_analyzer)
+
 /obj/item/organ/external/hand/right/autakh/medical/refresh_action_button()
 	. = ..()
 	if(.)
 		action.button_icon_state = "health"
 		if(action.button)
-			action.button.UpdateIcon()
+			action.button.update_icon()
 
 /obj/item/organ/external/hand/right/autakh/medical/attack_self(var/mob/user)
 	. = ..()
@@ -382,40 +382,44 @@
 	if(.)
 
 		if(owner.last_special > world.time)
-			to_chat(owner, "<span class='danger'>\The [src] is still recharging!</span>")
+			to_chat(owner, SPAN_DANGER("\The [src] is still recharging!"))
 			return
 
 		if(owner.stat || owner.paralysis || owner.stunned || owner.weakened)
-			to_chat(owner, "<span class='danger'>You can not use \the [src] in your current state!</span>")
+			to_chat(owner, SPAN_DANGER("You can not use \the [src] in your current state!"))
 			return
 
 		if(is_broken())
-			to_chat(owner, "<span class='danger'>\The [src] is too damaged to be used!</span>")
+			to_chat(owner, SPAN_DANGER("\The [src] is too damaged to be used!"))
 			return
 
 		if(is_bruised())
 			spark(get_turf(owner), 3)
 
-		var/obj/item/weapon/grab/G = owner.get_active_hand()
+		var/obj/item/grab/G = owner.get_active_hand()
 		if(!istype(G))
-			to_chat(owner, "<span class='danger'>You must grab someone before trying to analyze their health!</span>")
+			to_chat(owner, SPAN_DANGER("You must grab someone before trying to analyze their health!"))
 			return
 
 		owner.last_special = world.time + 50
 		if(ishuman(G.affecting))
 			var/mob/living/carbon/human/H = G.affecting
-			health_scan_mob(H, owner)
+			var/datum/component/health_analyzer/h_analyzer = src.GetComponent(/datum/component/health_analyzer)
+			if(!h_analyzer)
+				return
+			h_analyzer.health_scan_mob(H, owner, FALSE, TRUE)
 
 /obj/item/organ/external/hand/right/autakh/security
 	name = "security grasper"
-	action_button_name = "Activate Integrated Electroshock Weapon"
+	action_button_name = "Deploy Integrated Stun Baton"
+	var/augment_type = /obj/item/melee/baton/autakh
 
 /obj/item/organ/external/hand/right/autakh/security/refresh_action_button()
 	. = ..()
 	if(.)
 		action.button_icon_state = "baton"
 		if(action.button)
-			action.button.UpdateIcon()
+			action.button.update_icon()
 
 /obj/item/organ/external/hand/right/autakh/security/attack_self(var/mob/user)
 	. = ..()
@@ -423,41 +427,103 @@
 	if(.)
 
 		if(owner.last_special > world.time)
-			to_chat(owner, "<span class='danger'>\The [src] is still recharging!</span>")
+			to_chat(owner, SPAN_DANGER("\The [src] is still recharging!"))
 			return
 
 		if(owner.stat || owner.paralysis || owner.stunned || owner.weakened)
-			to_chat(owner, "<span class='danger'>You can not use \the [src] in your current state!</span>")
+			to_chat(owner, SPAN_DANGER("You can not use \the [src] in your current state!"))
+			return
+
+		if(owner.get_active_hand())
+			to_chat(owner, SPAN_DANGER("You must empty your active hand before enabling your [src]!"))
 			return
 
 		if(is_broken())
-			to_chat(owner, "<span class='danger'>\The [src] is too damaged to be used!</span>")
+			to_chat(owner, SPAN_DANGER("\The [src] is too damaged to be used!"))
 			return
 
 		if(is_bruised())
 			spark(get_turf(owner), 3)
 
-		var/obj/item/weapon/grab/G = owner.get_active_hand()
-		if(!istype(G))
-			to_chat(owner, "<span class='danger'>You must grab someone before trying to use your [src]!</span>")
-			return
+		var/obj/item/M = new augment_type(owner)
+		owner.put_in_active_hand(M)
+		owner.visible_message(SPAN_NOTICE("\The [M] slides out of \the [owner]'s [src]."),
+								SPAN_NOTICE("You deploy \the [M]!"))
 
-		if(owner.nutrition <= 200)
-			to_chat(owner, "<span class='danger'>Your energy reserves are too low to use your [src]!</span>")
-			return
+/obj/item/melee/baton/autakh
+	name = "integrated stun baton"
+	desc = "An electroshock baton integrated into an Aut'akh security grasper. It retracts when released."
+	icon = 'icons/obj/item/autakh_baton.dmi'
+	icon_state = "autakh_baton"
+	item_state = "autakh_baton"
+	contained_sprite = TRUE
+	force = 5
+	agonyforce = 50
+	status = TRUE
+	sheathed = TRUE
 
-		if(ishuman(G.affecting))
+/obj/item/melee/baton/autakh/mechanics_hints(mob/user, distance, is_adjacent)
+	. = list()
+	. += "Left-click the baton in-hand to toggle its electroshock function."
+	. += "On Harm intent, it inflicts damage whether or not the electroshock function is on."
+	. += "The baton draws power from its user's energy reserves and retracts when dropped."
 
-			var/mob/living/carbon/human/H = G.affecting
-			var/target_zone = check_zone(owner.zone_sel.selecting)
+/obj/item/melee/baton/autakh/feedback_hints(mob/user, distance, is_adjacent)
+	. = list()
+	if(distance > 1)
+		return
+	. += "The baton is powered by its user's energy reserves."
 
-			owner.last_special = world.time + 100
-			owner.adjustNutritionLoss(50)
+/obj/item/melee/baton/autakh/update_icon()
+	icon_state = status ? "[initial(icon_state)]_active" : initial(icon_state)
+	if(status)
+		set_light(1.3, 1, baton_color)
+	else
+		set_light(0)
 
-			if(owner.a_intent == I_HURT)
-				H.electrocute_act(10, owner, def_zone = target_zone)
-			else
-				H.stun_effect_act(0, 50, target_zone, owner)
+/obj/item/melee/baton/autakh/attack_self(mob/user)
+	status = !status
+	to_chat(user, SPAN_NOTICE("[src] is now [status ? "on" : "off"]."))
+	playsound(loc, SFX_SPARKS, 75, 1, -1)
+	update_icon()
+	add_fingerprint(user)
 
-			owner.visible_message("<span class='danger'>[H] has been prodded with [src] by [owner]!</span>")
-			playsound(get_turf(owner), 'sound/weapons/Egloves.ogg', 50, 1, -1)
+/obj/item/melee/baton/autakh/attack(mob/living/target_mob, mob/living/user, target_zone)
+	if(status)
+		if(user.last_special > world.time)
+			to_chat(user, SPAN_DANGER("\The [src] is still recharging!"))
+			return FALSE
+		if(user.nutrition <= 200)
+			to_chat(user, SPAN_DANGER("Your energy reserves are too low to use \the [src]!"))
+			return FALSE
+
+	. = ..()
+	if(. && status)
+		user.last_special = world.time + 10 SECONDS
+		user.adjustNutritionLoss(50)
+
+/obj/item/melee/baton/autakh/deductcharge(chrgdeductamt)
+	return TRUE
+
+/obj/item/melee/baton/autakh/attackby(obj/item/attacking_item, mob/user)
+	return
+
+/obj/item/melee/baton/autakh/throw_at()
+	usr.drop_from_inventory(src)
+
+/obj/item/melee/baton/autakh/dropped()
+	. = ..()
+	loc = null
+	qdel(src)
+
+/obj/item/organ/external/hand/right/autakh/tool/nullrod
+	name = "blessed prosthesis"
+	action_button_name = "Deploy Blessed Prosthesis"
+	augment_type = /obj/item/nullrod/autakh
+
+/obj/item/organ/external/hand/right/autakh/tool/nullrod/refresh_action_button()
+	. = ..()
+	if(.)
+		action.button_icon_state = "anchor"
+		if(action.button)
+			action.button.update_icon()

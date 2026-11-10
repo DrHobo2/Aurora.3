@@ -1,48 +1,41 @@
 /obj/structure/largecrate
 	name = "large crate"
 	desc = "A hefty wooden crate."
-	icon = 'icons/obj/storage.dmi'
 	icon_state = "densecrate"
-	density = 1
+	density = TRUE
 
 /obj/structure/largecrate/attack_hand(mob/user as mob)
-	user << "<span class='notice'>You need a crowbar to pry this open!</span>"
+	to_chat(user, SPAN_NOTICE("You need a crowbar to pry this open!"))
 	return
 
-/obj/structure/largecrate/attackby(obj/item/weapon/W as obj, mob/user as mob)
-	if(W.iscrowbar())
+/obj/structure/largecrate/attackby(obj/item/attacking_item, mob/user)
+	if(attacking_item.tool_behaviour == TOOL_CROWBAR)
 		new /obj/item/stack/material/wood(src)
 		var/turf/T = get_turf(src)
 		for(var/atom/movable/AM in contents)
 			if(AM.simulated) AM.forceMove(T)
-		user.visible_message("<span class='notice'>[user] pries \the [src] open.</span>", \
-							 "<span class='notice'>You pry open \the [src].</span>", \
-							 "<span class='notice'>You hear splitting wood.</span>")
+		user.visible_message(SPAN_NOTICE("[user] pries \the [src] open."), \
+								SPAN_NOTICE("You pry open \the [src]."), \
+								SPAN_NOTICE("You hear splitting wood."))
 		for(var/obj/vehicle/V in T.contents)
 			if(V)
 				V.unload(user)
 		qdel(src)
+	else if(istype(attacking_item, /obj/item/hand_labeler))
+		var/obj/item/hand_labeler/labeler = attacking_item
+		if(!labeler.mode)
+			return attack_hand(user)
 	else
 		return attack_hand(user)
 
 /obj/structure/largecrate/mule
 	name = "MULE crate"
+	icon_state = "mulecrate"
 
 /obj/structure/largecrate/hoverpod
 	name = "\improper Hoverpod assembly crate"
 	desc = "It comes in a box for the fabricator's sake. Where does the wood come from? ... And why is it lighter?"
 	icon_state = "mulecrate"
-
-/obj/structure/largecrate/hoverpod/attackby(obj/item/weapon/W as obj, mob/user as mob)
-	if(W.iscrowbar())
-		var/obj/item/mecha_parts/mecha_equipment/ME
-		var/obj/mecha/working/hoverpod/H = new (loc)
-
-		ME = new /obj/item/mecha_parts/mecha_equipment/tool/hydraulic_clamp
-		ME.attach(H)
-		ME = new /obj/item/mecha_parts/mecha_equipment/tool/passenger
-		ME.attach(H)
-	..()
 
 /obj/structure/largecrate/animal
 	icon_state = "mulecrate"
@@ -62,6 +55,10 @@
 	name = "cow crate"
 	held_type = /mob/living/simple_animal/cow
 
+/obj/structure/largecrate/animal/pig
+	name = "pig crate"
+	held_type = /mob/living/simple_animal/pig
+
 /obj/structure/largecrate/animal/goat
 	name = "goat crate"
 	held_type = /mob/living/simple_animal/hostile/retaliate/goat
@@ -69,6 +66,10 @@
 /obj/structure/largecrate/animal/cat
 	name = "cat carrier"
 	held_type = /mob/living/simple_animal/cat
+
+/obj/structure/largecrate/animal/snake
+	name = "snake crate"
+	held_type = /mob/living/simple_animal/snake
 
 /obj/structure/largecrate/animal/cat/bones
 	held_type = /mob/living/simple_animal/cat/fluff/bones
@@ -87,3 +88,51 @@
 
 /obj/structure/largecrate/animal/dog/pug
 	held_type = /mob/living/simple_animal/hostile/commanded/dog/pug
+
+/obj/structure/largecrate/animal/dog/bullterrier
+	name = "bull terrier carrier"
+	held_type = /mob/living/simple_animal/hostile/commanded/dog/bullterrier
+
+/obj/structure/largecrate/animal/adhomai
+	name = "adhomian animal crate"
+	held_type = /mob/living/simple_animal/ice_tunneler
+
+/obj/structure/largecrate/animal/adhomai/fatshouter
+	held_type = /mob/living/simple_animal/fatshouter
+
+/obj/structure/largecrate/animal/adhomai/rafama
+	held_type = /mob/living/simple_animal/hostile/retaliate/rafama
+
+/obj/structure/largecrate/animal/adhomai/schlorrgo
+	held_type = /mob/living/simple_animal/schlorrgo
+
+/obj/structure/largecrate/animal/adhomai/harron
+	held_type = /mob/living/simple_animal/hostile/commanded/dog/harron
+
+/obj/structure/largecrate/animal/hakhma
+	name = "hakhma crate"
+	held_type = /mob/living/simple_animal/hakhma
+
+/obj/structure/largecrate/animal/moghes
+	name = "moghresian animal crate"
+	held_type = /mob/living/simple_animal/threshbeast
+
+/obj/structure/largecrate/animal/moghes/warmount
+	held_type = /mob/living/simple_animal/hostile/retaliate/hegeranzi
+
+/obj/structure/largecrate/animal/moghes/miervesh
+	held_type = /mob/living/simple_animal/miervesh
+
+/obj/structure/largecrate/animal/moghes/otzek
+	held_type = /mob/living/simple_animal/otzek
+
+// Hostile mob crates! Use with caution.
+/obj/structure/largecrate/animal/shark
+	name = "shark crate"
+	held_type = /mob/living/simple_animal/hostile/carp/shark
+	desc = "A hefty wooden crate. This one has bright yellow and red markings on the sides warning of hazardous contents."
+
+/obj/structure/largecrate/animal/babycarp
+	name = "carp crate"
+	held_type = /mob/living/simple_animal/carp/baby
+	desc = "A hefty wooden crate. This one has bright yellow and red markings on the sides warning of hazardous contents."

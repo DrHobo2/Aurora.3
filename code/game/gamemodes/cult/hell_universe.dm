@@ -17,16 +17,11 @@ In short:
 
 /datum/universal_state/hell/OnShuttleCall(var/mob/user)
 	return 1
-	/*
-	if(user)
-		user << "<span class='sinister'>All you hear on the frequency is static and panicked screaming. There will be no shuttle call today.</span>"
-	return 0
-	*/
 
 /datum/universal_state/hell/DecayTurf(var/turf/T)
 	if(!T.holy)
 		T.cultify()
-		for(var/obj/machinery/light/L in T.contents)
+		for(var/obj/structure/machinery/light/L in T.contents)
 			new /obj/structure/cult/pylon(L.loc)
 			qdel(L)
 	return
@@ -41,22 +36,22 @@ In short:
 
 // Apply changes when entering state
 /datum/universal_state/hell/OnEnter()
-	SSgarbage.disable()	// Yeah, fuck it. No point hard-deleting stuff now.
+	SSgarbage.can_fire = FALSE	// Yeah, fuck it. No point hard-deleting stuff now.
 
-	escape_list = get_area_turfs(locate(/area/hallway/secondary/exit))
+	GLOB.escape_list = get_area_turfs(locate(/area/horizon/shuttle/escape_pod))
 
-	convert_all_parallax()
 	//Separated into separate procs for profiling
 	AreaSet()
 	MiscSet()
 	APCSet()
 	KillMobs()
 	OverlayAndAmbientSet()
+	SSskybox.change_skybox("narsie", new_use_stars = FALSE, new_use_overmap_details = FALSE)
 
-	runedec += 9000	//basically removing the rune cap
+	SScult.rune_boost += 9001	//basically removing the rune cap
 
 /datum/universal_state/hell/proc/AreaSet()
-	for(var/area/A in all_areas)
+	for(var/area/A in get_sorted_areas())
 		if(!istype(A,/area) || istype(A, /area/space))
 			continue
 
@@ -65,34 +60,23 @@ In short:
 
 /datum/universal_state/hell/OverlayAndAmbientSet()
 	set waitfor = FALSE
-	for(var/thing in turfs)	// Expensive, but CHECK_TICK should prevent lag.
-		var/turf/T = thing
-		if(istype(T, /turf/space))
-			T.add_overlay("hell01")
-		else
-			var/static/image/I = image('icons/turf/space.dmi', "hell01")
-			T.underlays += I
+	for(var/turf/T in world)	// Expensive, but CHECK_TICK should prevent lag.
+		var/static/image/I = image('icons/turf/space.dmi', "hell01")
+		T.underlays += I
 
 		if (istype(T, /turf/simulated/floor) && !T.holy && prob(1))
 			new /obj/effect/gateway/active/cult(T)
 
 		CHECK_TICK
 
-	for(var/datum/lighting_corner/C in SSlighting.lighting_corners)
-		if (!C.active)
-			continue
-
-		C.update_lumcount(0.5, 0, 0)
-		CHECK_TICK
-
 /datum/universal_state/hell/proc/MiscSet()
-	for (var/obj/machinery/firealarm/alm in SSmachinery.processing_machines)
+	for (var/obj/structure/machinery/firealarm/alm in SSmachinery.processing)
 		if (!(alm.stat & BROKEN))
 			alm.ex_act(2)
 		CHECK_TICK
 
 /datum/universal_state/hell/proc/APCSet()
-	for (var/obj/machinery/power/apc/APC in SSmachinery.processing_machines)
+	for (var/obj/structure/machinery/power/apc/APC in SSmachinery.processing)
 		if (!(APC.stat & BROKEN) && !APC.is_critical)
 			APC.chargemode = 0
 			if(APC.cell)
@@ -102,23 +86,7 @@ In short:
 		CHECK_TICK
 
 /datum/universal_state/hell/proc/KillMobs()
-	for(var/mob/living/simple_animal/M in mob_list)
+	for(var/mob/living/simple_animal/M in GLOB.mob_list)
 		if(M && !M.client)
-			M.stat = DEAD
-		CHECK_TICK
-
-// Parallax.
-
-/datum/universal_state/hell/convert_parallax(obj/screen/plane_master/parallax_spacemaster/PS)
-	PS.color = list(
-	0,0,0,0,
-	0,0,0,0,
-	0,0,0,0,
-	1,0,0,1)
-
-/datum/universal_state/hell/proc/convert_all_parallax()
-	for(var/client/C in clients)
-		var/obj/screen/plane_master/parallax_spacemaster/PS = locate() in C.screen
-		if(PS)
-			convert_parallax(PS)
+			M.set_stat(DEAD)
 		CHECK_TICK

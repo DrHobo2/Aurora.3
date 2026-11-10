@@ -3,7 +3,7 @@
 	name = "sparks"
 	icon_state = "sparks"
 	anchored = 1
-	mouse_opacity = 0
+	mouse_opacity = MOUSE_OPACITY_TRANSPARENT
 
 /obj/effect/visual/sparks/Initialize(mapload)
 	. = ..(mapload)
@@ -11,17 +11,19 @@
 
 /obj/effect/visual/sparks/tick()
 	. = ..()
+	if (. == EFFECT_DESTROY)
+		return
 
 	var/turf/T = get_turf(src)
 	if(T)
 		T.hotspot_expose(1000, 100)
 
-	if (life_ticks < 2)
+	if (life_ticks == 1)
 		animate(src, alpha = 0, time = 2, easing = SINE_EASING | EASE_IN)
 
 /obj/effect/visual/sparks/start(var/direction)
 	if (direction)
-		addtimer(CALLBACK(src, .proc/do_step, direction), 5)
+		addtimer(CALLBACK(src, PROC_REF(do_step), direction), 5, TIMER_STOPPABLE | TIMER_DELETE_ME)
 
 /obj/effect/visual/sparks/proc/do_step(direction)
 	step(src, direction)

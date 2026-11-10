@@ -2,274 +2,232 @@
 // CENTCOM
 
 /area/prison/solitary
-	name = "\improper CentComm Solitary Confinement"
+	name = "CentComm Solitary Confinement"
 	icon_state = "brig"
 	centcomm_area = 1
+	area_flags = AREA_FLAG_PRISON
 
 /area/centcom
-	name = "\improper Centcom"
+	name = "Centcom"
 	icon_state = "centcom"
 	requires_power = 0
 	no_light_control = 1
-	base_turf = /turf/unsimulated/floor
+	base_turf = /turf/unsimulated/floor/plating
 	centcomm_area = 1
+	ambience = AMBIENCE_ARRIVALS
 
 /area/centcom/control
-	name = "\improper Centcom Control"
+	name = "Centcom Control"
+	ambience = AMBIENCE_HIGHSEC
 
 /area/centcom/spawning
-	name = "\improper Centcom Preparatory Wing"
+	name = "NTCC Odin Departures"
+	icon_state = "centcomspawn"
+	ambience = AMBIENCE_ARRIVALS
+
+/area/centcom/start
+	name = "New Player Spawn"
+	base_lighting_alpha = 255
+	sound_environment = SOUND_ENVIRONMENT_OFF
 
 /area/centcom/evac
-	name = "\improper Centcom Emergency Shuttle"
+	name = "Centcom Emergency Shuttle"
+	icon_state = "centcomevac"
 
 /area/centcom/suppy
-	name = "\improper Centcom Supply Shuttle"
+	name = "Centcom Supply Shuttle"
+	icon_state = "centcomsupply"
 
 /area/centcom/ferry
-	name = "\improper Centcom Transport Shuttle"
+	name = "Centcom Transport Shuttle"
+	icon_state = "centcomferry"
 
 /area/centcom/shuttle
-	name = "\improper Centcom Administration Shuttle"
+	name = "Centcom Administration Shuttle"
 
 /area/centcom/test
-	name = "\improper Centcom Testing Facility"
+	name = "Centcom Testing Facility"
 
 /area/centcom/living
-	name = "\improper Centcom Living Quarters"
+	name = "Centcom Living Quarters"
+	icon_state = "centcomliving"
 
 /area/centcom/specops
-	name = "\improper Centcom Special Ops"
+	name = "Centcom Special Ops"
+	icon_state = "centcomspecops"
 
 /area/centcom/creed
 	name = "Creed's Office"
+	sound_environment = SOUND_AREA_SMALL_SOFTFLOOR
 
 /area/centcom/holding
-	name = "\improper Holding Facility"
+	name = "Holding Facility"
+	icon_state = "centcomhold"
+
+/area/centcom/checkpoint
+
+/area/centcom/checkpoint/fore
+	name = "Fore Checkpoint"
+	icon_state = "centcomcheckfore"
+
+/area/centcom/checkpoint/aft
+	name = "Aft Checkpoint"
+	icon_state = "centcomcheckaft"
+
+/area/centcom/bar
+	name = "Valkyrie's Rest"
 
 /area/centcom/legion
-	name = "\improper Tau Ceti Foreign Legion Base"
+	name = "BLV The Tower - Deck 1"
+	icon_state = "blvtower"
+	area_flags = AREA_FLAG_NO_CREW_EXPECTED
 
-//SYNDICATES
+/area/centcom/legion/hangar5
+	name = "BLV The Tower - Hangar 5"
+	icon_state = "blvhangar5"
+	ambience = AMBIENCE_HANGAR
+	sound_environment = SOUND_ENVIRONMENT_HANGAR
 
-/area/syndicate_mothership
-	name = "\improper Mercenary Base"
-	icon_state = "syndie-ship"
+/area/centcom/distress_prep
+	name = "Distress Team Preparation"
+	ambience = AMBIENCE_HIGHSEC
+
+/area/merchant_station
+	name = "Merchant Station"
+	icon_state = "merchant"
 	requires_power = 0
-	dynamic_lighting = 0
 	no_light_control = 1
 	centcomm_area = 1
+	area_flags = AREA_FLAG_NO_CREW_EXPECTED
+	ambience = AMBIENCE_HIGHSEC
 
-/area/syndicate_mothership/control
-	name = "\improper Mercenary Control Room"
-	icon_state = "syndie-control"
+/area/merchant_station/warehouse
+	name = "Merchant Warehouse"
+	icon_state = "merchant_ware"
+	sound_environment = SOUND_AREA_LARGE_ENCLOSED
 
-/area/syndicate_mothership/elite_squad
-	name = "\improper Elite Mercenary Squad"
-	icon_state = "syndie-elite"
+// Antagonist Bases
 
-/area/syndicate_mothership/raider_base
-	name = "\improper Pirate Hideout"
-	icon_state = "syndie-control"
-	dynamic_lighting = 1
+/area/antag
+	name = "Unknown Blacksite"
+	icon_state = "dark"
+	requires_power = FALSE
+	no_light_control = TRUE
+	centcomm_area = TRUE
+	area_flags = AREA_FLAG_NO_CREW_EXPECTED
+
+/area/antag/mercenary
+	name = "Mercenary Barracks"
+	icon_state = "merc"
+
+/area/antag/raider
+	name = "Raider Hideout"
+	icon_state = "raider"
+
+/area/antag/ninja
+	name = "Ninja Preparation"
+	icon_state = "ninja"
+
+/area/antag/burglar
+	name = "Burglar Hideout"
+	icon_state = "burglar"
+
+/area/antag/jockey
+	name = "Jockey Workshop"
+	icon_state = "jockey"
+
+/area/antag/loner
+	name = "Loner Basement"
+	icon_state = "loner"
+
+/area/antag/wizard
+	name = "Wizard Mind Palace"
+	icon_state = "wizard"
+
+/area/antag/actor
+	name = "Actor Preparation"
+	icon_state = "loner"
 
 //THUNDERDOME
 
 /area/tdome
-	name = "\improper Thunderdome"
+	name = "Thunderdome"
 	icon_state = "thunder"
 	requires_power = 0
-	dynamic_lighting = 0
-	sound_env = ARENA
+	sound_environment = SOUND_ENVIRONMENT_ARENA
 	no_light_control = 1
 	centcomm_area = 1
+	area_flags = AREA_FLAG_NO_CREW_EXPECTED
 
 /area/tdome/tdome1
-	name = "\improper Thunderdome (Team 1)"
+	name = "Thunderdome (Team 1)"
 	icon_state = "green"
 
 /area/tdome/tdome2
-	name = "\improper Thunderdome (Team 2)"
+	name = "Thunderdome (Team 2)"
 	icon_state = "yellow"
 
 /area/tdome/tdomeadmin
-	name = "\improper Thunderdome (Admin.)"
+	name = "Thunderdome (Admin.)"
 	icon_state = "purple"
 
 /area/tdome/tdomeobserve
-	name = "\improper Thunderdome (Observer.)"
+	name = "Thunderdome (Observer.)"
 	icon_state = "purple"
 
-//ACTORS GUILD
-/area/acting
-	name = "\improper Centcom Acting Guild"
+//Dungeons
+
+/area/dungeon/crashed_ship
+	name = "Derelict Ship"
+	icon_state = "yellow"
+	area_flags = AREA_FLAG_RAD_SHIELDED | AREA_FLAG_SPAWN_ROOF
+
+/area/dungeon/tomb
+	name = "Burial Chamber"
+	icon_state = "yellow"
+	area_flags = AREA_FLAG_SPAWN_ROOF
+
+/area/dungeon/syndie_listening_post
+	name = "Abandoned Listening Post"
 	icon_state = "red"
-	dynamic_lighting = 0
-	requires_power = 0
-	no_light_control = 1
-	centcomm_area = 1
-
-/area/acting/backstage
-	name = "\improper Backstage"
-
-/area/acting/stage
-	name = "\improper Stage"
-	dynamic_lighting = 1
-	icon_state = "yellow"
-
-//ENEMY
-
-//names are used
-/area/syndicate_station
-	name = "\improper Independent Station"
-	icon_state = "yellow"
-	requires_power = 0
-	flags = RAD_SHIELDED | SPAWN_ROOF
-	no_light_control = 1
-
-/area/syndicate_station/start
-	name = "\improper Mercenary Forward Operating Base"
-	icon_state = "yellow"
-	centcomm_area = 1
-	base_turf = /turf/space
-
-/area/syndicate_station/surface
-	name = "\improper Surface of the Station"
-	icon_state = "southwest"
-	station_area = 1
-	base_turf = /turf/simulated/floor/asteroid/ash
-
-/area/syndicate_station/above
-	name = "\improper Above the Station"
-	icon_state = "northwest"
-
-/area/syndicate_station/under
-	name = "\improper Under the Station"
-	icon_state = "northeast"
-
-/area/syndicate_station/caverns
-	name = "\improper Caverns"
-	icon_state = "southeast"
-	base_turf = /turf/simulated/floor/asteroid/ash
-
-/area/syndicate_station/arrivals_dock
-	name = "\improper Docked with Station"
-	icon_state = "shuttle"
-	station_area = 1
-	base_turf = /turf/simulated/floor/asteroid/ash
-
-/area/syndicate_station/transit
-	name = "\improper Hyperspace"
-	icon_state = "shuttle"
-	centcomm_area = 1
-
-/area/wizard_station
-	name = "\improper Wizard's Den"
-	icon_state = "yellow"
-	requires_power = 0
-	dynamic_lighting = 0
-	no_light_control = 1
-	centcomm_area = 1
-
-/area/skipjack_station
-	name = "\improper Skipjack"
-	icon_state = "yellow"
-	requires_power = 0
-	no_light_control = 1
-	base_turf = /turf/space
-	flags = SPAWN_ROOF
-
-/area/skipjack_station/start
-	name = "\improper Skipjack"
-	icon_state = "yellow"
-	centcomm_area = 1
-
-/area/skipjack_station/transit
-	name = "\improper Hyperspace"
-	icon_state = "shuttle"
-	centcomm_area = 1
-
-/area/skipjack_station/surface
-	name = "\improper Surface of the Station"
-	icon_state = "southwest"
-	station_area = 1
-	base_turf = /turf/simulated/floor/asteroid/ash
-
-/area/skipjack_station/above
-	name = "\improper Above the Station"
-	icon_state = "northwest"
-
-/area/skipjack_station/under
-	name = "\improper Under the Station"
-	icon_state = "northeast"
-
-/area/skipjack_station/cavern
-	name = "\improper Caverns"
-	icon_state = "southeast"
-	base_turf = /turf/simulated/floor/asteroid/ash
-
-//DJSTATION
-
-/area/djstation
-	name = "\improper Listening Post"
-	icon_state = "LP"
-	no_light_control = 1
-
-/area/djstation/solars
-	name = "\improper Listening Post Solars"
-	icon_state = "LPS"
-
-
-//merchant station and shuttle
-
-/area/merchant_station
-	name = "\improper Merchant Station"
-	icon_state = "merchant"
-	requires_power = 0
-	dynamic_lighting = 1
-	no_light_control = 1
-	centcomm_area = 1
-
-/area/merchant_station/transit
-	name = "\improper Hyperspace"
-	icon_state = "shuttle"
-	centcomm_area = 1
-
-/area/merchant_ship
-	name = "\improper Merchant Ship"
-	icon_state = "yellow"
-	requires_power = 0
-	flags = RAD_SHIELDED | SPAWN_ROOF
-	no_light_control = 1
-
-/area/merchant_ship/start
-	name = "\improper Merchant Ship Docked"
-	icon_state = "yellow"
-	centcomm_area = 1
-	base_turf = /turf/space
-
-/area/merchant_ship/docked
-	name = "\improper Docked with station"
-	icon_state = "southwest"
-	station_area = 1
-	base_turf = /turf/simulated/floor/asteroid/ash
-
-/area/beach
-	name = "Keelin's private beach"
-	icon_state = "null"
-	luminosity = 1
-	dynamic_lighting = 0
+	area_flags = AREA_FLAG_SPAWN_ROOF
 	requires_power = 0
 	no_light_control = 1
 
-//dungeon areas
+/area/dungeon/anomaly_outpost
+	name = "Xenoarchaeological Outpost"
+	icon_state = "anomaly"
+	area_flags = AREA_FLAG_SPAWN_ROOF
+	requires_power = 0
+	no_light_control = 1
 
-/area/crashed_ship
-	name = "\improper Derelict Ship"
-	icon_state = "yellow"
-	flags = RAD_SHIELDED | SPAWN_ROOF
+/area/dungeon/sol_outpost
+	name = "Solarian Outpost"
+	icon_state = "red"
+	area_flags = AREA_FLAG_SPAWN_ROOF
+	requires_power = 0
+	no_light_control = 1
 
-/area/tomb
-	name = "\improper Burial Chamber"
-	icon_state = "yellow"
-	flags = SPAWN_ROOF
+/area/dungeon/crashed_satellite
+	name = "Communications Satellite"
+	icon_state = "tcomsatcham"
+	no_light_control = 1
+
+/area/dungeon/skrell_ship
+	name = "Crashed Skrell Ship"
+	icon_state = "purple"
+	area_flags = AREA_FLAG_RAD_SHIELDED | AREA_FLAG_SPAWN_ROOF
+
+/area/dungeon/bluespace_outpost
+	name = "Bluespace Outpost"
+	icon_state = "purple"
+	area_flags = AREA_FLAG_RAD_SHIELDED | AREA_FLAG_SPAWN_ROOF
+
+//Away ships, third party ships, etc. Mostly for the ships that are expected to move on the overmap and/or have ghost roles.
+/area/ship
+	name = "Ship"
+	icon_state = "ship"
+	requires_power = 0
+	sound_environment = SOUND_AREA_STANDARD_STATION
+	no_light_control = 1
+	area_flags = AREA_FLAG_RAD_SHIELDED | AREA_FLAG_SPAWN_ROOF

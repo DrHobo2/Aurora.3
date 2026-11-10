@@ -1,5 +1,3 @@
-/var/global/account_hack_attempted = 0
-
 /datum/event/money_hacker
 	var/datum/money_account/affected_account
 	endWhen = 100
@@ -9,10 +7,8 @@
 	end_time = world.time + 6000
 	if(SSeconomy.all_money_accounts.len)
 		affected_account = SSeconomy.get_account(pick(SSeconomy.all_money_accounts))
-
-		account_hack_attempted = 1
 	else
-		kill()
+		kill(TRUE)
 
 /datum/event/money_hacker/announce()
 	var/message = "A brute force hack has been detected (in progress since [worldtime2text()]). The target of the attack is: Financial account #[affected_account.account_number], \
@@ -20,9 +16,10 @@
 	Notifications will be sent as updates occur.<br>"
 	var/my_department = "[station_name()] firewall subroutines"
 
-	for(var/obj/machinery/message_server/MS in SSmachinery.processing_machines)
-		if(!MS.active) continue
-		MS.send_rc_message("Head of Personnel's Desk", my_department, message, "", "", 2)
+	for(var/obj/structure/machinery/telecomms/message_server/MS in SSmachinery.all_telecomms)
+		if(!MS.use_power || !(MS.z in affecting_z))
+			continue
+		MS.send_rc_message("Executive Officer's Office", my_department, message, "", "", 2)
 
 
 /datum/event/money_hacker/tick()
@@ -31,9 +28,11 @@
 	else
 		endWhen = activeFor + 10
 
-/datum/event/money_hacker/end()
+/datum/event/money_hacker/end(var/faked)
+	..()
+
 	var/message
-	if(affected_account && !affected_account.suspended)
+	if(affected_account && !affected_account.suspended && !faked)
 		//hacker wins
 		message = "The hack attempt has succeeded."
 
@@ -61,6 +60,7 @@
 
 	var/my_department = "[station_name()] firewall subroutines"
 
-	for(var/obj/machinery/message_server/MS in SSmachinery.processing_machines)
-		if(!MS.active) continue
-		MS.send_rc_message("Head of Personnel's Desk", my_department, message, "", "", 2)
+	for(var/obj/structure/machinery/telecomms/message_server/MS in SSmachinery.all_telecomms)
+		if(!MS.use_power || !(MS.z in affecting_z))
+			continue
+		MS.send_rc_message("Executive Officer's Office", my_department, message, "", "", 2)

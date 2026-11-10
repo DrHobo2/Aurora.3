@@ -1,40 +1,51 @@
 /*********************MANUALS (BOOKS)***********************/
 
-/obj/item/weapon/book/manual
-	icon = 'icons/obj/library.dmi'
+/obj/item/book/manual
 	due_date = 0 // Game time in 1/10th seconds
 	unique = 1   // 0 - Normal book, 1 - Should not be treated as normal book, unable to be copied, unable to be modified
 
+/obj/item/book/manual/wiki
+	var/sub_page = ""
 
-/obj/item/weapon/book/manual/engineering_construction
-	name = "Station Repairs and Construction"
-	icon_state ="bookEngineering"
-	author = "Engineering Encyclopedia"		 // Who wrote the thing, can be changed by pen or PC. It is not automatically assigned
-	title = "Station Repairs and Construction"
+/obj/item/book/manual/wiki/Initialize()
+	. = ..()
 
-/obj/item/weapon/book/manual/engineering_construction/New()
-	..()
 	dat = {"
-
-		<html><head>
-		</head>
+		<html>
+		<head><style>body {overflow: hidden;}</style></head>
 
 		<body>
-		<iframe width='100%' height='97%' src="[config.wikiurl]Guide_to_construction&printable=yes&remove_links=1" frameborder="0" id="main_frame"></iframe>
+		<iframe width='100%' height='97%' src="[GLOB.config.wikiurl][sub_page]&printable=yes&remove_links=1" frameborder="0" id="main_frame"></iframe>
 		</body>
 
 		</html>
+	"}
 
-		"}
+/obj/item/book/manual/wiki/engineering_construction
+	name = "Station Repairs and Construction"
+	icon_state = "bookEngineering"
+	item_state = "book6"
+	author = "Engineering Encyclopedia"		 // Who wrote the thing, can be changed by pen or PC. It is not automatically assigned
+	title = "Station Repairs and Construction"
+	sub_page = "Guide_to_construction"
 
-/obj/item/weapon/book/manual/engineering_particle_accelerator
+/obj/item/book/manual/wiki/engineering_guide
+	name = "Engineering Textbook"
+	icon_state = "bookEngineering2"
+	item_state = "book6"
+	author = "Engineering Encyclopedia"
+	title = "Engineering Textbook"
+	sub_page = "Guide_to_Engineering"
+
+/obj/item/book/manual/engineering_particle_accelerator
 	name = "Particle Accelerator User's Guide"
-	icon_state ="bookParticleAccelerator"
+	icon_state = "bookParticleAccelerator"
+	item_state = "book2"
 	author = "Engineering Encyclopedia"		 // Who wrote the thing, can be changed by pen or PC. It is not automatically assigned
 	title = "Particle Accelerator User's Guide"
 
-/obj/item/weapon/book/manual/engineering_particle_accelerator/New()
-	..()
+/obj/item/book/manual/engineering_particle_accelerator/Initialize()
+	. = ..()
 	dat = {"<html>
 				<head>
 				<style>
@@ -65,7 +76,7 @@
 					<li>Open the control panel</li>
 					<li>Set the speed to 2</li>
 					<li>Start firing at the singularity generator</li>
-					<li><font color='red'><b>When the singularity reaches a large enough size so it starts moving on it's own set the speed down to 0, but don't shut it off</b></font></li>
+					<li><span class='warning'><b>When the singularity reaches a large enough size so it starts moving on it's own set the speed down to 0, but don't shut it off</b></span></li>
 					<li>Remember to wear a radiation suit when working with this machine... we did tell you that at the start, right?</li>
 				</ol>
 
@@ -74,14 +85,15 @@
 			"}
 
 
-/obj/item/weapon/book/manual/supermatter_engine
-	name = "Supermatter Engine Operating Manual"
+/obj/item/book/manual/supermatter_engine
+	name = "Supermatter Reactor Operating Manual"
 	icon_state = "bookSupermatter"
-	author = "Central Engineering Division"
-	title = "Supermatter Engine Operating Manual"
+	item_state = "book1"
+	author = "Engineering Encyclopedia"
+	title = "Supermatter Reactor Operating Manual"
 
-/obj/item/weapon/book/manual/supermatter_engine/New()
-	..()
+/obj/item/book/manual/supermatter_engine/Initialize()
+	. = ..()
 	dat = {"<html>
 				<head>
 				<style>
@@ -94,39 +106,48 @@
 				</style>
 				</head>
 				<body>
-				<h1>OPERATING MANUAL FOR MK 1 PROTOTYPE THERMOELECTRIC SUPERMATTER ENGINE 'TOMBOLA'</h1>
+				<h1>OPERATING MANUAL FOR MK 1 PROTOTYPE THERMOELECTRIC SUPERMATTER REACTOR 'TOMBOLA'</h1>
 				<br>
 				<h2>OPERATING PRINCIPLES</h2>
 				<br>
-				<li>The supermatter crystal serves as the fundamental power source of the engine. Upon being charged, it begins to emit large amounts of heat and radiation, as well and oxygen and phoron gas. As oxygen accelerates the reaction, and phoron carries the risk of fire, these must be filtered out. NOTE: Supermatter radiation will not charge radiation collectors.</li>
+				<li>The supermatter crystal serves as the fundamental power source of the reactor. Upon being charged, it begins to emit large amounts of heat and radiation, as well and oxygen and phoron gas. As oxygen accelerates the reaction, and phoron carries the risk of fire, these must be filtered out.</li>
 				<br>
 				<li>Air in the reactor chamber housing the supermatter is circulated through the reactor loop, which passes through the filters and thermoelectric generators. The thermoelectric generators transfer heat from the reactor loop to the colder radiator loop, thereby generating power. Additional power is generated from internal turbines in the circulators.</li>
 				<br>
 				<li>Air in the radiator loop is circulated through the radiator bank, located in space. This rapidly cools the air, preserving the temperature differential needed for power generation.</li>
 				<br>
-				<li>The MK 1 Prototype Thermoelectric Supermatter Engine is designed to operate at reactor temperatures of 3000K to 4000K and generate up to 1MW of power. Beyond 1MW, the thermoelectric generators will begin to lose power through electrical discharge, reducing efficiency, but additional power generation remains feasible.</li>
+				<li>The MK 1 Prototype Thermoelectric Supermatter Reactor is designed to operate at reactor temperatures of 3000K to 4000K and generate up to 5MW of power. Beyond 5MW, the thermoelectric generators will begin to lose power through electrical discharge, reducing efficiency, but additional power generation remains feasible.</li>
 				<br>
 				<li>The crystal structure of the supermatter will begin to liquefy if its temperature exceeds 5000K. This eventually results in a massive release of light, heat and radiation, disintegration of both the supermatter crystal and most of the surrounding area, and as as-of-yet poorly documented psychological effects on all animals within a 2km radius. Appropriate action should be taken to stabilize or eject the supermatter before such occurs.</li>
 				<br>
 				<h2>SUPERMATTER HANDLING</h2>
 				<li>Do not expose supermatter to oxygen.</li>
-				<li>Do not <del>touch supermatter</del> <del>without gloves</del> <del>without exosuit protection</del> allow supermatter to contact any solid object apart from specially-designed supporting pallet.</li>
-				<li>Do not directly view supermatter without meson goggles.</li>
-				<li>While handles on pallet allow moving the supermatter via pulling, pushing should not be attempted.</li>
+				<li><b>NEVER</b> allow the supermatter to come into contact any solid object apart from the specially-designed supporting pallet.</li>
+				<li>Never directly look at the supermatter, it has a poorly documented psychological effect on those that do.</li>
+				<li>While handles on pallet allow moving the supermatter via pulling, pushing should <b>NEVER</b> be attempted.</li>
 				<br>
 				<h2>STARTUP PROCEDURE</h2>
 				<ol>
-				<li>Fill reactor loop and radiator loop with two (2) standard canisters of nitrogen gas each.</li>
-				<li>Ensure that pumps and filters are on and operating at maximum power.</li>
-				<li>Fire <del>5</del> <del>15</del> <del>2</del> <del>UNKNOWN</del> 8-12 pulses from emitter at supermatter crystal. Reactor blast doors must be open for this procedure.</li>
+				<li>Don radiation hood, radiation suit and safety goggles, without these PPE, you <b>will</b> become irradiated.</li>
+				<li>Fill the hot loop's (northernmost) port with <b>ONE</b> canister of phoron.</li>
+				<li>Fill the cold loop's (southernmost) port with <b>TWO</b> canisters of phoron.</li>
+				<li>Ensure that <b>ALL</b> pumps and filters in the reactor and waste room are on and operating at maximum power.</li>
+				<li>Ensure the both the emergency coolant valves (located to the west and east of the TEGs) are <b>NOT</b> active.</li>
+				<li>Set the two waste loop filters to filter <b>PHORON</b>.</li>
+				<li>Set all three of the northernmost coolers to <b>ON</b> keep their temperature setting at its default of <b>273 K</b>.</li>
+				<li>Fire <b>forty to sixty</b> pulses from the emitter at supermatter crystal. Reactor blast doors <b>MUST</b> be open for this procedure.</li>
+				<li>Set the SMES in the adjacent room (not the one in the reactor bay) to <b>NO</b> input and <b>MAXIMUM</b> output until the power is drained completely.</li>
+				<li>Go to hard storage and retrieve two coils, Transmission and Capacitance.</li>
+				<li>Open the SMES unit's maintenance panel with your screwdriver and insert both coils, close panel once finished.</li>
+				<li>Set input to maximum, and output to 5900000 (5.9 MW).</li>
 				</ol>
 				<br>
 				<h2>OPERATION AND MAINTENANCE</h2>
 				<ol>
-				<li>Ensure that radiation protection and meson goggles are worn at all times while working in the engine room.</li>
+				<li>Ensure that radiation protection and safety goggles are worn at <b>ALL</b> times while working in the reactor room.</li>
 				<li>Ensure that reactor and radiator loops are undamaged and unobstructed.</li>
 				<li>Ensure that phoron and oxygen gas exhaust from filters is properly contained or disposed. Do not allow exhaust pressure to exceed 4500 kPa.</li>
-				<li>Ensure that engine room Area Power Controller (APC) and engine Superconducting Magnetic Energy Storage unit (SMES) are properly charged.</li>
+				<li>Ensure that reactor room Area Power Controller (APC) and reactor Superconducting Magnetic Energy Storage unit (SMES) are properly charged.</li>
 				<li>Ensure that reactor temperature does not exceed 5000K. In event of reactor temperature exceeding 5000K, see EMERGENCY COOLING PROCEDURE.</li>
 				<li>In event of imminent and/or unavoidable delamination, see EJECTION PROCEDURE.</li>
 				</ol>
@@ -135,43 +156,154 @@
 				<ol>
 				<li>Open Emergency Cooling Valve 1 and Emergency Cooling Valve 2.</li>
 				<li>When reactor temperature returns to safe operating levels, close Emergency Cooling Valve 1 and Emergency Cooling Valve 2.</li>
-				<li>If reactor temperature does not return to safe operating levels, see EJECTION PROCEDURE.</li>
+				<li>If reactor temperature does not return to safe operating levels, add emergency liquid nitrogen canisters to the hot AND cold loops.</li>
+				<li>If reactor temperature still does not return to safe operating levels, see EJECTION PROCEDURE.</li>
 				</ol>
 				<br>
 				<h2>EJECTION PROCEDURE</h2>
 				<ol>
-				<li>Press Engine Ventilatory Control button to open engine core vent to space.</li>
-				<li>Press Emergency Core Eject button to eject supermatter crystal. NOTE: Attempting crystal ejection while engine core vent is closed will result in ejection failure.</li>
-				<li>In event of ejection failure, <i>pending</i></li>
+				<li>Press Reactor Ventilatory Control button to open reactor core vent to space.</li>
+				<li>Press Emergency Core Eject button to eject supermatter crystal. NOTE: Attempting crystal ejection while reactor core vent is closed will result in ejection failure.</li>
+				<li>In event of ejection failure, evacuate the area immediately, inform medical and prepare anti-radiation medicine.</li>
+				<li>Start work on repairing telecommunications and setting up an alternate method of power generation (Solars, Tesla).</li>
+				</ol>
+				<h2>Frequently Asked Questions</h2>
+				<br>
+				<li><b>Q:</b> Why do some Chief Engineers ask me to use a set-up that isn't in this book?</li>
+				<br>
+				<li><b>A:</b> There are a few different ways of setting up things in engineering, some Chief Engineers may want more power to be generated, some may want it to be run safely. Trust them.</li>
+				<br>
+				<li><b>Q:</b> Why is the Chief telling me to run the SMES at X MegaWatt output?</li>
+				<br>
+				<li><b>A:</b> Sometimes the station needs more power, sometimes it needs less. On a lazy day with no shields, 1.2 MW output is enough to keep the station running, and prevent people getting shocked from the main loop from getting injured.</li>
+				<br>
+				<li><b>Q:</b> What is that port south east of the waste loop blast doors?</li>
+				<br>
+				<li><b>A:</b> That's the emergency gas flushing port. Notice how it bypasses the filter. You use that to pull all the gas out of the pipes and into that port.</li>
+				<br>
+				<li><b>Q:</b> Why do my co-workers sometimes wrench a canister into the port inside the waste room?</li>
+				<br>
+				<li><b>A:</b> That's the canister you use an analyzer on to check the contents of the waste loop. It contains a miniscule amount of gas, but it's in the correct ratio to let you know. It's also a nice back-up in the event of backed up pipes.</li>
+				<br>
+				<li><b>Q:</b> I accidentally put way too many emitter shots into the crystal! What do I do!?</li>
+				<br>
+				<li><b>A:</b> The supermatter will heat up more, so all you do is place more coolant (likely hydrogen or phoron) into the cold loop. Once the situation settles, check if you're producing too little power, and emitter it some more.</li>
+				<br>
+				<li><b>Q:</b> Are other gasses safe to use in the loops?</li>
+				<br>
+				<li><b>A:</b> Mostly, yes. More skilled engineers will likely teach you new methods of using other gasses. Our recommendation is to use phoron if you're unsure. The best idea is to ask your co-workers for help, especially if they set up the reactor.</li>
+				<br>
+				<li><b>Q:</b> What do the emergency valves actually do?</li>
+				<br>
+				<li><b>A:</b> They combine the loops, which will lead to to the rapid cooling of the hot loop and the minor heating of the cold. Eventually they will normalize again. Pressure will be equalized in both.</li>
+				<br>
+				<li><b>Q:</b> An engineer walked into the room with no PPE, why did they do that?</li>
+				<br>
+				<li><b>A:</b> If the supermatter reactor hasn't been started yet, it will not output radiation. Our recommendation is to be safe instead of sorry, however. If the reactor has started, call medical and security, they may be attempting to do an emergency fix, or they are mentally unwell. Remember that non-organics do not suffer from radiation poisoning.</li>
+				<br>
+				</body>
+			</html>"}
+
+/obj/item/book/manual/fusion_reactor
+	name = "INDRA Fusion Reactor Operating Manual"
+	icon_state = "bookFusionReactor"
+	item_state = "book1"
+	author = "Engineering Encyclopedia"
+	title = "INDRA Fusion Reactor Operating Manual"
+
+/obj/item/book/manual/fusion_reactor/Initialize()
+	. = ..()
+	dat = {"<html>
+				<head>
+				<style>
+				h1 {font-size: 18px; margin: 15px 0px 5px;}
+				h2 {font-size: 15px; margin: 15px 0px 5px;}
+				li {margin: 2px 0px 2px 15px;}
+				ul {margin: 5px; padding: 0px;}
+				ol {margin: 5px; padding: 0px 15px;}
+				body {font-size: 13px; font-family: Verdana;}
+				</style>
+				</head>
+				<body>
+				<h1>OPERATING MANUAL FOR INDRA MK VIII FUSION REACTOR</h1>
+				<br>
+				<h2>OPERATING PRINCIPLES</h2>
+				<br>
+				The INDRA Mk VIII fusion reactor is the secondary source of power for the SCCV Horizon, intended to be operated with primary power already available. Reactants are introduced to the reactor core via gas connection and/or solid fuel injection and contained within a toroidal magnetic field, generated by a central Tokamak. High-energy pulses are fired at this magnetic bottle using a Gyrotron to ignite the fusion mix, and the reactor machinery converts the resultant thermal energy to electricity.
+				<br>
+				Interactions between different types of particles have unique properties. For example, the easiest initial fusion reaction, Deuterium-Tritium, requires very low temperatures to achieve, but is very ‘dirty,’ producing large amounts of radiation and internal instability in the core. The Fusion Codex, available Engineering terminals or PDA, is an exhaustive list of all reactions that can be sustained by the INDRA Mk VIII.
+				<br>
+				The Gyrotron, in addition to providing energy, also serves to moderate and stabilize the core field. All fusion reactions induce some amount of core instability, and the Gyrotron must be fired continuously in order to keep instability at a minimum. Any object placed within the plasma torus will cause significant instability, as can running it at large sizes with volatile reaction chains active.
+				<br>
+				In the event that instability reaches 100%, the reactor core will violently rupture, causing several cascading negative effects. The collapse of the magnetic field will result in the uncontrolled release of the superheated plasma, followed by a massive explosion due to the thermal shock. Additionally, widespread EMP effects will be encountered, scalar with plasma temperatures at the time of rupture.
+				<br>
+				Because the Gyrotron requires a very high power outlay, and the Gyrotron is required to maintain core stability, it is strongly recommended to only run the INDRA when the primary power source is already online. If no external power is available, a portable generator can be employed temporarily to provide an initial boost to begin fusion.
+				<br>
+				The INDRA Mk VIII Fusion Reactor is designed to operate at reactor temperatures up to ten million K, and generate up to 12MW of power.
+				<br>
+				<h2>HARDWARE CONFIGURATION</h2>
+				In the event that any machinery comprising the INDRA Mk VIII Fusion Reactor is rendered inoperable, circuit boards for each part can be fabricated and installed in new machine frames alongside requisite components (detailed with each board). On construction, these replacement parts can then be linked to the primary reactor network using a multitool.</li>
+				<h2>STARTUP PROCEDURE</h2>
+				<ol>
+				<li>Set the SMES in the adjacent room (not the one in the reactor bay) to <b>NO</b> input and <b>MAXIMUM</b> output.</li>
+				<li>Don radiation suit and radiation hood whenever entering the reactor bay. When the reactor is running, without PPE, you <i>will</i> become irradiated.</li>
+				<li>Retrieve canister labeled ‘Fusion Reactor Cold Ignition Mix (2H-3H)’ from reactor bay storage, and wrench it onto one of the available gas connectors.</li>
+				<li>Enable the gas connector's pump at 10 kPa output pressure.</li>
+				<li>Go to the Reactor Control Room.</li>
+				<li>On the Core Control Console, set Field Strength to 40, then hit Initiate Fusion.</li>
+				<li>On the Gyrotron Control Console, set Gyrotron Strength to 25 and Fire Delay to 3, then hit Activate.</li>
+				<li>Go to hard storage and retrieve two Transmission coils.</li>
+				<li>Ensure that the SMES is fully discharged.
+				<li>If the SMES unit is fully discharged, open the unit's maintenance panel with your screwdriver and insert both coils; close panel once finished.</li>
+				<li>Set input to maximum, and output to 5900000 (5.9 MW).</li>
+				</ol>
+				<br>
+				<h2>OPERATION AND MAINTENANCE</h2>
+				<ol>
+				<li>Ensure that radiation protection are worn at <b>ALL</b> times while working in the reactor bay.</li>
+				<li>Ensure that the gyrotron has a stable supply of power; keeping the Containment Grid breaker open is recommended at all times.</li>
+				<li>Ensure that fuel supply remains available throughout the entirety of the shift.</li>
+				<li>Ensure that reactor bay Area Power Controller (APC) and reactor Superconducting Magnetic Energy Storage unit (SMES) are properly charged.</li>
+				<li>Ensure that reactor instability does not exceed 50%. In event of reactor instability exceeding 50%, see EMERGENCY STABILIZATION PROCEDURE.</li>
+				<li>In event of imminent and/or unavoidable rupture, see DISASTER CONTROL PROCEDURE.</li>
+				</ol>
+				<br>
+				<h2>EMERGENCY STABILIZATION PROCEDURE</h2>
+				<ol>
+				<li>Reduce core Field Strength to 20.</li>
+				<li>Cut all fuel sources; disable both gas pumps and fuel injectors.</li>
+				<li>Hit the INDRA Core Vent buttons, located on either side of the aft wall of the reactor bay.</li>
+				<li>Ensure Gyrotron has sufficient power and is firing regularly.</li>
+				<li>Increase Gyrotron power and/or reduce Gyrotron fire delay.</li>
+				</ol>
+				<br>
+				<h2>DISASTER CONTROL PROCEDURE</h2>
+				<br>
+				Ensure that you have performed all steps in EMERGENCY STABILIZATION PROCEDURE. In the event that the reactor is rapidly approaching 100% instability in spite of all preventative measures, a rupture event is highly likely. In this event:
+				<ol>
+				<li>Evacuate the reactor bay, control room, and any adjoining compartments immediately.</li>
+				<li>Alert command frequencies, and/or sound general call to move away from all compartments near or adjoining the reactor bay.</li>
+				<li>Brace for release of superheated plasma, explosion and immediate explosive decompression, and powerful EMP (which may encompass much of the ship, dependent on temperature at time of rupture event.</li>
+				<li>Ensure immediate integrity of affected area, assist with evacuation of any wounded crew, etc.</li>
+				<li>Ensure power remains available for the rest of the ship; triage power allocation as appropriate.</li>
+				<li>Commence with repairs and reconstruction of reactor bay and any other damaged ship areas.</li>
+				<li>Report to your nearest Chief Engineer for evaluation.</li>
 				</ol>
 				</body>
 			</html>"}
 
-/obj/item/weapon/book/manual/engineering_hacking
+/obj/item/book/manual/wiki/engineering_hacking
 	name = "Hacking"
 	icon_state ="bookHacking"
+	item_state = "book3"
 	author = "Engineering Encyclopedia"		 // Who wrote the thing, can be changed by pen or PC. It is not automatically assigned
 	title = "Hacking"
+	sub_page = "Hacking"
 
-/obj/item/weapon/book/manual/engineering_hacking/New()
-	..()
-	dat = {"
-
-		<html><head>
-		</head>
-
-		<body>
-		<iframe width='100%' height='97%' src="[config.wikiurl]Hacking&printable=yes&remove_links=1" frameborder="0" id="main_frame"></iframe>
-		</body>
-
-		</html>
-
-		"}
-
-
-/obj/item/weapon/book/manual/engineering_singularity_safety
+/obj/item/book/manual/engineering_singularity_safety
 	name = "Singularity Safety in Special Circumstances"
 	icon_state ="bookEngineeringSingularitySafety"
+	item_state = "book1"
 	author = "Engineering Encyclopedia"		 // Who wrote the thing, can be changed by pen or PC. It is not automatically assigned
 	title = "Singularity Safety in Special Circumstances"
 
@@ -194,7 +326,7 @@
 				A power problem has made the entire station lose power? Could be station-wide wiring problems or syndicate power sinks. In any case follow these steps:
 
 				<ol>
-					<li><b><font color='red'>PANIC!</font></b></li>
+					<li><b><span class='warning'>PANIC!</span></b></li>
 					<li>Get your ass over to engineering! <b>QUICKLY!!!</b></li>
 					<li>Get to the <b>Area Power Controller</b> which controls the power to the emitters.</li>
 					<li>Swipe it with your <b>ID card</b> - if it doesn't unlock, continue with step 15.</li>
@@ -220,105 +352,10 @@
 			</html>
 			"}
 
-
-
-
-/obj/item/weapon/book/manual/medical_cloning
-	name = "Cloning Techniques of the 26th Century"
-	icon_state ="bookCloning"
-	author = "Medical Journal, volume 3"		 // Who wrote the thing, can be changed by pen or PC. It is not automatically assigned
-	title = "Cloning Techniques of the 26th Century"
-
-	dat = {"<html>
-				<head>
-				<style>
-				h1 {font-size: 21px; margin: 15px 0px 5px;}
-				h2 {font-size: 18px; margin: 15px 0px 5px;}
-				h3 {font-size: 15px; margin: 15px 0px 5px;}
-				li {margin: 2px 0px 2px 15px;}
-				ul {margin: 5px; padding: 0px;}
-				ol {margin: 5px; padding: 0px 15px;}
-				body {font-size: 13px; font-family: Verdana;}
-				</style>
-				</head>
-				<body>
-
-				<H1>How to Clone People</H1>
-				So there are 50 dead people lying on the floor, chairs are spinning like no tomorrow and you haven't the foggiest idea of what to do? Not to worry!
-				This guide is intended to teach you how to clone people and how to do it right, in a simple, step-by-step process! If at any point of the guide you have a mental meltdown,
-				genetics probably isn't for you and you should get a job-change as soon as possible before you're sued for malpractice.
-
-				<ol>
-					<li><a href='#1'>Acquire body</a></li>
-					<li><a href='#2'>Strip body</a></li>
-					<li><a href='#3'>Put body in cloning machine</a></li>
-					<li><a href='#4'>Scan body</a></li>
-					<li><a href='#5'>Clone body</a></li>
-					<li><a href='#6'>Get clean Structural Enzymes for the body</a></li>
-					<li><a href='#7'>Put body in morgue</a></li>
-					<li><a href='#8'>Await cloned body</a></li>
-					<li><a href='#9'>Cryo and use the clean SE injector</a></li>
-					<li><a href='#10'>Give person clothes back</a></li>
-					<li><a href='#11'>Send person on their way</a></li>
-				</ol>
-
-				<a name='1'><H3>Step 1: Acquire body</H3>
-				This is pretty much vital for the process because without a body, you cannot clone it. Usually, bodies will be brought to you, so you do not need to worry so much about this step. If you already have a body, great! Move on to the next step.
-
-				<a name='2'><H3>Step 2: Strip body</H3>
-				The cloning machine does not like abiotic items. What this means is you can't clone anyone if they're wearing clothes or holding things, so take all of it off. If it's just one person, it's courteous to put their possessions in the closet.
-				If you have about seven people awaiting cloning, just leave the piles where they are, but don't mix them around and for God's sake don't let people in to steal them.
-
-				<a name='3'><h3>Step 3: Put body in cloning machine</h3>
-				Grab the body and then put it inside the DNA modifier. If you cannot do this, then you messed up at Step 2. Go back and check you took EVERYTHING off - a commonly missed item is their headset.
-
-				<a name='4'><h3>Step 4: Scan body</h3>
-				Go onto the computer and scan the body by pressing 'Scan - &lt;Subject Name Here&gt;.' If you're successful, they will be added to the records (note that this can be done at any time, even with living people,
-				so that they can be cloned without a body in the event that they are lying dead on port solars and didn't turn on their suit sensors)!
-				If not, and it says "Error: Mental interface failure.", then they have left their bodily confines and are one with the spirits. If this happens, just shout at them to get back in their body,
-				click 'Refresh' and try scanning them again. If there's no success, threaten them with gibbing.
-				Still no success? Skip over to Step 7 and don't continue after it, as you have an unresponsive body and it cannot be cloned.
-				If you got "Error: Unable to locate valid genetic data.", you are trying to clone a monkey - start over.
-
-				<a name='5'><h3>Step 5: Clone body</h3>
-				Now that the body has a record, click 'View Records,' click the subject's name, and then click 'Clone' to start the cloning process. Congratulations! You're halfway there.
-				Remember not to 'Eject' the cloning pod as this will kill the developing clone and you'll have to start the process again.
-
-				<a name='6'><h3>Step 6: Get clean SEs for body</h3>
-				Cloning is a finicky and unreliable process. Whilst it will most certainly bring someone back from the dead, they can have any number of nasty disabilities given to them during the cloning process!
-				For this reason, you need to prepare a clean, defect-free Structural Enzyme (SE) injection for when they're done. If you're a competent Geneticist, you will already have one ready on your working computer.
-				If, for any reason, you do not, then eject the body from the DNA modifier (NOT THE CLONING POD) and take it next door to the Genetics research room. Put the body in one of those DNA modifiers and then go onto the console.
-				Go into View/Edit/Transfer Buffer, find an open slot and click "SE" to save it. Then click 'Injector' to get the SEs in syringe form. Put this in your pocket or something for when the body is done.
-
-				<a name='7'><h3>Step 7: Put body in morgue</h3>
-				Now that the cloning process has been initiated and you have some clean Structural Enzymes, you no longer need the body! Drag it to the morgue and tell the Chef over the radio that they have some fresh meat waiting for them in there.
-				To put a body in a morgue bed, simply open the tray, grab the body, put it on the open tray, then close the tray again. Use one of the nearby pens to label the bed "CHEF MEAT" in order to avoid confusion.
-
-				<a name='8'><h3>Step 8: Await cloned body</h3>
-				Now go back to the lab and wait for your patient to be cloned. It won't be long now, I promise.
-
-				<a name='9'><h3>Step 9: Cryo and clean SE injector on person</h3>
-				Has your body been cloned yet? Great! As soon as the guy pops out, grab them and stick them in cryo. Clonexadone and Cryoxadone help rebuild their genetic material. Then grab your clean SE injector and jab it in them. Once you've injected them,
-				they now have clean Structural Enzymes and their defects, if any, will disappear in a short while.
-
-				<a name='10'><h3>Step 10: Give person clothes back</h3>
-				Obviously the person will be naked after they have been cloned. Provided you weren't an irresponsible little shit, you should have protected their possessions from thieves and should be able to give them back to the patient.
-				No matter how cruel you are, it's simply against protocol to force your patients to walk outside naked.
-
-				<a name='11'><h3>Step 11: Send person on their way</h3>
-				Give the patient one last check-over - make sure they don't still have any defects and that they have all their possessions. Ask them how they died, if they know, so that you can report any foul play over the radio.
-				Once you're done, your patient is ready to go back to work! Chances are they do not have Medbay access, so you should let them out of Genetics and the Medbay main entrance.
-
-				<p>If you've gotten this far, congratulations! You have mastered the art of cloning. Now, the real problem is how to resurrect yourself after that traitor had his way with you for cloning his target.
-
-				</body>
-				</html>
-				"}
-
-
-/obj/item/weapon/book/manual/ripley_build_and_repair
+/obj/item/book/manual/ripley_build_and_repair
 	name = "APLU \"Ripley\" Construction and Operation Manual"
-	icon_state ="book"
+	icon_state = "book"
+	item_state = "book"
 	author = "Randall Varn, Einstein Engines Senior Mechanic"		 // Who wrote the thing, can be changed by pen or PC. It is not automatically assigned
 	title = "APLU \"Ripley\" Construction and Operation Manual"
 
@@ -393,9 +430,10 @@
 			"}
 
 
-/obj/item/weapon/book/manual/research_and_development
+/obj/item/book/manual/research_and_development
 	name = "Research and Development 101"
 	icon_state = "rdbook"
+	item_state = "book11"
 	author = "Dr. L. Ight"
 	title = "Research and Development 101"
 
@@ -462,9 +500,10 @@
 			"}
 
 
-/obj/item/weapon/book/manual/robotics_cyborgs
+/obj/item/book/manual/robotics_cyborgs
 	name = "Cyborgs for Dummies"
 	icon_state = "borgbook"
+	item_state = "book2"
 	author = "XISC"
 	title = "Cyborgs for Dummies"
 
@@ -514,80 +553,80 @@
 				<h3>Standard Cyborg</h3>
 				The standard cyborg module is a multi-purpose cyborg. It is equipped with various modules, allowing it to do basic tasks.<br>A Standard Cyborg comes with:
 				<ul>
-				  <li>Crowbar</li>
-				  <li>Stun Baton</li>
-				  <li>Health Analyzer</li>
-				  <li>Fire Extinguisher</li>
+					<li>Crowbar</li>
+					<li>Stun Baton</li>
+					<li>Health Analyzer</li>
+					<li>Fire Extinguisher</li>
 				</ul>
 
 				<h3>Engineering Cyborg</h3>
 				The Engineering cyborg module comes equipped with various engineering-related tools to help with engineering-related tasks.<br>An Engineering Cyborg comes with:
 				<ul>
-				  <li>A basic set of engineering tools</li>
-				  <li>Metal Synthesizer</li>
-				  <li>Reinforced Glass Synthesizer</li>
-				  <li>An RCD</li>
-				  <li>Wire Synthesizer</li>
-				  <li>Fire Extinguisher</li>
-				  <li>Built-in Optical Meson Scanners</li>
+					<li>A basic set of engineering tools</li>
+					<li>Metal Synthesizer</li>
+					<li>Reinforced Glass Synthesizer</li>
+					<li>A Rapid-Fabrication-Device C-Class</li>
+					<li>Wire Synthesizer</li>
+					<li>Fire Extinguisher</li>
+					<li>Built-in Optical Meson Scanners</li>
 				</ul>
 
 				<h3>Mining Cyborg</h3>
 				The Mining Cyborg module comes equipped with the latest in mining equipment. They are efficient at mining due to no need for oxygen, but their power cells limit their time in the mines.<br>A Mining Cyborg comes with:
 				<ul>
-				  <li>Jackhammer</li>
-				  <li>Shovel</li>
-				  <li>Mining Satchel</li>
-				  <li>Built-in Optical Meson Scanners</li>
+					<li>Jackhammer</li>
+					<li>Shovel</li>
+					<li>Mining Satchel</li>
+					<li>Built-in Optical Meson Scanners</li>
 				</ul>
 
 				<h3>Security Cyborg</h3>
 				The Security Cyborg module is equipped with effective security measures used to apprehend and arrest criminals without harming them a bit.<br>A Security Cyborg comes with:
 				<ul>
-				  <li>Stun Baton</li>
-				  <li>Handcuffs</li>
-				  <li>Taser</li>
+					<li>Stun Baton</li>
+					<li>Handcuffs</li>
+					<li>Taser</li>
 				</ul>
 
 				<h3>Janitor Cyborg</h3>
 				The Janitor Cyborg module is equipped with various cleaning-facilitating devices.<br>A Janitor Cyborg comes with:
 				<ul>
-				  <li>Mop</li>
-				  <li>Hand Bucket</li>
-				  <li>Cleaning Spray Synthesizer and Spray Nozzle</li>
+					<li>Mop</li>
+					<li>Hand Bucket</li>
+					<li>Cleaning Spray Synthesizer and Spray Nozzle</li>
 				</ul>
 
 				<h3>Service Cyborg</h3>
 				The service cyborg module comes ready to serve your human needs. It includes various entertainment and refreshment devices. Occasionally some service cyborgs may have been referred to as "Bros."<br>A Service Cyborg comes with:
 				<ul>
-				  <li>Shaker</li>
-				  <li>Industrial Dropper</li>
-				  <li>Platter</li>
-				  <li>Beer Synthesizer</li>
-				  <li>Zippo Lighter</li>
-				  <li>Rapid-Service-Fabricator (Produces various entertainment and refreshment objects)</li>
-				  <li>Pen</li>
+					<li>Shaker</li>
+					<li>Industrial Dropper</li>
+					<li>Platter</li>
+					<li>Beer Synthesizer</li>
+					<li>Zippo Lighter</li>
+					<li>Rapid-Service-Fabricator (Produces various entertainment and refreshment objects)</li>
+					<li>Pen</li>
 				</ul>
 
 				<h2><a name="Construction">Cyborg Construction</h2>
 				Cyborg construction is a rather easy process, requiring a decent amount of metal and a few other supplies.<br>The required materials to make a cyborg are:
 				<ul>
-				  <li>Metal</li>
-				  <li>Two Flashes</li>
-				  <li>One Power Cell (Preferably rated to 15000w)</li>
-				  <li>Some electrical wires</li>
-				  <li>One Human Brain</li>
-				  <li>One Man-Machine Interface</li>
+					<li>Metal</li>
+					<li>Two Flashes</li>
+					<li>One Power Cell (Preferably rated to 15000w)</li>
+					<li>Some electrical wires</li>
+					<li>One Human Brain</li>
+					<li>One Man-Machine Interface</li>
 				</ul>
 				Once you have acquired the materials, you can start on construction of your cyborg.<br>To construct a cyborg, follow the steps below:
 				<ol>
-				  <li>Start the Exosuit Fabricators constructing all of the cyborg parts</li>
-				  <li>While the parts are being constructed, take your human brain, and place it inside the Man-Machine Interface</li>
-				  <li>Once you have a Robot Head, place your two flashes inside the eye sockets</li>
-				  <li>Once you have your Robot Chest, wire the Robot chest, then insert the power cell</li>
-				  <li>Attach all of the Robot parts to the Robot frame</li>
-				  <li>Insert the Man-Machine Interface (With the Brain inside) into the Robot Body</li>
-				  <li>Congratulations! You have a new cyborg!</li>
+					<li>Start the Exosuit Fabricators constructing all of the cyborg parts</li>
+					<li>While the parts are being constructed, take your human brain, and place it inside the Man-Machine Interface</li>
+					<li>Once you have a Robot Head, place your two flashes inside the eye sockets</li>
+					<li>Once you have your Robot Chest, wire the Robot chest, then insert the power cell</li>
+					<li>Attach all of the Robot parts to the Robot frame</li>
+					<li>Insert the Man-Machine Interface (With the Brain inside) into the Robot Body</li>
+					<li>Congratulations! You have a new cyborg!</li>
 				</ol>
 
 				<h2><a name="Maintenance">Cyborg Maintenance</h2>
@@ -596,12 +635,12 @@
 				<h3>Replacing a Power Cell</h3>
 				Replacing a Power cell is a common type of maintenance for cyborgs. It usually involves replacing the cell with a fully charged one, or upgrading the cell with a larger capacity cell.<br>The steps to replace a cell are as follows:
 				<ol>
-				  <li>Unlock the Cyborg's Interface by swiping your ID on it</li>
-				  <li>Open the Cyborg's outer panel using a crowbar</li>
-				  <li>Remove the old power cell</li>
-				  <li>Insert the new power cell</li>
-				  <li>Close the Cyborg's outer panel using a crowbar</li>
-				  <li>Lock the Cyborg's Interface by swiping your ID on it, this will prevent non-qualified personnel from attempting to remove the power cell</li>
+					<li>Unlock the Cyborg's Interface by swiping your ID on it</li>
+					<li>Open the Cyborg's outer panel using a crowbar</li>
+					<li>Remove the old power cell</li>
+					<li>Insert the new power cell</li>
+					<li>Close the Cyborg's outer panel using a crowbar</li>
+					<li>Lock the Cyborg's Interface by swiping your ID on it, this will prevent non-qualified personnel from attempting to remove the power cell</li>
 				</ol>
 
 				<h3>Exposing the Internal Wiring</h3>
@@ -666,40 +705,34 @@
 			</html>
 		"}
 
-
-/obj/item/weapon/book/manual/security_space_law
+/obj/item/book/manual/wiki/security_space_law
 	name = "Corporate Regulations"
 	desc = "A set of corporate guidelines for keeping law and order on privately-owned space stations."
 	icon_state = "bookSpaceLaw"
+	item_state = "book14"
 	author = "The Company"
 	title = "Corporate Regulations"
+	sub_page = "Corporate_Regulations"
 
-/obj/item/weapon/book/manual/security_space_law/New()
-	..()
-	dat = {"
+/obj/item/book/manual/wiki/station_procedure
+	name = "Station Procedure"
+	desc = "A set of uniform procedures followed on all NanoTrasen installations."
+	icon_state = "corporate-procedure"
+	item_state = "book4"
+	title = "The Company"
+	title = "Station Procedure"
+	sub_page = "Guide_to_Station_Procedure"
 
-		<html><head>
-		</head>
-
-		<body>
-		<iframe width='100%' height='97%' src="[config.wikiurl]Corporate_Regulations&printable=yes&remove_links=1" frameborder="0" id="main_frame"></iframe>
-		</body>
-
-		</html>
-
-		"}
-
-
-
-/obj/item/weapon/book/manual/medical_diagnostics_manual
+/obj/item/book/manual/medical_diagnostics_manual
 	name = "Medical Diagnostics Manual"
 	desc = "First, do no harm. A detailed medical practitioner's guide."
 	icon_state = "bookMedical"
+	item_state = "book12"
 	author = "Medical Department"
 	title = "Medical Diagnostics Manual"
 
-/obj/item/weapon/book/manual/medical_diagnostics_manual/New()
-	..()
+/obj/item/book/manual/medical_diagnostics_manual/Initialize()
+	. = ..()
 	dat = {"<html>
 				<head>
 				<style>
@@ -715,7 +748,7 @@
 				<br>
 				<h1>The Oath</h1>
 
-				<i>The Medical Oath sworn by recognised medical practitioners in the employ of [current_map.company_name]</i><br>
+				<i>The Medical Oath sworn by recognised medical practitioners in the employ of [SSatlas.current_map.company_name]</i><br>
 
 				<ol>
 					<li>Now, as a new doctor, I solemnly promise that I will, to the best of my ability, serve humanity-caring for the sick, promoting good health, and alleviating pain and suffering.</li>
@@ -732,37 +765,16 @@
 
 				<HR COLOR="steelblue" WIDTH="60%" ALIGN="LEFT">
 
-				<iframe width='100%' height='100%' src="[config.wikiurl]Guide_to_Medicine&printable=yes&removelinks=1" frameborder="0" id="main_frame"></iframe>
+				<iframe width='100%' height='100%' src="[GLOB.config.wikiurl]Guide_to_Medicine&printable=yes&removelinks=1" frameborder="0" id="main_frame"></iframe>
 				</body>
 			</html>
 
 		"}
 
-
-/obj/item/weapon/book/manual/engineering_guide
-	name = "Engineering Textbook"
-	icon_state ="bookEngineering2"
-	author = "Engineering Encyclopedia"
-	title = "Engineering Textbook"
-
-/obj/item/weapon/book/manual/engineering_guide/New()
-	..()
-	dat = {"
-
-		<html><head>
-		</head>
-
-		<body>
-		<iframe width='100%' height='100%' src="[config.wikiurl]Guide_to_Engineering&printable=yes&remove_links=1" frameborder="0" id="main_frame"></iframe>		</body>
-
-		</html>
-
-		"}
-
-
-/obj/item/weapon/book/manual/chef_recipes
+/obj/item/book/manual/chef_recipes
 	name = "Chef Recipes"
 	icon_state = "cooked_book"
+	item_state = "book16"
 	author = "Victoria Ponsonby"
 	title = "Chef Recipes"
 
@@ -793,25 +805,25 @@
 				Put some dough and an egg into the microwave and then wait.
 
 				<h3>Waffles:</h3>
-				Add two lumps of dough and 10 units of sugar to the microwave and then wait.
+				Add four lumps of dough and 10 units of sugar to the microwave and then wait.
 
 				<h3>Popcorn:</h3>
-				Add 1 corn to the microwave and wait.
+				Add a cob of corn to the microwave and wait.
 
 				<h3>Meat Steak:</h3>
 				Put a slice of meat, 1 unit of salt, and 1 unit of pepper into the microwave and wait.
 
 				<h3>Meat Pie:</h3>
-				Put a flattened piece of dough and some meat into the microwave and wait.
+				Put a flattened piece of dough and some meat into the oven and wait.
 
 				<h3>Boiled Spaghetti:</h3>
-				Put the spaghetti (processed flour) and 5 units of water into the microwave and wait.
+				Put the spaghetti (sliced dough) and 5 units of water into the microwave and wait.
 
 				<h3>Donuts:</h3>
-				Add some dough and 5 units of sugar to the microwave and wait.
+				Add a lump of dough and 10 units of sugar to a fryer basket, then deep fry it.
 
 				<h3>Fries:</h3>
-				Add one potato to the processor, then bake them in the microwave.
+				Slice one potato with a knife, add to a fryer basket, then deep fry it.
 
 
 				</body>
@@ -819,9 +831,10 @@
 			"}
 
 
-/obj/item/weapon/book/manual/barman_recipes
+/obj/item/book/manual/barman_recipes
 	name = "Barman Recipes"
 	icon_state = "barbook"
+	item_state = "book10"
 	author = "Sir John Rose"
 	title = "Barman Recipes"
 
@@ -874,9 +887,10 @@
 			"}
 
 
-/obj/item/weapon/book/manual/detective
+/obj/item/book/manual/detective
 	name = "The Film Noir: Proper Procedures for Investigations"
 	icon_state ="bookDetective"
+	item_state = "book3"
 	author = "The Company"
 	title = "The Film Noir: Proper Procedures for Investigations"
 
@@ -917,9 +931,10 @@
 				</body>
 			</html>"}
 
-/obj/item/weapon/book/manual/nuclear
+/obj/item/book/manual/nuclear
 	name = "Fission Mailed: Nuclear Sabotage 101"
 	icon_state ="bookNuclear"
+	item_state ="book7"
 	author = "Syndicate"
 	title = "Fission Mailed: Nuclear Sabotage 101"
 
@@ -968,9 +983,10 @@
 			</html>
 			"}
 
-/obj/item/weapon/book/manual/atmospipes
+/obj/item/book/manual/atmospipes
 	name = "Pipes and You: Getting To Know Your Scary Tools"
 	icon_state = "pipingbook"
+	item_state = "book6"
 	author = "Maria Crash, Senior Atmospherics Technician"
 	title = "Pipes and You: Getting To Know Your Scary Tools"
 	dat = {"<html>
@@ -990,7 +1006,6 @@
 				<ol>
 					<li><a href="#Foreword">Author's Foreword</a></li>
 					<li><a href="#Basic">Basic Piping</a></li>
-					<li><a href="#Insulated">Insulated Pipes</a></li>
 					<li><a href="#Devices">Atmospherics Devices</a></li>
 					<li><a href="#HES">Heat Exchange Systems</a></li>
 					<li><a href="#Final">Final Checks</a></li>
@@ -1023,19 +1038,7 @@
 				</ul>
 
 				An important note here is that pipes are now done in three distinct lines - general, supply, and scrubber. You can move gases between these with a universal adapter. Use the correct position for the correct location.
-				Connecting scrubbers to a supply position pipe makes you an idiot who gives everyone a difficult job. Insulated and HE pipes don't go through these positions.
-
-				<h1><a name="Insulated"><B>Insulated Pipes</B></a></h1>
-				<li><I>Bent pipes:</I> Pipes with a 90 degree bend at the half-meter mark. My goodness.</li>
-				<li><I>Pipe manifolds:</I> Pipes that are essentially a "T" shape, allowing you to connect three things at one point.</li>
-				<li><I>4-way manifold:</I> A four-way junction.</li>
-				<li><I>Pipe cap:</I> Caps off the end of a pipe. Open ends don't actually vent air, because of the way the pipes are assembled, so, uh. Use them to decorate your house or something.</li>
-				<li><I>Manual Valve:</I> A valve that will block off airflow when turned. Can't be used by the AI or cyborgs, because they don't have hands.</li>
-				<li><I>Manual T-Valve:</I> Like a manual valve, but at the center of a manifold instead of a straight pipe.</li><BR><BR>
-
-				<h1><a name="Insulated"><B>Insulated Pipes</B></a></h1><BR>
-				<I>Special Public Service Announcement.</I><BR>
-				Our regular pipes are already insulated. These are completely worthless. Punch anyone who uses them.<BR><BR>
+				Connecting scrubbers to a supply position pipe makes you an idiot who gives everyone a difficult job. HE pipes don't go through these positions.
 
 				<h1><a name="Devices"><B>Devices: </B></a></h1>
 				<I>They actually do something.</I><BR>
@@ -1076,9 +1079,10 @@
 			</html>
 			"}
 
-/obj/item/weapon/book/manual/evaguide
+/obj/item/book/manual/evaguide
 	name = "EVA Gear and You: Not Spending All Day Inside"
 	icon_state = "evabook"
+	item_state = "book10"
 	author = "Maria Crash, Senior Atmospherics Technician"
 	title = "EVA Gear and You: Not Spending All Day Inside"
 	dat = {"<html>
@@ -1109,7 +1113,7 @@
 
 				EVA gear. Wonderful to use. It's useful for mining, engineering, and occasionally just surviving, if things are that bad. Most people have EVA training,
 				but apparently there are some on a space station who don't. This guide should give you a basic idea of how to use this gear, safely. It's split into two sections:
-				 Civilian suits and voidsuits.<BR><BR>
+				Civilian suits and voidsuits.<BR><BR>
 
 				<h2><a name="Civilian">Civilian Suits</a></h2>
 				<I>The bulkiest things this side of Alpha Centauri</I><BR>
@@ -1135,7 +1139,7 @@
 				and then is screwed in for one and a quarter full rotations clockwise, leaving the faceplate directly in front of you. There is a small button on the right side of the helmet that activates the helmet light.
 				The tanks that fasten onto the side slot are emergency tanks, as well as full-sized oxygen tanks, leaving your back free for a backpack or satchel.<BR><BR>
 
-				These suits generally only fit one species. Nanotrasen's are usually human-fitting by default, but there's equipment that can make modifications to the voidsuits to fit them to other species.<BR><BR>
+				These suits generally only fit one species. NanoTrasen's are usually human-fitting by default, but there's equipment that can make modifications to the voidsuits to fit them to other species.<BR><BR>
 
 				<h2><a name="Equipment">Modification Equipment</a></h2>
 				<I>How to actually make voidsuits fit you.</I><BR>
@@ -1163,9 +1167,10 @@
 			</html>
 			"}
 
-/obj/item/weapon/book/manual/gravitygenerator
+/obj/item/book/manual/gravitygenerator
 	name = "Gravity Generator Operation Manual"
 	icon_state ="bookEngineering2"
+	item_state = "book7"
 	author = "Gravity Generator CO."
 	title = "Gravity Generator Operation Manual"
 
@@ -1182,7 +1187,7 @@
 				</head>
 				<body>
 				<a name="Foreword"><h1>Gravity Generation for dummies!</h1></a>
-				Thank you for your purchase of the newest model of the SA Grade Gravity Generator! This operation manual will cover the basics required for safely operating and maintaing your gravity generation system.<br><br>
+				Thank you for your purchase of the newest model of the SA Grade Gravity Generator! This operation manual will cover the basics required for safely operating and maintaining your gravity generation system.<br><br>
 
 				<h2><a name="Contents">Contents</a></h2>
 				<ol>
@@ -1278,15 +1283,16 @@
 			</html>
 			"}
 
-/obj/item/weapon/book/manual/psych
+/obj/item/book/manual/psych
 	name = "Sigmund Freud for Dummies"
 	desc = "The number one must-have manual for teaching you how to love your mother!"
 	icon_state = "bookMedical"
+	item_state = "book7"
 	author = "NTCC Odin Psychiatry Wing"
 	title = "Sigmund Freud for Dummies"
 
-/obj/item/weapon/book/manual/psych/New()
-	..()
+/obj/item/book/manual/psych/Initialize()
+	. = ..()
 	dat = {"<html>
 				<head>
 				<style>
@@ -1369,10 +1375,11 @@
 			</html>
 			"}
 
-/obj/item/weapon/book/manual/ka_custom
+/obj/item/book/manual/ka_custom
 	name = "Guide to Custom Kinetic Accelerators"
-	icon_state ="rulebook"
-	author = "Quartermaster Burgs"
+	icon_state = "rulebook"
+	item_state = "book1"
+	author = "Quartermaster Longson"
 	title = "Guide to Custom Kinetic Accelerators"
 	dat = {"<html>
 				<head>
@@ -1387,7 +1394,7 @@
 				</head>
 				<body>
 					<h1>Metal Snowflake: Your Guide to Custom Kinetic Accelerators</h1>
-					<h2>by Quartermaster Burgs</h2>
+					<h2>by Quartermaster Longson</h2>
 					<br>
 					<p>So you want to make your own custom kinetic accelerator. While it may look simple to take apart, swap, and modify parts to fit your working needs, there are a few things to keep in mind before assembling.</p>
 
@@ -1418,12 +1425,118 @@
 			</html>
 			"}
 
-/obj/item/weapon/book/manual/battlemonsters
+/obj/item/book/manual/wiki/battlemonsters
 	name = "\improper Guide to Battlemonsters"
 	icon_state ="battlemonsters"
+	item_state = "book5"
 	author = "Macro Toy Company"		 // Who wrote the thing, can be changed by pen or PC. It is not automatically assigned
 	title = "Guide to Battlemonsters"
+	sub_page = "Guide_to_Battlemonsters"
 
-/obj/item/weapon/book/manual/battlemonsters/New()
-	..()
-	dat = {"<html><head></head><body><iframe width='100%' height='100%' src="[config.wikiurl]Guide_to_Battlemonsters&printable=yes&remove_links=1" frameborder="0" id="main_frame"></iframe></body></html>"}
+/obj/item/book/manual/dominia_honor
+	name = "dominian honor codex"
+	desc = "A codex describing the main tenets of dominian honor."
+	icon_state = "rulebook"
+	item_state = "book1"
+	title = "dominian honor codex"
+	author = "Zalze Han'San"
+	w_class = WEIGHT_CLASS_SMALL
+	dat = {"<html>
+				<head>
+				<style>
+				h1 {font-size: 21px; margin: 15px 0px 5px;}
+				h2 {font-size: 15px; margin: 15px 0px 5px;}
+				li {margin: 2px 0px 2px 15px;}
+				ul {margin: 5px; padding: 0px;}
+				ol {margin: 5px; padding: 0px 15px;}
+				body {font-size: 13px; font-family: Verdana;}
+				</style>
+				</head>
+				<body>
+				<a name="Foreword"><h1>Dominian Honor Codex:</h1></a>
+
+
+				<h2><a name="Contents">Contents</a></h2>
+				<ol>
+					<li><a href="#I">Conduct toward Equals</a></li>
+					<li><a href="#II">Dueling Etiquette</a></li>
+					<li><a href="#III">Conduct of a Soldier</a></li>
+					<li><a href="#IV">On High and Low</a></li>
+					<li><a href="#V">Behavior amongst Foreigners and Enemies</a></li>
+					<li><a href="#VI">On Duty to Family and Goddess</a></li>
+					<li><a href="#VII">On Duty to Country and Emperor</a></li>
+					<li><a href="#VII">On Duty to Self</a></li>
+				</ol>
+				<br>
+
+				<a name="I"><h2>Conduct toward Equals</h2><br></a>
+				An honorable person will conduct himself in a manner that recognizes rich or poor, young or old, all are morally equal. Birth and wealth do not convey honor and a good reputation,
+				your actions do. It is not what one thinks, but one does. Thus, a gentle-being of good repute and standing should avoid conducting himself untowardly to their fellow,
+				that they may avoid unnecessarily coming to blows. Politeness and civility are the hallmarks of a reputable person. Thus, unless a person is known to of low repute and lacking honor,
+				act civilly to all you meet.<BR><BR>
+
+				<a name="II"><h2>Dueling Etiquette</h2><br></a>
+				There is no justice in the court of law for an offense of Slander, and to be Slandered is worse than death. To live a life of shame and ill repute is the lowest
+				fate one can receive. It is thus that affairs of honor are brought to the contest of the duel – to satisfy both parties, defender, and accuser. In a duel, a second for
+				both sides must be present, as well as a physician. In some cases, a legal notary may be present to ensure its validity. In the cases of duels between or people of
+				differing ages and physical capabilities, to ensure the uprightness, fairness, and honor of the duel, guns may be used. These shall be inspected by both seconds upon
+				being presented by the defendant in the duel. In a contest between two of equal physical ability, swords are preferable in use, as they do not necessarily inflict a
+				mortal wound when one is not necessary to satisfy the Honor of the two parties<BR><BR>
+
+				<a name="III"><h2>Conduct of a Soldier</h2><br></a>
+				Soldiers, of all professions, have the greatest responsibilities in society to be fair and gentle in some cases, and be harsh and punishing in others. Looting, bawdiness,
+				pillaging, a lack of appropriate mercy, cruelty in killing, all hallmarks of a dishonorable soldier. A soldier must be dedicated to their task, dedicated to becoming a master
+				of their task, and willing to die to complete it. A soldier in defeat, if they have given their all, is a soldier who has learned. No soldier should be afraid of defeat – for
+				no soldier can win every battle – they should be afraid to not learn from it.<BR><BR>
+
+				<a name="IV"><h2>On High and Low</h2><br></a>
+				The Goddess, in Her wisdom, sees fit to place some souls high and some souls low. This does not make them any less equal in matters of honor. A powerful individual, if they
+				have been seen fit to be head over another, must not, in any case, abuse their authority or position. An individual, if they have been seen fit to be placed under another's
+				authority, must be dedicated and true in their work. There is no greater stain to a person of honor than to be a cruel task-master or an abuser of the weak and powerless.
+				They have a responsibility to ensure those under him work efficiently, and they have a responsibility to not cheat their master.<BR><BR>
+
+				<a name="V"><h2>Behavior amongst Foreigners and Enemies</h2><br></a>
+				When among foreigners, an honorable and respectful soul must be honorable and respectful of their customs as much as he can, unless they are themselves against the code of Honor
+				and the Edicts. Do not expect them to know or recognize our higher Code of Conduct. They, someday, will be brought under its reach – but until then, be as polite and respectful
+				to them as they deserve. When amongst your enemies, be polite. If they are enemies in war, they are doing their duty as you are. Respect and honor your enemy unless they prove
+				themselves unworthy of it. In all cases, show that you are a better individual than they are.<BR><BR>
+
+				<a name="VI"><h2>On Duty to Family and Goddess</h2><br></a>
+				A genteel and honorable person, in all cases, is loyal first to Goddess first, their family second, king third, country fourth, and themselves last. Your family is your closest
+				friends, allies, and compatriots: you must rely upon them, and they must rely upon you. If a person has no family, they have nothing. Be upright and honest with your family,
+				loyal, and keep your promises in all things – such as your dealings are with other men. Be loyal to the Goddess first and foremost – for if a soul is without the Goddess,
+				it is not living. It is Goddess that gives us this opportunity to be honorable and just people.<BR><BR>
+
+				<a name="VII"><h2>On Duty to Country and Emperor</h2><br></a>
+				Dutiful should describe any honorable person. A person everyone knows will keep their word, honor their word, and faithfully fulfill their word. And no more important word is
+				given than an oath to King, and to Country. While some argue the Emperor is the Country, this codex is not one of philosophy. Obey the Emperor faithfully, serve him faithfully,
+				and your country will prosper for it. Respectfully question the Emperor at the appropriate time if necessary and obey him in all right and honorable things.<BR><BR>
+
+				<a name="VIII"><h2>On Duty to Self</h2><br></a>
+				Your body, your mind, your honor – these three are the trinity of life. An honorable person keeps themselves in as good shape as they can and abstains from things such as overuse
+				of hard liquors and substances which cloud the mind and hamper the body. Without a sound body and mind, nobody can maintain their honor and reputation.<BR><BR>
+
+				</body>
+			</html>
+			"}
+
+/obj/item/book/manual/wiki/tcaf_pamphlet
+	name = "tau ceti armed forces pamphlet"
+	desc = "A simple pamphlet containing information about the Tau Ceti Armed Forces."
+	icon_state = "tcfl_pamphlet"
+	item_state = "tcfl_pamphlet"
+	contained_sprite = TRUE
+	title = "Tau Ceti Armed Forces pamphlet"
+	author = "Tau Ceti Armed Forces recruitment center"
+	pickup_sound = 'sound/items/drop/paper.ogg'
+	drop_sound = 'sound/items/drop/paper.ogg'
+	w_class = WEIGHT_CLASS_SMALL
+	sub_page = "Tau_Ceti_Armed_Forces"
+
+/obj/item/book/manual/wiki/tcaf_pamphlet/attack_self(var/mob/user as mob)
+	if(src.dat)
+		user << browse(HTML_SKELETON("<TT><I>Penned by [author].</I></TT> <BR>" + "[dat]"), "window=book")
+		user.visible_message("[user] opens a pamphlet titled \"[src.title]\" and begins reading intently.")
+		playsound(loc, 'sound/items/bureaucracy/paperfold.ogg', 50, 1)
+		onclose(user, "book")
+		onclose(playsound(loc, 'sound/items/bureaucracy/paperfold.ogg', 50, 1))

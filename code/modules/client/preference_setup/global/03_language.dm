@@ -25,11 +25,23 @@
 		pref.language_prefixes = params2list(pref.language_prefixes)
 
 	if (isnull(pref.language_prefixes) || !pref.language_prefixes.len)
-		pref.language_prefixes = config.language_prefixes.Copy()
+		pref.language_prefixes = GLOB.config.language_prefixes.Copy()
 
-/datum/category_item/player_setup_item/player_global/language/content(var/mob/user)
-	. += "<b>Language Keys</b><br>"
-	. += " [english_list(pref.language_prefixes, and_text = " ", comma_text = " ")] <a href='?src=\ref[src];change_prefix=1'>Change</a> <a href='?src=\ref[src];reset_prefix=1'>Reset</a><br>"
+/datum/category_item/player_setup_item/player_global/language/ui_data(var/mob/user)
+	return list(
+		"kind" = "form",
+		"name" = name,
+		"ref" = REF(src),
+		"sections" = list(list(
+			"title" = "Language Keys",
+			"fields" = list(list(
+				"label" = "Prefixes",
+				"value" = jointext(pref.language_prefixes, " "),
+				"action" = "change_prefix",
+				"actions" = list(list("label" = "Reset", "action" = "reset_prefix", "icon" = "rotate"))
+			))
+		))
+	)
 
 /datum/category_item/player_setup_item/player_global/language/OnTopic(var/href, var/list/href_list, var/mob/user)
 	if(href_list["change_prefix"])
@@ -39,13 +51,13 @@
 			char = input("Enter a single special character.\nYou may re-select the same characters.\nThe following characters are already in use by radio: ; : .\nThe following characters are already in use by special say commands: ! * ^", "Enter Character - [3 - keys.len] remaining") as null|text
 			if(char)
 				if(length(char) > 1)
-					alert(user, "Only single characters allowed.", "Error", "Ok")
+					tgui_alert(user, "Only single characters allowed.", "Error", list("Ok"))
 				else if(char in list(";", ":", "."))
-					alert(user, "Radio character. Rejected.", "Error", "Ok")
+					tgui_alert(user, "Radio character. Rejected.", "Error", list("Ok"))
 				else if(char in list("!","*", "^"))
-					alert(user, "Say character. Rejected.", "Error", "Ok")
+					tgui_alert(user, "Say character. Rejected.", "Error", list("Ok"))
 				else if(contains_az09(char))
-					alert(user, "Non-special character. Rejected.", "Error", "Ok")
+					tgui_alert(user, "Non-special character. Rejected.", "Error", list("Ok"))
 				else
 					keys.Add(char)
 		while(char && keys.len < 3)
@@ -55,7 +67,7 @@
 			return TOPIC_REFRESH
 
 	else if(href_list["reset_prefix"])
-		pref.language_prefixes = config.language_prefixes.Copy()
+		pref.language_prefixes = GLOB.config.language_prefixes.Copy()
 		return TOPIC_REFRESH
 
 	return ..()

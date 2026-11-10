@@ -1,59 +1,69 @@
-/obj/item/weapon/flame/candle
+/obj/item/flame/candle
 	name = "red candle"
-	desc = "a small pillar candle. Its specially-formulated fuel-oxidizer wax mixture allows continued combustion in airless environments."
-	icon = 'icons/obj/candle.dmi'
+	desc = "A small pillar candle. Its specially-formulated fuel-oxidizer wax mixture allows continued combustion in airless environments."
+	icon = 'icons/obj/storage/fancy/candle.dmi'
 	icon_state = "candle1"
 	item_state = "candle1"
-	w_class = 1
+	drop_sound = 'sound/items/drop/gloves.ogg'
+	pickup_sound = 'sound/items/pickup/gloves.ogg'
+	w_class = WEIGHT_CLASS_TINY
 	light_color = "#E09D37"
-	var/wax = 2000
+	light_range = 2
+	light_power = CANDLE_LUM
+	var/wax = 3200
+	var/start_lit = FALSE
 
-/obj/item/weapon/flame/candle/New()
-	wax = rand(800, 1000) // Enough for 27-33 minutes. 30 minutes on average.
-	..()
+/obj/item/flame/candle/Initialize()
+	. = ..()
+	wax = rand(2800, 3400)
+	if(start_lit)
+		light()
 
-/obj/item/weapon/flame/candle/update_icon()
+/obj/item/flame/candle/update_icon()
 	var/i
-	if(wax > 1500)
+	if(wax > 2000)
 		i = 1
-	else if(wax > 800)
+	else if(wax > 1200)
 		i = 2
 	else i = 3
 	icon_state = "candle[i][lit ? "_lit" : ""]"
 
 
-/obj/item/weapon/flame/candle/attackby(obj/item/weapon/W as obj, mob/user as mob)
+/obj/item/flame/candle/attackby(obj/item/attacking_item, mob/user)
 	..()
-	if(W.iswelder())
-		var/obj/item/weapon/weldingtool/WT = W
+	if(attacking_item.tool_behaviour == TOOL_WELDER)
+		var/obj/item/weldingtool/WT = attacking_item
 		if(WT.isOn()) //Badasses dont get blinded by lighting their candle with a welding tool
-			light("<span class='notice'>\The [user] casually lights the [name] with [W].</span>")
-	else if(isflamesource(W))
+			light()
+			to_chat(user, SPAN_NOTICE("\The [user] casually lights \the [name] with [attacking_item]."))
+	else if(attacking_item.isFlameSource())
 		light()
-	else if(istype(W, /obj/item/weapon/flame/candle))
-		var/obj/item/weapon/flame/candle/C = W
+		to_chat(user, SPAN_NOTICE("\The [user] lights \the [name]."))
+	else if(istype(attacking_item, /obj/item/flame/candle))
+		var/obj/item/flame/candle/C = attacking_item
 		if(C.lit)
 			light()
+			to_chat(user, SPAN_NOTICE("\The [user] lights \the [name]."))
 
-
-/obj/item/weapon/flame/candle/proc/light(var/flavor_text = "<span class='notice'>\The [usr] lights the [name].</span>")
+/obj/item/flame/candle/proc/light()
 	if(!src.lit)
 		src.lit = 1
-		//src.damtype = "fire"
-		for(var/mob/O in viewers(usr, null))
-			O.show_message(flavor_text, 1)
-		set_light(CANDLE_LUM)
+		playsound(src.loc, 'sound/items/cigs_lighters/cig_light.ogg', 50, 1)
+		set_light_on(TRUE)
+		update_icon()
 		START_PROCESSING(SSprocessing, src)
 
-/obj/item/weapon/flame/candle/process()
+/obj/item/flame/candle/process(mob/user)
 	if(!lit)
 		return
+	update_icon()
 	wax--
 	if(!wax)
-		new/obj/item/trash/candle(src.loc)
+		new /obj/item/trash/candle(src.loc)
 		if(istype(src.loc, /mob))
-			src.dropped()
-
+			src.dropped(user)
+		to_chat(user, SPAN_NOTICE("The candle burns out."))
+		playsound(src.loc, 'sound/items/cigs_lighters/cig_snuff.ogg', 50, 1)
 		STOP_PROCESSING(SSprocessing, src)
 		qdel(src)
 	update_icon()
@@ -61,8 +71,10 @@
 		var/turf/T = loc
 		T.hotspot_expose(700, 5)
 
-/obj/item/weapon/flame/candle/attack_self(mob/user as mob)
+/obj/item/flame/candle/attack_self(mob/user as mob)
 	if(lit)
 		lit = 0
+		to_chat(user, SPAN_NOTICE("You snuff out the flame."))
+		playsound(src.loc, 'sound/items/cigs_lighters/cig_snuff.ogg', 50, 1)
 		update_icon()
-		set_light(0)
+		set_light_on(FALSE)

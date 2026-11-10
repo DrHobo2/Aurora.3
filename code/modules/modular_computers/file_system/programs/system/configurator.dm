@@ -3,61 +3,65 @@
 // It allows you to toggle components of your device.
 
 /datum/computer_file/program/computerconfig
-	filename = "compconfig"
-	filedesc = "Computer Configuration Tool"
-	extended_desc = "This program allows configuration of computer's hardware"
+	filename = "hardwareconfig"
+	filedesc = "Hardware Configuration Tool"
+	extended_desc = "This program allows configuration of the computer's hardware."
 	program_icon_state = "generic"
+	program_key_icon_state = "green_key"
 	color = LIGHT_COLOR_GREEN
-	unsendable = 1
-	undeletable = 1
-	size = 4
-	available_on_ntnet = 0
-	requires_ntnet = 0
-	nanomodule_path = /datum/nano_module/program/computer_configurator/
+	unsendable = TRUE
+	undeletable = TRUE
+	size = 2
+	available_on_ntnet = FALSE
+	requires_ntnet = FALSE
 
-/datum/nano_module/program/computer_configurator
-	name = "NTOS Computer Configuration Tool"
-	var/obj/item/modular_computer/movable = null
+	tgui_id = "NTOSConfig"
 
-/datum/nano_module/program/computer_configurator/ui_interact(mob/user, ui_key = "main", var/datum/nanoui/ui = null, var/force_open = 1, var/datum/topic_state/state = default_state)
-	if(program)
-		movable = program.computer
-	if(!istype(movable))
-		movable = null
+/datum/computer_file/program/computerconfig/ui_act(action, list/params, datum/tgui/ui, datum/ui_state/state)
+	if(..())
+		return TRUE
 
-	// No computer connection, we can't get data from that.
-	if(!movable)
-		return 0
+	if(action == "brightness" && computer.flashlight)
+		var/new_brightness = clamp(0, params["new_brightness"]/10, 1)
+		computer.flashlight.tweak_brightness(new_brightness)
+		. = TRUE
 
+	if(action == "audmessage")
+		computer.message_output_range = clamp(params["new_range"], 0, initial(computer.message_output_range) + 3)
+		. = TRUE
+
+/datum/computer_file/program/computerconfig/ui_static_data(mob/user)
+	var/list/data = ..() || list()
+	data["disk_size"] = computer.hard_drive.max_capacity
+	data["disk_used"] = computer.hard_drive.used_capacity
+	data["card_slot"] = !!computer.card_slot
+	data["registered"] = computer.registered_id ? computer.registered_id.registered_name : ""
+
+	data["max_message_range"] = initial(computer.message_output_range) + 3
+
+	data["hardware"] = list()
+	for(var/obj/item/computer_hardware/H in computer.get_all_components())
+		var/list/hardware_data = list()
+		for(var/v in list("name", "desc", "enabled", "critical", "power_usage"))
+			if(v == "power_usage")
+				var/watt_usage = H.vars[v] * (CELLRATE / 2)
+				hardware_data[v] = watt_usage
+			else
+				hardware_data[v] = H.vars[v]
+		if(hardware_data.len)
+			data["hardware"] += list(hardware_data)
+
+	return data
+
+/datum/computer_file/program/computerconfig/ui_data(mob/user)
 	var/list/data = list()
+	data["power_usage"] = computer.last_power_usage * (CELLRATE / 2)
+	data["message_range"] = computer.message_output_range
 
-	if(program)
-		data = program.get_header_data()
+	data["battery"] = computer.battery_module ? list("rating" = computer.battery_module.battery_rating, "percent" = computer.battery_module.battery.percent()) : null
 
-	var/list/hardware = movable.get_all_components()
+	if(computer.flashlight)
+		var/brightness = clamp(0, round(computer.flashlight.light_power, 0.1) * 10, 10)
+		data["brightness"] = brightness
 
-	data["disk_size"] = movable.hard_drive.max_capacity
-	data["disk_used"] = movable.hard_drive.used_capacity
-	data["power_usage"] = movable.last_power_usage
-	data["battery_exists"] = movable.battery_module ? 1 : 0
-	if(movable.battery_module)
-		data["battery_rating"] = movable.battery_module.battery.maxcharge
-		data["battery_percent"] = round(movable.battery_module.battery.percent())
-
-	var/list/all_entries[0]
-	for(var/obj/item/weapon/computer_hardware/H in hardware)
-		all_entries.Add(list(list(
-		"name" = H.name,
-		"desc" = H.desc,
-		"enabled" = H.enabled,
-		"critical" = H.critical,
-		"powerusage" = H.power_usage
-		)))
-
-	data["hardware"] = all_entries
-	ui = SSnanoui.try_update_ui(user, src, ui_key, ui, data, force_open)
-	if (!ui)
-		ui = new(user, src, ui_key, "laptop_configuration.tmpl", "NTOS Configuration Utility", 575, 700, state = state)
-		ui.auto_update_layout = 1
-		ui.set_initial_data(data)
-		ui.open()
+	return data

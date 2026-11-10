@@ -1,21 +1,50 @@
-/obj/item/weapon/grenade
+/obj/item/grenade
 	name = "grenade"
 	desc = "A hand held grenade, with an adjustable timer."
-	w_class = 2.0
+	w_class = WEIGHT_CLASS_SMALL
 	icon = 'icons/obj/grenade.dmi'
+	item_icons = list(
+		slot_l_hand_str = 'icons/mob/items/weapons/lefthand_grenade.dmi',
+		slot_r_hand_str = 'icons/mob/items/weapons/righthand_grenade.dmi',
+		)
 	icon_state = "grenade"
 	item_state = "grenade"
 	throw_speed = 4
 	throw_range = 20
-	flags = CONDUCT
+	obj_flags = OBJ_FLAG_CONDUCTABLE
+	pass_flags_self = PASSTABLE | PASSRAILING
 	slot_flags = SLOT_BELT
+	contained_sprite = 1
 	var/active = 0
 	var/det_time = 30
 	var/fake = FALSE
+	var/activation_sound = 'sound/weapons/armbomb.ogg'
+	/// If TRUE, grenade launchers defer projectile processing and post-fire handling to this ammunition.
+	var/special_launcher_handling = FALSE
+	/// If TRUE, firing this ammunition from a grenade launcher sends a live notification to admins.
+	var/notify_admins_on_launcher_fire = TRUE
+	pickup_sound = 'sound/items/pickup/grenade.ogg'
+	drop_sound = 'sound/items/drop/grenade.ogg'
 
-/obj/item/weapon/grenade/proc/clown_check(var/mob/living/user)
-	if((CLUMSY in user.mutations) && prob(50))
-		user << "<span class='warning'>Huh? How does this thing work?</span>"
+/obj/item/grenade/Destroy()
+	// Stop all animations to prevent a hard delete.
+	animate(src)
+	walk(src, 0)
+	return ..()
+
+/obj/item/grenade/feedback_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	if(distance <= 0)
+		if(det_time > 1)
+			. += "The timer is set to <b>[det_time/10]</b> seconds."
+			return
+		if(det_time == null)
+			return
+		. += SPAN_ALERT("\The [src] is set for instant detonation.")
+
+/obj/item/grenade/proc/clown_check(var/mob/living/user)
+	if((user.is_clumsy()) && prob(50))
+		to_chat(user, SPAN_WARNING("Huh? How does this thing work?"))
 
 		activate(user)
 		add_fingerprint(user)
@@ -24,20 +53,17 @@
 		return 0
 	return 1
 
-/obj/item/weapon/grenade/examine(mob/user)
-	if(..(user, 0))
-		if(det_time > 1)
-			user << "The timer is set to [det_time/10] seconds."
-			return
-		if(det_time == null)
-			return
-		user << "\The [src] is set for instant detonation."
+/obj/item/grenade/attackby(obj/item/attacking_item, mob/user)
+	if(istype(attacking_item, /obj/item/gun/launcher/grenade))
+		var/obj/item/gun/launcher/grenade/G = attacking_item
+		G.load(src, user)
+	else
+		..()
 
-
-/obj/item/weapon/grenade/attack_self(mob/user as mob)
+/obj/item/grenade/attack_self(mob/user as mob)
 	if(!active)
 		if(clown_check(user))
-			user << "<span class='warning'>You prime \the [name]! [det_time/10] seconds!</span>"
+			to_chat(user, SPAN_WARNING("You prime \the [name]! [det_time/10] seconds!"))
 
 			activate(user)
 			add_fingerprint(user)
@@ -47,28 +73,60 @@
 	return
 
 
-/obj/item/weapon/grenade/proc/activate(mob/user as mob)
+/obj/item/grenade/proc/activate(var/atom/user)
 	if(active)
 		return
 
-	if(user)
-		msg_admin_attack("[user.name] ([user.ckey]) primed \a [fake ? ("fake ") : ("")][src] (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[user.x];Y=[user.y];Z=[user.z]'>JMP</a>)",ckey=key_name(user))
+	if(user) //Prevents runtimes with grenade launchers, which create their own admin message
+		if(ismob(user))
+			var/mob/M = user
+			admin_attack_log(M, attacker_message = "primed \a [fake ? (" fake") : ("")][src]!", admin_message = "primed \a [fake ? ("fake ") : ("")][src]!")
+		else
+			message_admins("[user.name] primed \a [fake ? ("fake ") : ("")][src] (<A href='byond://?_src_=holder;adminplayerobservecoodjump=1;X=[user.x];Y=[user.y];Z=[user.z]'>JMP</a>)")
 
 	icon_state = initial(icon_state) + "_active"
-	active = 1
-	playsound(loc, 'sound/weapons/armbomb.ogg', 75, 1, -3)
+	active = TRUE
+	playsound(loc, activation_sound, 75, 1, -3)
 
-	spawn(det_time)
-		prime()
-		return
+	addtimer(CALLBACK(src, PROC_REF(prime)), det_time)
+	// Randomize the timing a bit. You wouldn't be aware of when exactly a grenade is going to pop.
+	// Nor do we want people to instantly know when to throw a perfectly timed grenade.
+	animate(src, det_time + rand(-5, 5), -1, LINEAR_EASING, color = COLOR_RED)
 
+/// Handles firing behavior for ammunition with special_launcher_handling.
+/obj/item/grenade/proc/process_launcher_projectile(obj/item/gun/launcher/grenade/launcher, mob/user, atom/target, target_zone, params)
+	return FALSE
 
-/obj/item/weapon/grenade/proc/prime()
+/// Handles cleanup after special launcher ammunition has been successfully fired.
+/obj/item/grenade/proc/handle_launcher_post_fire(obj/item/gun/launcher/grenade/launcher)
+	return
+
+/obj/item/grenade/proc/prime()
 	var/turf/T = get_turf(src)
 	if(T)
 		T.hotspot_expose(700,125)
 
-/obj/item/weapon/grenade/attack_hand()
+	if(ishuman(loc))
+		var/mob/living/carbon/human/victim = loc
+		var/obj/item/organ/external/exploded_organ
+		if(victim.l_hand == src)
+			exploded_organ = victim.get_organ(BP_L_HAND)
+		else if(victim.r_hand == src)
+			exploded_organ = victim.get_organ(BP_R_HAND)
+		explode_in_hand(victim, exploded_organ)
+
+/// This proc is called when the grenade explodes in your hand or on you. Exploded_organ can be null in case the grenade explodes in a pocket or something.
+/obj/item/grenade/proc/explode_in_hand(var/mob/living/carbon/human/victim, var/obj/item/organ/external/exploded_organ)
+	SHOULD_CALL_PARENT(TRUE)
+	if(exploded_organ)
+		victim.visible_message(SPAN_DANGER("\The [src] goes off in \the [victim]'s hands!"), SPAN_HIGHDANGER("\The [src] goes off in your hand!"))
+	else
+		to_chat(victim, SPAN_HIGHDANGER("\The [src] goes off on you!"))
+
+/obj/item/grenade/attack_hand()
 	walk(src, null, null)
 	..()
 	return
+
+/obj/item/grenade/vendor_action(var/obj/structure/machinery/vending/V)
+	activate(V)

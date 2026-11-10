@@ -2,7 +2,7 @@
 	name = "mineral vein"
 	icon = 'icons/obj/mining.dmi'
 	desc = "Shiny."
-	mouse_opacity = 0
+	mouse_opacity = MOUSE_OPACITY_TRANSPARENT
 	density = 0
 	anchored = 1
 	var/ore_key
@@ -14,13 +14,13 @@
 	ore_key = M.name
 	icon_state = "rock_[ore_key]"
 	var/turf/simulated/mineral/T = get_turf(src)
-	layer = T.layer+0.1
-	if (!istype(T))
+	layer = T.layer + 0.1
+	if(!istype(T))
 		crash_with("Invalid loc for mineral overlay: [T ? T.type : "NULL"].")
 		qdel(src)
 		return
 
-	if (T.my_mineral)
+	if(T.my_mineral)
 		crash_with("Mineral overlay created on turf that already had one.")
 		qdel(T.my_mineral)
 
@@ -28,14 +28,13 @@
 
 /obj/effect/mineral/Destroy()
 	var/turf/simulated/mineral/T = loc
-	if (istype(T))
+	if(istype(T))
 		T.my_mineral = null
-
 	return ..()
 
 /obj/effect/mineral/proc/get_scan_overlay()
 	if(!scanner_image)
-		var/ore/O = ore_data[ore_key]
+		var/ore/O = GLOB.ore_data[ore_key]
 		if(O)
 			scanner_image = image(icon, loc = get_turf(src), icon_state = (O.scan_icon ? O.scan_icon : icon_state))
 		else
@@ -43,7 +42,7 @@
 	return scanner_image
 
 /obj/effect/mineral/singularity_pull()
-    return
+	return
 
 /obj/effect/mineral/singuloCanEat()
-    return FALSE
+	return FALSE

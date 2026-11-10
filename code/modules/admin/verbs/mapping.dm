@@ -1,7 +1,7 @@
 //- Are all the floors with or without air, as they should be? (regular or airless)
 //- Does the area have an APC?
 //- Does the area have an Air Alarm?
-//- Does the area have a Request Console?
+//- Does the area have a Requests Console?
 //- Does the area have lights?
 //- Does the area have a light switch?
 //- Does the area have enough intercoms?
@@ -19,16 +19,16 @@
 //- Identify how hard it is to break into the area and where the weak points are
 //- Check if the area has too much empty space. If so, make it smaller and replace the rest with maintenance tunnels.
 
-var/camera_range_display_status = 0
-var/intercom_range_display_status = 0
+GLOBAL_VAR_INIT(camera_range_display_status, 0)
+GLOBAL_VAR_INIT(intercom_range_display_status, 0)
 
 /obj/effect/debugging/camera_range
 	icon = 'icons/480x480.dmi'
 	icon_state = "25percent"
 
-	New()
-		src.pixel_x = -224
-		src.pixel_y = -224
+/obj/effect/debugging/camera_range/New()
+	src.pixel_x = -224
+	src.pixel_y = -224
 
 /obj/effect/debugging/marker
 	icon = 'icons/turf/areas.dmi'
@@ -41,24 +41,22 @@ var/intercom_range_display_status = 0
 	set category = "Mapping"
 	set name = "-None of these are for ingame use!!"
 
-	..()
-
 /client/proc/camera_view()
 	set category = "Mapping"
 	set name = "Camera Range Display"
 
-	if(camera_range_display_status)
-		camera_range_display_status = 0
+	if(GLOB.camera_range_display_status)
+		GLOB.camera_range_display_status = 0
 	else
-		camera_range_display_status = 1
+		GLOB.camera_range_display_status = 1
 
 
 
 	for(var/obj/effect/debugging/camera_range/C in world)
 		qdel(C)
 
-	if(camera_range_display_status)
-		for(var/obj/machinery/camera/C in cameranet.cameras)
+	if(GLOB.camera_range_display_status)
+		for(var/obj/structure/machinery/camera/C in GLOB.cameranet.cameras)
 			new/obj/effect/debugging/camera_range(C.loc)
 	feedback_add_details("admin_verb","mCRD") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
@@ -69,27 +67,27 @@ var/intercom_range_display_status = 0
 	set name = "Camera Report"
 
 	if(!Master)
-		alert(usr,"Master_controller not found.","Sec Camera Report")
+		tgui_alert(usr, "Master_controller not found.", "Sec Camera Report")
 		return 0
 
-	var/list/obj/machinery/camera/CL = list()
+	var/list/obj/structure/machinery/camera/CL = list()
 
-	for(var/obj/machinery/camera/C in cameranet.cameras)
+	for(var/obj/structure/machinery/camera/C in GLOB.cameranet.cameras)
 		if (isturf(C.loc))
 			CL += C
 
 	var/output = {"<B>CAMERA ANNOMALITIES REPORT</B><HR>
 <B>The following annomalities have been detected. The ones in red need immediate attention: Some of those in black may be intentional.</B><BR><ul>"}
 
-	for(var/obj/machinery/camera/C1 in CL)
+	for(var/obj/structure/machinery/camera/C1 in CL)
 		if(C1.c_tag == null)
-			output += "<li><font color='red'>null c_tag for sec camera at \[[C1.x], [C1.y], [C1.z]\] ([C1.loc.loc])</font></li>"
-		for(var/obj/machinery/camera/C2 in CL)
+			output += "<li><span class='warning'>null c_tag for sec camera at \[[C1.x], [C1.y], [C1.z]\] ([C1.loc.loc])</span></li>"
+		for(var/obj/structure/machinery/camera/C2 in CL)
 			if(C1 != C2)
 				if(C1.c_tag == C2.c_tag)
-					output += "<li><font color='red'>c_tag match for sec. cameras at \[[C1.x], [C1.y], [C1.z]\] ([C1.loc.loc]) and \[[C2.x], [C2.y], [C2.z]\] ([C2.loc.loc]) - c_tag is [C1.c_tag]</font></li>"
+					output += "<li><span class='warning'>c_tag match for sec. cameras at \[[C1.x], [C1.y], [C1.z]\] ([C1.loc.loc]) and \[[C2.x], [C2.y], [C2.z]\] ([C2.loc.loc]) - c_tag is [C1.c_tag]</span></li>"
 				if(C1.loc == C2.loc && C1.dir == C2.dir && C1.pixel_x == C2.pixel_x && C1.pixel_y == C2.pixel_y)
-					output += "<li><font color='red'>FULLY overlapping sec. cameras at \[[C1.x], [C1.y], [C1.z]\] ([C1.loc.loc]) Networks: [C1.network] and [C2.network]</font></li>"
+					output += "<li><span class='warning'>FULLY overlapping sec. cameras at \[[C1.x], [C1.y], [C1.z]\] ([C1.loc.loc]) Networks: [C1.network] and [C2.network]</span></li>"
 				if(C1.loc == C2.loc)
 					output += "<li>overlapping sec. cameras at \[[C1.x], [C1.y], [C1.z]\] ([C1.loc.loc]) Networks: [C1.network] and [C2.network]</font></li>"
 		var/turf/T = get_step(C1,turn(C1.dir,180))
@@ -97,36 +95,36 @@ var/intercom_range_display_status = 0
 			if(!(locate(/obj/structure/grille,T)))
 				var/window_check = 0
 				for(var/obj/structure/window/W in T)
-					if (W.dir == turn(C1.dir,180) || W.dir in list(5,6,9,10) )
+					if (W.dir == turn(C1.dir,180) || (W.dir in list(5,6,9,10)))
 						window_check = 1
 						break
 				if(!window_check)
 					output += "<li><font color='red'>Camera not connected to wall at \[[C1.x], [C1.y], [C1.z]\] ([C1.loc.loc]) Network: [C1.network]</color></li>"
 	output += "</ul>"
-	usr << browse(output,"window=airreport;size=1000x500")
+	usr << browse(HTML_SKELETON(output), "window=airreport;size=1000x500")
 	feedback_add_details("admin_verb","mCRP") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 /client/proc/intercom_view()
 	set category = "Mapping"
 	set name = "Intercom Range Display"
 
-	if(intercom_range_display_status)
-		intercom_range_display_status = 0
+	if(GLOB.intercom_range_display_status)
+		GLOB.intercom_range_display_status = 0
 	else
-		intercom_range_display_status = 1
+		GLOB.intercom_range_display_status = 1
 
 	for(var/obj/effect/debugging/marker/M in world)
 		qdel(M)
 
-	if(intercom_range_display_status)
-		for(var/obj/item/device/radio/intercom/I in world)
+	if(GLOB.intercom_range_display_status)
+		for(var/obj/item/radio/intercom/I in world)
 			for(var/turf/T in orange(7,I))
 				var/obj/effect/debugging/marker/F = new/obj/effect/debugging/marker(T)
 				if (!(F in view(7,I.loc)))
 					qdel(F)
 	feedback_add_details("admin_verb","mIRD") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
-var/list/debug_verbs = list (
+GLOBAL_LIST_INIT(debug_verbs, list(
 	/client/proc/do_not_use_these
 	,/client/proc/camera_view
 	,/client/proc/sec_camera_report
@@ -138,8 +136,7 @@ var/list/debug_verbs = list (
 	,/client/proc/count_objects_all
 	,/client/proc/cmd_assume_direct_control
 	,/client/proc/jump_to_dead_group
-	,/client/proc/startSinglo
-	,/client/proc/ticklag
+	,/client/proc/set_server_fps
 	,/client/proc/cmd_admin_grantfullaccess
 	,/client/proc/kaboom
 	,/client/proc/splash
@@ -168,16 +165,16 @@ var/list/debug_verbs = list (
 	,/client/proc/get_bad_fdoors
 	,/client/proc/get_bad_doors
 	,/client/proc/analyze_openturf
-	)
+	))
 
 
 /client/proc/enable_debug_verbs()
 	set category = "Debug"
-	set name = "Debug verbs"
+	set name = "Debug Verbs"
 
 	if(!check_rights(R_DEBUG|R_DEV)) return
 
-	verbs += debug_verbs
+	add_verb(src, GLOB.debug_verbs)
 
 	feedback_add_details("admin_verb","mDV") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
@@ -187,8 +184,9 @@ var/list/debug_verbs = list (
 
 	if(!check_rights(R_DEBUG|R_DEV)) return
 
-	verbs -= debug_verbs
+	remove_verb(src, GLOB.debug_verbs)
 
+	init_verbs()
 	feedback_add_details("admin_verb","hDV") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 
@@ -223,7 +221,7 @@ var/list/debug_verbs = list (
 	var/turf/simulated/location = get_turf(usr)
 
 	if(!istype(location, /turf/simulated)) // We're in space, let's not cause runtimes.
-		usr << "<span class='warning'>this debug tool cannot be used from space</span>"
+		to_chat(usr, SPAN_WARNING("this debug tool cannot be used from space"))
 		return
 
 	var/icon/red = new('icons/misc/debug_group.dmi', "red")		//created here so we don't have to make thousands of these.
@@ -231,11 +229,11 @@ var/list/debug_verbs = list (
 	var/icon/blue = new('icons/misc/debug_group.dmi', "blue")
 
 	if(!usedZAScolors)
-		usr << "ZAS Test Colors"
-		usr << "Green = Zone you are standing in"
-		usr << "Blue = Connected zone to the zone you are standing in"
-		usr << "Yellow = A zone that is connected but not one adjacent to your connected zone"
-		usr << "Red = Not connected"
+		to_chat(usr, "ZAS Test Colors")
+		to_chat(usr, "Green = Zone you are standing in")
+		to_chat(usr, "Blue = Connected zone to the zone you are standing in")
+		to_chat(usr, "Yellow = A zone that is connected but not one adjacent to your connected zone")
+		to_chat(usr, "Red = Not connected")
 		usedZAScolors = 1
 
 	testZAScolors_zones += location.zone
@@ -278,7 +276,7 @@ var/list/debug_verbs = list (
 	set category = "ZAS"
 	set name = "Reboot ZAS"
 
-	if(alert("This will destroy and remake all zone geometry on the whole map.","Reboot ZAS","Reboot ZAS","Nevermind") == "Reboot ZAS")
+	if(tgui_alert(usr, "This will destroy and remake all zone geometry on the whole map.", "Reboot ZAS", list("Reboot ZAS", "Nevermind")) == "Reboot ZAS")
 		SSair.reboot()
 
 /client/proc/count_objects_on_z_level()
@@ -334,7 +332,7 @@ var/list/debug_verbs = list (
 	feedback_add_details("admin_verb","mOBJ") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 
-var/global/prevent_airgroup_regroup = 0
+// var/global/prevent_airgroup_regroup = 0
 
 /client/proc/break_all_air_groups()
 	set category = "Mapping"
@@ -349,7 +347,7 @@ var/global/prevent_airgroup_regroup = 0
 	set category = "Mapping"
 	set name = "Regroup All Airgroups Attempt"
 
-	usr << "<span class='warning'>Proc disabled.</span>"
+	to_chat(usr, SPAN_WARNING("Proc disabled."))
 
 	/*prevent_airgroup_regroup = 0
 	for(var/datum/air_group/AG in SSair.air_groups)
@@ -360,7 +358,7 @@ var/global/prevent_airgroup_regroup = 0
 	set category = "Mapping"
 	set name = "Kill pipe processing"
 
-	usr << "<span class='warning'>Proc disabled.</span>"
+	to_chat(usr, SPAN_WARNING("Proc disabled."))
 
 	/*pipe_processing_killed = !pipe_processing_killed
 	if(pipe_processing_killed)
@@ -372,7 +370,7 @@ var/global/prevent_airgroup_regroup = 0
 	set category = "Mapping"
 	set name = "Kill air processing"
 
-	usr << "<span class='warning'>Proc disabled.</span>"
+	to_chat(usr, SPAN_WARNING("Proc disabled."))
 
 //This proc is intended to detect lag problems relating to communication procs
 var/global/say_disabled = 0
@@ -380,7 +378,7 @@ var/global/say_disabled = 0
 	set category = "Mapping"
 	set name = "Disable all communication verbs"
 
-	usr << "<span class='warning'>Proc disabled.</span>"
+	to_chat(usr, SPAN_WARNING("Proc disabled."))
 
 	/*say_disabled = !say_disabled
 	if(say_disabled)
@@ -395,7 +393,7 @@ var/global/movement_disabled_exception //This is the client that calls the proc,
 	set category = "Mapping"
 	set name = "Disable all movement"
 
-	usr << "<span class='warning'>Proc disabled.</span>"
+	to_chat(usr, SPAN_WARNING("Proc disabled."))
 
 	/*movement_disabled = !movement_disabled
 	if(movement_disabled)
@@ -408,19 +406,23 @@ var/global/movement_disabled_exception //This is the client that calls the proc,
 	set category = "Mapping"
 	set name = "Find Bad Doors"
 
-	for(var/obj/machinery/door/airlock/A in world)
+	for(var/obj/structure/machinery/door/airlock/A in world)
 		var/turf/T = get_turf(A)
-		if(istype(T, /turf/space) || istype(T, /turf/simulated/floor/asteroid) || isopenturf(T) || T.density)
-			usr << "Airlock [A] with bad turf at ([A.x],[A.y],[A.z]) in [T.loc]."
+		if(istype(T, /turf/space) || istype(T, /turf/simulated/floor/exoplanet/asteroid) || isopenturf(T) || T.density)
+			to_chat(usr, "Airlock [A] with bad turf at ([A.x],[A.y],[A.z]) in [T.loc].")
 
 /client/proc/get_bad_fdoors()
 	set category = "Mapping"
 	set name = "Find Bad Fire Doors"
 
-	for(var/obj/machinery/door/firedoor/F in world)
+	for(var/obj/structure/machinery/door/firedoor/F in world)
 		var/turf/T = get_turf(F)
 		var/firelock_increment = 0
-		for(var/obj/machinery/door/firedoor/FD in T)
+		for(var/obj/structure/machinery/door/firedoor/FD in T)
 			firelock_increment += 1
 		if(firelock_increment > 1)
-			usr << "Double firedoor [F] at ([F.x],[F.y],[F.z]) in [T.loc]."
+			to_chat(usr, "Double firedoor [F] at ([F.x],[F.y],[F.z]) in [T.loc].")
+
+#ifdef TESTING
+GLOBAL_LIST_EMPTY(dirty_vars)
+#endif

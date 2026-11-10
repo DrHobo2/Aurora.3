@@ -1,7 +1,9 @@
 //wrapper
 /proc/do_teleport(ateleatom, adestination, aprecision=0, afteleport=1, aeffectin=null, aeffectout=null, asoundin=null, asoundout=null)
-	new /datum/teleport/instant/science(arglist(args))
-	return
+	var/datum/teleport/T = new /datum/teleport/instant/science(arglist(args))
+	if(T.stable_creation)
+		return TRUE
+	return FALSE
 
 /datum/teleport
 	var/atom/movable/teleatom //atom to teleport
@@ -12,77 +14,97 @@
 	var/soundin //soundfile to play before teleportation
 	var/soundout //soundfile to play after teleportation
 	var/force_teleport = 1 //if false, teleport will use Move() proc (dense objects will prevent teleportation)
+	var/stable_creation = TRUE //This is mostly for portals, which need to delete if the do_teleport fails, due to inhibitors or other reasons we fail to initTeleport properly
 
 
 /datum/teleport/New(ateleatom, adestination, aprecision=0, afteleport=1, aeffectin=null, aeffectout=null, asoundin=null, asoundout=null)
 	..()
 	if(!initTeleport(arglist(args)))
-		return 0
-	return 1
+		stable_creation = FALSE
+		return FALSE
+	return TRUE
 
 /datum/teleport/proc/initTeleport(ateleatom,adestination,aprecision,afteleport,aeffectin,aeffectout,asoundin,asoundout)
 	if(!setTeleatom(ateleatom))
-		return 0
+		return FALSE
 	if(!setDestination(adestination))
-		return 0
+		return FALSE
 	if(!setPrecision(aprecision))
-		return 0
+		return FALSE
 	setEffects(aeffectin,aeffectout)
 	setForceTeleport(afteleport)
 	setSounds(asoundin,asoundout)
-	return 1
+	return TRUE
 
 //must succeed
 /datum/teleport/proc/setPrecision(aprecision)
 	if(isnum(aprecision))
 		precision = aprecision
-		return 1
-	return 0
+		return TRUE
+	return FALSE
 
 /datum/teleport/proc/checkInhibitors(atom/adestination)
 	if(istype(adestination))
 		var/list/turf/good_turfs = list()
 		var/list/turf/bad_turfs = list()
-		for(var/found_inhibitor in circlerange(adestination,8))
-			if(!istype(found_inhibitor,/obj/machinery/anti_bluespace))
+		var/turf/T = get_turf(adestination)
+		if(!T)
+			return adestination
+		var/list/invalid_inhibitors
+		for(var/found_inhibitor in GLOB.bluespace_inhibitors)
+			if(!istype(found_inhibitor, /obj/structure/machinery/anti_bluespace))
+				LAZYADD(invalid_inhibitors, found_inhibitor)
 				continue
-			var/obj/machinery/anti_bluespace/AB = found_inhibitor
-			if(AB.stat & (NOPOWER | BROKEN) )
+			var/obj/structure/machinery/anti_bluespace/AB = found_inhibitor
+			if(QDELETED(AB))
+				LAZYADD(invalid_inhibitors, found_inhibitor)
 				continue
-			AB.use_power(AB.active_power_usage)
-			bad_turfs += circlerangeturfs(get_turf(AB),8)
-			good_turfs += circlerangeturfs(get_turf(AB),9)
-		if(good_turfs.len && bad_turfs.len)
+			if(T.z != AB.z || get_dist(adestination, AB) > 8 || (AB.stat & (NOPOWER | BROKEN)))
+				continue
+			AB.use_power_oneoff(AB.active_power_usage)
+			bad_turfs += RANGE_TURFS(8, get_turf(AB))
+			good_turfs += RANGE_TURFS(9, get_turf(AB))
+		if(invalid_inhibitors)
+			GLOB.bluespace_inhibitors -= invalid_inhibitors
+		if(length(good_turfs) && length(bad_turfs))
 			good_turfs -= bad_turfs
-			return pick(good_turfs)
+			if(length(good_turfs))
+				return pick(good_turfs)
 
 	return adestination
+
+//Check if we're in range of a bluespace inhibitor. We can't be teleported if we are.
+/datum/teleport/proc/checkLocalInhibitors(atom/movable/teleportee)
+	for(var/obj/structure/machinery/anti_bluespace/AB in range(8, teleportee))
+		if(AB.stat & (NOPOWER | BROKEN))
+			continue
+		else
+			AB.use_power_oneoff(AB.active_power_usage)
+			return null
+	return teleportee
+
 
 //must succeed
 /datum/teleport/proc/setDestination(atom/adestination)
 	if(istype(adestination))
 		destination = checkInhibitors(adestination)
-		return 1
-	return 0
+		return TRUE
+	return FALSE
 
 //must succeed in most cases
 /datum/teleport/proc/setTeleatom(atom/movable/ateleatom)
 	if(!istype(ateleatom))
-		return 0
+		return FALSE
 
-	teleatom = checkInhibitors(ateleatom)
-	if(isturf(teleatom))
-		var/turf/T = teleatom
-		var/atom/valid_atoms = list()
-		for(var/atom/movable in T)
-			valid_atoms += T
-		ateleatom = pick(valid_atoms)
+	teleatom = checkLocalInhibitors(ateleatom)
+	if(isnull(teleatom))
+		return FALSE
 
 	if(istype(ateleatom, /obj/effect) && !istype(ateleatom, /obj/effect/dummy/chameleon))
 		qdel(ateleatom)
-		return 0
+		return FALSE
 
-	return 1
+	return TRUE
 
 
 //custom effects must be properly set up first for instant-type teleports
@@ -90,34 +112,32 @@
 /datum/teleport/proc/setEffects(datum/effect/effect/system/aeffectin=null,datum/effect/effect/system/aeffectout=null)
 	effectin = istype(aeffectin) ? aeffectin : null
 	effectout = istype(aeffectout) ? aeffectout : null
-	return 1
+	return TRUE
 
 //optional
 /datum/teleport/proc/setForceTeleport(afteleport)
 		force_teleport = afteleport
-		return 1
+		return TRUE
 
 //optional
 /datum/teleport/proc/setSounds(asoundin=null,asoundout=null)
 		soundin = isfile(asoundin) ? asoundin : null
 		soundout = isfile(asoundout) ? asoundout : null
-		return 1
+		return TRUE
 
 //placeholder
 /datum/teleport/proc/teleportChecks()
-		return 1
+		return TRUE
 
 /datum/teleport/proc/playSpecials(atom/location,datum/effect_system/effect,sound)
 	if(location)
 		if(effect)
-			spawn(-1)
-				src = null
-				effect.location = location
-				effect.queue()
+			src = null
+			effect.location = location
+			effect.queue()
 		if(sound)
-			spawn(-1)
-				src = null
-				playsound(location,sound,60,1)
+			src = null
+			playsound(location,sound,60,1)
 	return
 
 //do the monkey dance
@@ -127,21 +147,29 @@
 	var/turf/curturf = get_turf(teleatom)
 	var/area/destarea = get_area(destination)
 	if(precision)
-		var/list/posturfs = circlerangeturfs(destination,precision)
-		destturf = safepick(posturfs)
+		var/list/posturfs = circle_range_turfs(destination,precision)
+		destturf = LAZYPICK(posturfs, null)
 	else
 		destturf = get_turf(destination)
 
 	if(!destturf || !curturf)
-		return 0
+		return FALSE
 
 	playSpecials(curturf,effectin,soundin)
 
-	var/obj/structure/bed/chair/C = null
+	// we don't want a teleportation loop, if we teleport to a destination that already has a portal
+	// disable it for just a moment until we get there
+	var/has_active_destination_portal = FALSE
+	var/obj/effect/portal/destination_portal = locate() in destturf
+	if(destination_portal?.does_teleport)
+		has_active_destination_portal = TRUE
+		destination_portal.does_teleport = FALSE
+
+	var/obj/structure/bed/stool/chair/C = null
 	if(isliving(teleatom))
 		var/mob/living/L = teleatom
-		if(L.buckled)
-			C = L.buckled
+		if(L.buckled_to)
+			C = L.buckled_to
 
 	if(force_teleport)
 		teleatom.forceMove(destturf)
@@ -154,8 +182,8 @@
 
 		else
 			for(var/atom/movable/A in destturf)
-				if(A != teleatom && A.density && A.anchored)
-					if(A.flags & ON_BORDER)
+				if(A != teleatom && A.density && A.anchored  && !istype(A, /obj/effect/portal))
+					if(A.atom_flags & ATOM_FLAG_CHECKS_BORDER)
 						if(prob(10))
 							impediment = A
 							break
@@ -180,7 +208,7 @@
 
 
 
-			if(istype(teleatom, /obj))
+			if(istype(teleatom, /obj) && !istype(teleatom, /obj/effect/portal))
 				valid = 1
 				var/obj/O = teleatom
 				if(newdest)
@@ -190,20 +218,6 @@
 				if(O.density)
 					boominess += 5
 				if(O.opacity)
-					boominess += 10
-
-			if(istype(teleatom, /obj/mecha))
-				valid = 1
-				var/obj/mecha/M = teleatom
-				if(newdest)
-					M.ex_act(3)
-					M.occupant.adjustHalLoss(25)
-					to_chat(M.occupant, "<span class='danger'>You feel a sharp abdominal pain inside yourself as the [teleatom] phases into \the [impediment]</span>")
-
-				boominess += max(0, M.w_class - 1)
-				if(M.density)
-					boominess += 5
-				if(M.opacity)
 					boominess += 10
 
 			if(istype(teleatom, /mob/living))
@@ -221,37 +235,13 @@
 
 							if(organs_to_gib.len)
 								var/obj/item/organ/external/E = pick(organs_to_gib)
-								to_chat(H, "<span class='danger'>You partially phase into \the [impediment], causing your [E.name] to violently dematerialize!</span>")
-								E.droplimb(0,DROPLIMB_BLUNT)
+								to_chat(H, SPAN_DANGER("You partially phase into \the [impediment], causing your [E.name] to violently dematerialize!"))
+								H.apply_damage(35, DAMAGE_BRUTE, E, 0)
 
 					else
 						if(newdest)
-							to_chat(L, "<span class='danger'>You partially phase into \the [impediment], causing a chunk of you to violently dematerialize!</span>")
+							to_chat(L, SPAN_DANGER("You partially phase into \the [impediment], causing a chunk of you to violently dematerialize!"))
 							L.adjustBruteLoss(40)
-
-					if(!newdest && L.mind)
-						var/mob/living/simple_animal/shade/bluespace/BS = new /mob/living/simple_animal/shade/bluespace(destturf)
-						to_chat(L, "<span class='danger'>You feel your spirit violently rip from your body in a flurry of violent extradimensional disarray!</span>")
-						L.mind.transfer_to(BS)
-						to_chat(BS, "<b>You are now a bluespace echo - consciousness imprinted upon wavelengths of bluespace energy. You currently retain no memories of your previous life, but do express a strong desire to return to corporeality. You will die soon, fading away forever. Good luck!</b>")
-						BS.original_body = L
-
-						var/list/turfs_to_teleport = list()
-						for(var/turf/T in orange(20, get_turf(BS)))
-							turfs_to_teleport += T
-						do_teleport(BS, pick(turfs_to_teleport))
-
-						for(var/mob/living/M in L)
-							if(M.mind)
-								var/mob/living/simple_animal/shade/bluespace/more_BS = new /mob/living/simple_animal/shade/bluespace(get_turf(M))
-								to_chat(M, "<span class='danger'>You feel your spirit violently rip from your body in a flurry of violent extradimensional disarray!</span>")
-								M.mind.transfer_to(more_BS)
-								to_chat(more_BS, "<b>You are now a bluespace echo - consciousness imprinted upon wavelengths of bluespace energy. You currently retain no memories of your previous life, but do express a strong desire to return to corporeality. You will die soon, fading away forever. Good luck!</b>")
-								more_BS.original_body = M
-
-								for(var/turf/T in orange(20, get_turf(BS)))
-									turfs_to_teleport += T
-								do_teleport(more_BS, pick(turfs_to_teleport))
 
 				else
 					newdest = destturf
@@ -281,13 +271,13 @@
 				if(!L.mind && !isvaurca(L))
 
 					if(BS.message_countdown >= 200)
-						to_chat(BS, "<span class='notice'><b>You feel relief wash over you as your harried spirit fills into \the [L] like water into a vase.</b></span>")
+						to_chat(BS, SPAN_NOTICE("<b>You feel relief wash over you as your harried spirit fills into \the [L] like water into a vase.</b>"))
 						BS.mind.transfer_to(L)
 						to_chat(L, "<b>You have been restored to a corporeal form. You retain no memories of your time as a bluespace echo, but regardless of your current form the memories of your time before being a bluespace echo are returned.</b>")
 						qdel(BS)
 
 					else
-						to_chat(BS, "<span class='warning'>You lack the strength of echoes necessary to reattain corporeality in \the [L]!</span>")
+						to_chat(BS, SPAN_WARNING("You lack the strength of echoes necessary to reattain corporeality in \the [L]!"))
 
 					break
 
@@ -299,12 +289,15 @@
 
 	destarea.Entered(teleatom)
 
-	return 1
+	if(has_active_destination_portal)
+		destination_portal.does_teleport = TRUE
+
+	return TRUE
 
 /datum/teleport/proc/teleport()
 	if(teleportChecks())
 		return doTeleport()
-	return 0
+	return FALSE
 
 /datum/teleport/instant //teleports when datum is created
 
@@ -316,51 +309,50 @@
 
 /datum/teleport/instant/science/setEffects(datum/effect/effect/system/aeffectin,datum/effect/effect/system/aeffectout)
 	if(!aeffectin || !aeffectout)
-		var/datum/effect_system/sparks/aeffect = new(null, FALSE, 5, alldirs)
+		var/datum/effect_system/sparks/aeffect = new(null, FALSE, 5, GLOB.alldirs)
 		effectin = effectin || aeffect
 		effectout = effectout || aeffect
-		return 1
+		return TRUE
 	else
 		return ..()
 
 /datum/teleport/instant/science/setPrecision(aprecision)
 	..()
-	if(istype(teleatom, /obj/item/weapon/storage/backpack/holding))
+	if(istype(teleatom, /obj/item/storage/backpack/holding))
 		precision = rand(1,100)
 
-	var/list/bagholding = teleatom.search_contents_for(/obj/item/weapon/storage/backpack/holding)
+	var/list/bagholding = teleatom.search_contents_for(/obj/item/storage/backpack/holding)
 	if(bagholding.len)
 		precision = max(rand(1,100)*bagholding.len,100)
 		if(istype(teleatom, /mob/living))
 			var/mob/living/MM = teleatom
-			MM << "<span class='danger'>The Bluespace interface on your [teleatom] interferes with the teleport!</span>"
-	return 1
+			to_chat(MM, SPAN_DANGER("The Bluespace interface on your [teleatom] interferes with the teleport!"))
+	return TRUE
 
 /datum/teleport/instant/science/teleportChecks()
-	if(istype(teleatom, /obj/item/weapon/disk/nuclear)) // Don't let nuke disks get teleported --NeoFite
-		teleatom.visible_message("<span class='danger'>\The [teleatom] bounces off of the portal!</span>")
-		return 0
-
-	
-	if(isobserver(teleatom)) // do not teleport ghosts
-		return 0
+	if(istype(teleatom, /obj/item/disk/nuclear)) // Don't let nuke disks get teleported --NeoFite
+		teleatom.visible_message(SPAN_DANGER("\The [teleatom] bounces off of the portal!"))
+		return FALSE
 
 
-	if(!isemptylist(teleatom.search_contents_for(/obj/item/weapon/disk/nuclear)))
+	if(isghost(teleatom)) // do not teleport ghosts
+		return FALSE
+
+
+	if(!isemptylist(teleatom.search_contents_for(/obj/item/disk/nuclear)))
 		if(istype(teleatom, /mob/living))
 			var/mob/living/MM = teleatom
-			MM.visible_message("<span class='danger'>\The [MM] bounces off of the portal!</span>","<span class='warning'>Something you are carrying seems to be unable to pass through the portal. Better drop it if you want to go through.</span>")
+			MM.visible_message(SPAN_DANGER("\The [MM] bounces off of the portal!"),SPAN_WARNING("Something you are carrying seems to be unable to pass through the portal. Better drop it if you want to go through."))
 		else
-			teleatom.visible_message("<span class='danger'>\The [teleatom] bounces off of the portal!</span>")
-		return 0
+			teleatom.visible_message(SPAN_DANGER("\The [teleatom] bounces off of the portal!"))
+		return FALSE
 
-	if(destination.z in current_map.admin_levels) //centcomm z-level
-
-		if(!isemptylist(teleatom.search_contents_for(/obj/item/weapon/storage/backpack/holding)))
-			teleatom.visible_message("<span class='danger'>\The [teleatom] bounces off of the portal!</span>")
-			return 0
+	if(isAdminLevel(destination.z)) //centcomm z-level
+		if(!isemptylist(teleatom.search_contents_for(/obj/item/storage/backpack/holding)))
+			teleatom.visible_message(SPAN_DANGER("\The [teleatom] bounces off of the portal!"))
+			return FALSE
 
 
 	if(destination.z > max_default_z_level()) //Away mission z-levels
-		return 0
-	return 1
+		return FALSE
+	return TRUE

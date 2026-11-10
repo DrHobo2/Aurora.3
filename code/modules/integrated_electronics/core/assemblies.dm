@@ -1,65 +1,72 @@
-#define IC_COMPONENTS_BASE 20
-#define IC_COMPLEXITY_BASE 60
+/*
+ * core/assemblies.dm
+ * Base electronic assembly behavior: circuit storage, open/closed handling, interaction, icon updates, cloning hooks, and wiring rules.
+ */
 
-/obj/item/device/electronic_assembly
-	name = "electronic assembly"
-	desc = "It's a case, for building small electronics with."
-	w_class = ITEMSIZE_SMALL
-	icon = 'icons/obj/electronic_assemblies.dmi'
+/obj/item/electronic_assembly
+	name = "small circuit case"
+	desc = "A case for building small electronic assemblies."
+	w_class = WEIGHT_CLASS_SMALL
+	icon = 'icons/obj/assemblies/electronic_setups.dmi'
 	icon_state = "setup_small"
+	item_flags = ITEM_FLAG_NO_BLUDGEON
+	light_system = MOVABLE_LIGHT
+	recyclable = FALSE
+	charge_failure_message = " is missing a powercell."
+
 	var/max_components = IC_COMPONENTS_BASE
 	var/max_complexity = IC_COMPLEXITY_BASE
+	var/max_components_device = 16
+	var/max_complexity_device = 42
+	var/max_components_implant = 16
+	var/max_complexity_implant = 42
+	// Whether the assembly panel is open for direct circuit access.
 	var/opened = 0
-	var/obj/item/weapon/cell/device/battery // Internal cell which most circuits need to work.
+	var/can_anchor = FALSE // If true, wrenching it will anchor it.
+	// Power cell or battery object feeding the assembly.
+	var/obj/item/cell/battery // Internal cell which most circuits need to work.
+	// User-selected detail color used for assembly and wearable overlays.
+	var/detail_color = COLOR_ASSEMBLY_BLACK
+	var/obj/item/card/id/access_card
 
-/obj/item/device/electronic_assembly/medium
-	name = "electronic mechanism"
-	icon_state = "setup_medium"
-	desc = "It's a case, for building medium-sized electronics with."
-	w_class = ITEMSIZE_NORMAL
-	max_components = IC_COMPONENTS_BASE * 2
-	max_complexity = IC_COMPLEXITY_BASE * 2
-
-/obj/item/device/electronic_assembly/large
-	name = "electronic machine"
-	icon_state = "setup_large"
-	desc = "It's a case, for building large electronics with."
-	w_class = ITEMSIZE_LARGE
-	max_components = IC_COMPONENTS_BASE * 4
-	max_complexity = IC_COMPLEXITY_BASE * 4
-
-/obj/item/device/electronic_assembly/drone
-	name = "electronic drone"
-	icon_state = "setup_drone"
-	desc = "It's a case, for building mobile electronics with."
-	w_class = ITEMSIZE_NORMAL
-	max_components = IC_COMPONENTS_BASE * 1.5
-	max_complexity = IC_COMPLEXITY_BASE * 1.5
-
-/obj/item/device/electronic_assembly/implant
+/obj/item/electronic_assembly/implant
 	name = "electronic implant"
 	icon_state = "setup_implant"
-	desc = "It's a case, for building very tiny electronics with."
-	w_class = ITEMSIZE_TINY
-	max_components = IC_COMPONENTS_BASE / 2
-	max_complexity = IC_COMPLEXITY_BASE / 2
-	var/obj/item/weapon/implant/integrated_circuit/implant = null
+	desc = "A case for building very small electronic assemblies."
+	w_class = WEIGHT_CLASS_TINY
+	max_components = /obj/item/electronic_assembly::max_components_implant
+	max_complexity = /obj/item/electronic_assembly::max_complexity_implant
+	var/obj/item/implant/integrated_circuit/implant = null
 
-/obj/item/device/electronic_assembly/Initialize(mapload, printed = FALSE)
-	..()
+/obj/item/electronic_assembly/Initialize(mapload, printed = FALSE)
+	. = ..()
 	if (!printed)
-		battery = new(src)
+		battery = new /obj/item/cell/device(src)
+	else
+		battery = new /obj/item/cell/device/empty(src)
 	START_PROCESSING(SSelectronics, src)
+	access_card = new /obj/item/card/id(src)
+	if (!matter) //Matter amounts might be set during the cloning process.
+		matter =  list(MATERIAL_STEEL = (round((max_complexity + max_components) / 4)) * 200)
 
-/obj/item/device/electronic_assembly/Destroy()
+/obj/item/electronic_assembly/Destroy()
 	QDEL_NULL(battery)
 	STOP_PROCESSING(SSelectronics, src)
+	QDEL_NULL(access_card)
 	return ..()
 
-/obj/item/device/electronic_assembly/process()
+/obj/item/electronic_assembly/Collide(atom/AM)
+	var/collw = AM
+	.=..()
+	if((istype(collw, /obj/structure/machinery/door/airlock) ||  istype(collw, /obj/structure/machinery/door/window)) && (!isnull(access_card)))
+		var/obj/structure/machinery/door/D = collw
+		if(D.check_access(access_card))
+			D.open()
+
+/obj/item/electronic_assembly/process()
 	handle_idle_power()
 
-/obj/item/device/electronic_assembly/proc/handle_idle_power()
+/obj/item/electronic_assembly/proc/handle_idle_power()
 	// First we generate power.
 	for(var/obj/item/integrated_circuit/passive/power/P in contents)
 		P.make_energy()
@@ -69,25 +76,25 @@
 		if(IC.power_draw_idle && !draw_power(IC.power_draw_idle))
 			IC.power_fail()
 
-/obj/item/device/electronic_assembly/implant/update_icon()
+/obj/item/electronic_assembly/implant/update_icon()
 	..()
 	implant.icon_state = icon_state
 
-/obj/item/device/electronic_assembly/implant/ui_host()
+/obj/item/electronic_assembly/implant/ui_host()
 	return implant
 
-/obj/item/device/electronic_assembly/proc/resolve_ui_host()
+/obj/item/electronic_assembly/proc/resolve_ui_host()
 	return src
 
-/obj/item/device/electronic_assembly/implant/resolve_ui_host()
+/obj/item/electronic_assembly/implant/resolve_ui_host()
 	return implant
 
-/obj/item/device/electronic_assembly/proc/check_interactivity(mob/user)
-	if(!CanInteract(user, physical_state))
+/obj/item/electronic_assembly/proc/check_interactivity(mob/user)
+	if(!CanInteract(user, GLOB.physical_state))
 		return 0
 	return 1
 
-/obj/item/device/electronic_assembly/interact(mob/user)
+/obj/item/electronic_assembly/interact(mob/user)
 	if(!check_interactivity(user))
 		return
 
@@ -97,15 +104,21 @@
 		total_parts += part.size
 		total_complexity = total_complexity + part.complexity
 	var/list/HTML = list()
-
-	HTML += "<br><a href='?src=\ref[src]'>Refresh</a>  |  "
-	HTML += "<a href='?src=\ref[src];rename=1'>Rename</a><br>"
-	HTML += "[total_parts]/[max_components] ([round((total_parts / max_components) * 100, 0.1)]%) space taken up in the assembly.<br>"
-	HTML += "[total_complexity]/[max_complexity] ([round((total_complexity / max_complexity) * 100, 0.1)]%) maximum complexity.<br>"
-	if(battery)
-		HTML += "[round(battery.charge, 0.1)]/[battery.maxcharge] ([round(battery.percent(), 0.1)]%) cell charge. <a href='?src=\ref[src];remove_cell=1'>Remove</a>"
+	var/effective_component_limit = get_effective_component_limit(total_complexity)
+	var/effective_complexity_limit = get_effective_complexity_limit(total_parts)
+	if (!total_parts && !total_complexity)
+		recyclable = TRUE
 	else
-		HTML += "<span class='danger'>No powercell detected!</span>"
+		recyclable = FALSE
+
+	HTML += "<br><a href='byond://?src=[REF(src)]'>Refresh</a>  |  "
+	HTML += "<a href='byond://?src=[REF(src)];rename=1'>Rename</a><br>"
+	HTML += "[total_parts]/[max_components] space taken up in the assembly[effective_component_limit > max_components ? " ([effective_component_limit] with headroom)" : ""].<br>"
+	HTML += "[total_complexity]/[max_complexity] maximum complexity[effective_complexity_limit > max_complexity ? " ([effective_complexity_limit] with headroom)" : ""].<br>"
+	if(battery)
+		HTML += "[round(battery.charge, 0.1)]/[battery.maxcharge] ([round(battery.percent(), 0.1)]%) cell charge. <a href='byond://?src=[REF(src)];remove_cell=1'>Remove</a>"
+	else
+		HTML += SPAN_DANGER("No powercell detected!")
 	HTML += "<br><br>"
 	HTML += "Components:<hr>"
 	HTML += "Built in:<br>"
@@ -114,10 +127,10 @@
 //Put removable circuits in separate categories from non-removable
 	for(var/obj/item/integrated_circuit/circuit in contents)
 		if(!circuit.removable)
-			HTML += "<a href=?src=\ref[circuit];examine=1;from_assembly=1>[circuit.displayed_name]</a> | "
-			HTML += "<a href=?src=\ref[circuit];rename=1;from_assembly=1>Rename</a> | "
-			HTML += "<a href=?src=\ref[circuit];scan=1;from_assembly=1>Scan with Debugger</a> | "
-			HTML += "<a href=?src=\ref[circuit];bottom=\ref[circuit];from_assembly=1>Move to Bottom</a>"
+			HTML += "<a href='byond://?src=[REF(circuit)];examine=1;from_assembly=1'>'[circuit.displayed_name]</a> | "
+			HTML += "<a href='byond://?src=[REF(circuit)];rename=1;from_assembly=1'>Rename</a> | "
+			HTML += "<a href='byond://?src=[REF(circuit)];scan=1;from_assembly=1'>Scan with Debugger</a> | "
+			HTML += "<a href='byond://?src=[REF(circuit)];bottom=[REF(circuit)];from_assembly=1'>Move to Bottom</a>"
 			HTML += "<br>"
 
 	HTML += "<hr>"
@@ -125,22 +138,22 @@
 
 	for(var/obj/item/integrated_circuit/circuit in contents)
 		if(circuit.removable)
-			HTML += "<a href=?src=\ref[circuit];examine=1;from_assembly=1>[circuit.displayed_name]</a> | "
-			HTML += "<a href=?src=\ref[circuit];rename=1;from_assembly=1>Rename</a> | "
-			HTML += "<a href=?src=\ref[circuit];scan=1;from_assembly=1>Scan with Debugger</a> | "
-			HTML += "<a href=?src=\ref[circuit];remove=1;from_assembly=1>Remove</a> | "
-			HTML += "<a href=?src=\ref[circuit];bottom=\ref[circuit];from_assembly=1>Move to Bottom</a>"
+			HTML += "<a href='byond://?src=[REF(circuit)];examine=1;from_assembly=1'>[circuit.displayed_name]</a> | "
+			HTML += "<a href='byond://?src=[REF(circuit)];rename=1;from_assembly=1'>Rename</a> | "
+			HTML += "<a href='byond://?src=[REF(circuit)];scan=1;from_assembly=1'>Scan with Debugger</a> | "
+			HTML += "<a href='byond://?src=[REF(circuit)];remove=1;from_assembly=1'>Remove</a> | "
+			HTML += "<a href='byond://?src=[REF(circuit)];bottom=[REF(circuit)];from_assembly=1'>Move to Bottom</a>"
 			HTML += "<br>"
 
-	var/datum/browser/B = new(user, "assembly-\ref[src]", name, 600, 400)
+	var/datum/browser/B = new(user, "assembly-[REF(src)]", name, 600, 400)
 	B.set_content(HTML.Join())
 	B.open(FALSE)
 
-/obj/item/device/electronic_assembly/Topic(href, href_list[])
+/obj/item/electronic_assembly/Topic(href, href_list[])
 	if(..())
 		return 1
 	if(!opened)
-		to_chat(usr, "<span class='warning'>\The [src] is not open!</span>")
+		to_chat(usr, SPAN_WARNING("\The [src] is not open!"))
 		return
 
 	if(href_list["rename"])
@@ -148,155 +161,198 @@
 
 	if(href_list["remove_cell"])
 		if(!battery)
-			to_chat(usr, "<span class='warning'>There's no power cell to remove from \the [src].</span>")
+			to_chat(usr, SPAN_WARNING("There's no power cell to remove from \the [src]."))
 		else
 			var/turf/T = get_turf(src)
 			battery.forceMove(T)
-			playsound(T, 'sound/items/Crowbar.ogg', 50, 1)
-			to_chat(usr, "<span class='notice'>You pull \the [battery] out of \the [src]'s power supply.</span>")
+			playsound(T, 'sound/items/crowbar_pry.ogg', 50, 1)
+			to_chat(usr, SPAN_NOTICE("You pull \the [battery] out of \the [src]'s power supply."))
 			battery = null
 
 	interact(usr) // To refresh the UI.
 
-/obj/item/device/electronic_assembly/verb/rename()
+/obj/item/electronic_assembly/verb/rename()
 	set name = "Rename Circuit"
 	set category = "Object"
-	set desc = "Rename your circuit, useful to stay organized."
+	set desc = "Renames the circuit to make assemblies easier to organize."
+	set src in usr
 
 	var/mob/M = usr
 	if(!check_interactivity(M))
-		return
+		return null
 
 	var/input = sanitizeSafe(input("What do you want to name this?", "Rename", src.name) as null|text, MAX_NAME_LEN)
 	if(src && input)
-		to_chat(M, "<span class='notice'>The machine now has a label reading '[input]'.</span>")
+		to_chat(M, SPAN_NOTICE("The machine now has a label reading '[input]'."))
 		name = input
+		return input
+	return null
 
-/obj/item/device/electronic_assembly/proc/can_move()
+/obj/item/electronic_assembly/proc/can_move()
 	return FALSE
 
-/obj/item/device/electronic_assembly/drone/can_move()
-	return TRUE
-
-/obj/item/device/electronic_assembly/update_icon()
+/obj/item/electronic_assembly/update_icon()
 	if(opened)
 		icon_state = "[initial(icon_state)]-open"
 	else
 		icon_state = initial(icon_state)
+	ClearOverlays()
+	if(detail_color == COLOR_ASSEMBLY_BLACK) //Black colored overlay looks almost but not exactly like the base sprite, so just cut the overlay and avoid it looking kinda off.
+		return
+	var/image/detail_overlay = image('icons/obj/assemblies/electronic_setups.dmi', "[icon_state]-color")
+	detail_overlay.color = detail_color
+	AddOverlays(detail_overlay)
 
-/obj/item/device/electronic_assembly/GetAccess()
+/obj/item/electronic_assembly/GetAccess()
 	. = list()
 	for(var/obj/item/integrated_circuit/part in contents)
 		. |= part.GetAccess()
 
-/obj/item/device/electronic_assembly/examine(mob/user)
-	. = ..(user, 1)
-	if(.)
-		for(var/obj/item/integrated_circuit/IC in contents)
-			IC.external_examine(user)
-		if(opened)
-			interact(user)
+/obj/item/electronic_assembly/feedback_hints(mob/user, distance, is_adjacent)
+	. = ..()
+	for(var/obj/item/integrated_circuit/IC in contents)
+		var/examined = IC.external_examine()
+		if(length(examined))
+			. += examined
+		if(is_adjacent && opened)
+			. += SPAN_NOTICE("It contains \a [IC].")
 
-/obj/item/device/electronic_assembly/proc/get_part_complexity()
+/obj/item/electronic_assembly/proc/get_part_complexity()
 	. = 0
 	for(var/obj/item/integrated_circuit/part in contents)
 		. += part.complexity
 
-/obj/item/device/electronic_assembly/proc/get_part_size()
+/obj/item/electronic_assembly/proc/get_part_size()
 	. = 0
 	for(var/obj/item/integrated_circuit/part in contents)
 		. += part.size
 
+/obj/item/electronic_assembly/proc/get_effective_complexity_limit(total_part_size)
+	var/remaining_size = max(0, max_components - total_part_size)
+	var/overflow_limit = round(max_complexity * IC_OVERFLOW_LIMIT)
+	return max_complexity + min(remaining_size * IC_OVERFLOW_COMPONENT_TO_COMPLEXITY, overflow_limit)
+
+/obj/item/electronic_assembly/proc/get_effective_component_limit(total_complexity)
+	var/remaining_complexity = max(0, max_complexity - total_complexity)
+	var/overflow_limit = round(max_components * IC_OVERFLOW_LIMIT)
+	return max_components + min(round(remaining_complexity / IC_OVERFLOW_COMPLEXITY_TO_COMPONENT), overflow_limit)
+
 // Returns true if the circuit made it inside.
-/obj/item/device/electronic_assembly/proc/add_circuit(obj/item/integrated_circuit/IC, mob/user)
+/obj/item/electronic_assembly/proc/add_circuit(obj/item/integrated_circuit/IC, mob/user)
 	if(!opened)
-		to_chat(user, "<span class='warning'>\The [src] isn't opened, so you can't put anything inside.  Try using a crowbar.</span>")
+		to_chat(user, SPAN_WARNING("\The [src] isn't opened, so you can't put anything inside.  Try using a crowbar."))
 		return FALSE
 
 	if(IC.w_class > w_class)
-		to_chat(user, "<span class='warning'>\The [IC] is way too big to fit into \the [src].</span>")
+		to_chat(user, SPAN_WARNING("\The [IC] is way too big to fit into \the [src]."))
 		return FALSE
 
 	var/total_part_size = get_part_size()
 	var/total_complexity = get_part_complexity()
+	var/new_part_size = total_part_size + IC.size
+	var/new_complexity = total_complexity + IC.complexity
 
-	if((total_part_size + IC.size) > max_components)
-		to_chat(user, "<span class='warning'>You can't seem to add the '[IC.name]', as there's insufficient space.</span>")
+	if(new_part_size > get_effective_component_limit(new_complexity))
+		to_chat(user, SPAN_WARNING("You can't seem to add the '[IC.name]', as there's insufficient space."))
 		return FALSE
-	if((total_complexity + IC.complexity) > max_complexity)
-		to_chat(user, "<span class='warning'>You can't seem to add the '[IC.name]', since this setup's too complicated for the case.</span>")
+	if(new_complexity > get_effective_complexity_limit(new_part_size))
+		to_chat(user, SPAN_WARNING("You can't seem to add the '[IC.name]', since this setup's too complicated for the case."))
+		return FALSE
+
+	if(!user.unEquip(IC))
 		return FALSE
 
 	if(!IC.forceMove(src))
 		return FALSE
 
 	IC.assembly = src
-
+	recyclable = FALSE
 	return TRUE
 
-/obj/item/device/electronic_assembly/afterattack(atom/target, mob/user, proximity)
-	if(proximity)
-		var/scanned = FALSE
-		for(var/obj/item/integrated_circuit/input/sensor/S in contents)
-			if(S.scan(target))
-				scanned = TRUE
-		if(scanned)
-			visible_message("<span class='notice'>\The [user] waves \the [src] around [target].</span>")
+// Non-interactive version of above that always succeeds, intended for build-in circuits that get added on assembly initialization.
+/obj/item/electronic_assembly/proc/force_add_circuit(var/obj/item/integrated_circuit/IC)
+	IC.forceMove(src)
+	IC.assembly = src
 
-/obj/item/device/electronic_assembly/attackby(obj/item/I, mob/user)
-	if(istype(I, /obj/item/integrated_circuit))
-		if(!user.unEquip(I))
-			return FALSE
+/obj/item/electronic_assembly/afterattack(atom/target, mob/user, proximity)
+	for(var/obj/item/integrated_circuit/input/sensor/S in contents)
+		S.sense(target, user)
 
-		if(add_circuit(I, user))
-			to_chat(user, "<span class='notice'>You slide \the [I] inside \the [src].</span>")
+/obj/item/electronic_assembly/attackby(obj/item/attacking_item, mob/user)
+	if(istype(attacking_item, /obj/item/integrated_circuit))
+		if(add_circuit(attacking_item, user))
+			to_chat(user, SPAN_NOTICE("You slide \the [attacking_item] inside \the [src]."))
 			playsound(get_turf(src), 'sound/items/Deconstruct.ogg', 50, 1)
 			interact(user)
 			return TRUE
 
-	else if(istype(I, /obj/item/weapon/crowbar))
-		playsound(get_turf(src), 'sound/items/Crowbar.ogg', 50, 1)
+	else if(attacking_item.tool_behaviour == TOOL_WRENCH && can_anchor)
+		attacking_item.play_tool_sound(get_turf(src), 50)
+		anchored = !anchored
+		if(anchored)
+			on_anchored()
+		else
+			on_unanchored()
+		user.visible_message("[user] has wrenched [src]'s anchoring bolts [anchored ? "into" : "out of"] place.", "You wrench [src]'s anchoring bolts [anchored ? "into" : "out of"] place.", "You hear the sound of a ratcheting wrench turning.")
+		return TRUE
+
+	else if(attacking_item.tool_behaviour == TOOL_CROWBAR)
+		attacking_item.play_tool_sound(get_turf(src), 50)
 		opened = !opened
-		to_chat(user, "<span class='notice'>You [opened ? "open" : "close"] \the [src].</span>")
+		to_chat(user, SPAN_NOTICE("You [opened ? "open" : "close"] \the [src]."))
 		update_icon()
 		return TRUE
 
-	else if(istype(I, /obj/item/device/integrated_electronics/wirer) || istype(I, /obj/item/device/integrated_electronics/debugger) || istype(I, /obj/item/weapon/screwdriver))
+	else if(istype(attacking_item, /obj/item/integrated_electronics/wirer) || istype(attacking_item, /obj/item/integrated_electronics/debugger) || attacking_item.tool_behaviour == TOOL_MULTITOOL || attacking_item.tool_behaviour == TOOL_SCREWDRIVER)
 		if(opened)
 			interact(user)
 		else
-			to_chat(user, "<span class='warning'>\The [src] isn't open, so you can't fiddle with the internal components.  \
-			Try using a crowbar.</span>")
+			to_chat(user, SPAN_WARNING("\The [src] isn't open, so you can't fiddle with the internal components.  \
+			Try using a crowbar."))
 
-	else if(istype(I, /obj/item/weapon/cell/device))
+		return TRUE
+
+	else if(istype(attacking_item, /obj/item/cell))
 		if(!opened)
-			to_chat(user, "<span class='warning'>\The [src] isn't open, so you can't put anything inside.  Try using a crowbar.</span>")
+			to_chat(user, SPAN_WARNING("\The [src] isn't open, so you can't put anything inside.  Try using a crowbar."))
+			for(var/obj/item/integrated_circuit/input/S in contents)
+				S.attackby_react(attacking_item,user,user.a_intent)
 			return FALSE
 
 		if(battery)
-			to_chat(user, "<span class='warning'>\The [src] already has \a [battery] inside.  Remove it first if you want to replace it.</span>")
+			to_chat(user, SPAN_WARNING("\The [src] already has \a [battery] inside.  Remove it first if you want to replace it."))
+			for(var/obj/item/integrated_circuit/input/S in contents)
+				S.attackby_react(attacking_item,user,user.a_intent)
 			return FALSE
 
-		var/obj/item/weapon/cell/device/cell = I
+		var/obj/item/cell/cell = attacking_item
 		user.drop_from_inventory(cell,src)
 		battery = cell
 		playsound(get_turf(src), 'sound/items/Deconstruct.ogg', 50, 1)
-		to_chat(user, "<span class='notice'>You slot \the [cell] inside \the [src]'s power supply.</span>")
+		to_chat(user, SPAN_NOTICE("You slot \the [cell] inside \the [src]'s power supply."))
 		interact(user)
 		return TRUE
+	else if(istype(attacking_item, /obj/item/integrated_electronics/detailer))
+		var/obj/item/integrated_electronics/detailer/D = attacking_item
+		detail_color = D.detail_color
+		update_icon()
+		return TRUE
 
-	else //Attempt to insert the item into any contained insert_slots
-		for(var/obj/item/integrated_circuit/insert_slot/S in contents)
-			if(S.insert(I, user))
+	else
+		for(var/obj/item/integrated_circuit/insert_slot/S in contents)  //Attempt to insert the item into any contained insert_slots
+			if(S.insert(attacking_item, user))
 				return TRUE
-
+		for(var/obj/item/integrated_circuit/input/S in contents) // Attempt to swipe on scanners
+			if(S.attackby_react(attacking_item,user,user.a_intent))
+				return TRUE
 		return ..()
 
-/obj/item/device/electronic_assembly/attack_self(mob/user)
+/obj/item/electronic_assembly/attack_self(mob/user)
 	if(!check_interactivity(user))
 		return
 	if(opened)
 		interact(user)
+		return
 
 	var/list/input_selection = list()
 	var/list/available_inputs = list()
@@ -314,7 +370,7 @@
 
 	var/obj/item/integrated_circuit/input/choice
 	if(available_inputs)
-		var/selection = input(user, "What do you want to interact with?", "Interaction") as null|anything in input_selection
+		var/selection = tgui_input_list(user, "What do you want to interact with?", "Interaction", input_selection)
 		if(selection)
 			var/index = input_selection.Find(selection)
 			choice = available_inputs[index]
@@ -322,19 +378,33 @@
 	if(choice)
 		choice.ask_for_input(user)
 
-/obj/item/device/electronic_assembly/emp_act(severity)
-	..()
+/obj/item/electronic_assembly/emp_act(severity)
+	. = ..()
+
 	for(var/atom/movable/AM in contents)
 		AM.emp_act(severity)
 
+/obj/item/electronic_assembly/get_cell()
+	if(battery)
+		return battery
+	return DEVICE_NO_CELL
+
 // Returns true if power was successfully drawn.
-/obj/item/device/electronic_assembly/proc/draw_power(amount)
+/obj/item/electronic_assembly/proc/draw_power(amount)
 	if(battery && battery.checked_use(amount * CELLRATE))
 		return TRUE
 	return FALSE
 
 // Ditto for giving.
-/obj/item/device/electronic_assembly/proc/give_power(amount)
+/obj/item/electronic_assembly/proc/give_power(amount)
 	if(battery && battery.give(amount * CELLRATE))
 		return TRUE
 	return FALSE
+
+/obj/item/electronic_assembly/proc/on_anchored()
+	for(var/obj/item/integrated_circuit/IC in contents)
+		IC.on_anchored()
+
+/obj/item/electronic_assembly/proc/on_unanchored()
+	for(var/obj/item/integrated_circuit/IC in contents)
+		IC.on_unanchored()

@@ -2,50 +2,91 @@
 // charge from 0 to 100%
 // fits in APC to provide backup power
 
-/obj/item/weapon/cell/Initialize()
+/obj/item/cell/antagonist_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	. += "Injecting 5 units of phoron into a power cell with a syringe will rig it to explode!"
+	. += "The higher the charge in the cell, the bigger and more damaging the explosion will be."
+	. += "When rigged, the cell will explode immediately whenever it is next charged or discharged."
+
+/obj/item/cell/feedback_hints(mob/user, distance, is_adjacent)
+	if(distance > 1)
+		return
+	. = list()
+	. += ..()
+	. += "The manufacturer's label states this cell has a power rating of [maxcharge]J, and that you should not swallow it."
+	. += "The charge meter reads [round(src.percent() )]%."
+
+/obj/item/cell/Initialize()
 	. = ..()
+
 	charge = maxcharge
+
+	if(self_charge_percentage && charge < maxcharge)
+		START_PROCESSING(SSprocessing, src)
+
 	update_icon()
 
-/obj/item/weapon/cell/Created()
+/obj/item/cell/Destroy()
+	STOP_PROCESSING(SSprocessing, src)
+	return ..()
+
+/obj/item/cell/process(seconds_per_tick)
+	if(self_charge_percentage)
+		// we wanna recharge [self_charge_percentage% of the max charge] amount every 60 seconds
+		var/recharge_amount_per_minute = (maxcharge / 100) * self_charge_percentage
+		// since process fires every ~2 seconds, we wanna get the recharge amount per second
+		var/recharge_amount_per_second = recharge_amount_per_minute / 60
+		// multiply the amount per second with how many seconds this tick took, then round it to prevent float errors
+		var/recharge_for_this_process = round(recharge_amount_per_second * (seconds_per_tick / 10)) // divides seconds_per_tick by 10 to turn deciseconds into seconds
+		// finally, charge the cell
+		give(recharge_for_this_process)
+	else
+		return PROCESS_KILL //Cells that don't self charge don't need to process.
+	if (charge >= maxcharge)
+		return PROCESS_KILL // No need to constantly process self-charging cells that are full.
+
+/obj/item/cell/Created()
 	//Newly built cells spawn with no charge to prevent power exploits
 	charge = 0
 	update_icon()
 
-/obj/item/weapon/cell/drain_power(var/drain_check, var/surge, var/power = 0)
+/obj/item/cell/get_cell()
+	return src
 
+/obj/item/cell/drain_power(var/drain_check, var/surge, var/power = 0)
 	if(drain_check)
 		return 1
 
 	if(charge <= 0)
 		return 0
-
 	var/cell_amt = power * CELLRATE
 
 	return use(cell_amt) / CELLRATE
 
-/obj/item/weapon/cell/update_icon()
-	cut_overlays()
+/obj/item/cell/update_icon()
+	ClearOverlays()
+	switch(percent())
+		if(95 to 100)
+			AddOverlays("cell-o2")
+		if(25 to 94)
+			AddOverlays("cell-o1")
+		if(0.05 to 25)
+			AddOverlays("cell-o0")
+		if(0 to 0.05)
+			return
 
-	if(charge < 0.01)
-		return
-	else if(charge/maxcharge >=0.995)
-		add_overlay("cell-o2")
-	else
-		add_overlay("cell-o1")
+/obj/item/cell/proc/percent()		// return % charge of cell
+	return maxcharge && (100.0*charge/maxcharge)
 
-/obj/item/weapon/cell/proc/percent()		// return % charge of cell
-	return 100.0*charge/maxcharge
-
-/obj/item/weapon/cell/proc/fully_charged()
+/obj/item/cell/proc/fully_charged()
 	return (charge == maxcharge)
 
 // checks if the power cell is able to provide the specified amount of charge
-/obj/item/weapon/cell/proc/check_charge(var/amount)
+/obj/item/cell/proc/check_charge(var/amount)
 	return (charge >= amount)
 
 // use power from a cell, returns the amount actually used
-/obj/item/weapon/cell/proc/use(var/amount)
+/obj/item/cell/use(var/amount)
 	if (QDELING(src))
 		return 0
 
@@ -54,18 +95,19 @@
 		return 0
 	var/used = min(charge, amount)
 	charge -= used
+	SEND_SIGNAL(src, COMSIG_CELL_CHARGE, charge)
+	if (used > 0 && self_charge_percentage && charge < maxcharge)
+		START_PROCESSING(SSprocessing, src) // Always attempt at least one process if the battery level is ever reduced.
 	return used
 
 // Checks if the specified amount can be provided. If it can, it removes the amount
-// from the cell and returns 1. Otherwise does nothing and returns 0.
-/obj/item/weapon/cell/proc/checked_use(var/amount)
-	if(!check_charge(amount))
-		return 0
+// from the cell and returns 1. Otherwise drains the charge to exactly 0 and returns 0.
+/obj/item/cell/proc/checked_use(var/amount)
+	. = check_charge(amount)
 	use(amount)
-	return 1
 
 // recharge the cell
-/obj/item/weapon/cell/proc/give(var/amount)
+/obj/item/cell/proc/give(var/amount)
 	if (QDELING(src))
 		return 0
 
@@ -73,48 +115,54 @@
 		explode()
 		return 0
 
-	if(maxcharge < amount)	return 0
 	var/amount_used = min(maxcharge-charge,amount)
 	charge += amount_used
+	SEND_SIGNAL(src, COMSIG_CELL_CHARGE, charge)
 	return amount_used
 
+/obj/item/cell/attackby(obj/item/attacking_item, mob/user)
+	if(istype(attacking_item, /obj/item/reagent_containers/syringe))
+		var/obj/item/reagent_containers/syringe/S = attacking_item
 
-/obj/item/weapon/cell/examine(mob/user)
-	if(get_dist(src, user) > 1)
-		return
+		to_chat(user, "You inject the solution into the power cell.")
 
-	if(maxcharge <= 2500)
-		user << "[desc]\nThe manufacturer's label states this cell has a power rating of [maxcharge], and that you should not swallow it.\nThe charge meter reads [round(src.percent() )]%."
-	else
-		user << "This power cell has an exciting chrome finish, as it is an uber-capacity cell type! It has a power rating of [maxcharge]!\nThe charge meter reads [round(src.percent() )]%."
-
-/obj/item/weapon/cell/attackby(obj/item/W, mob/user)
-	..()
-	if(istype(W, /obj/item/weapon/reagent_containers/syringe))
-		var/obj/item/weapon/reagent_containers/syringe/S = W
-
-		user << "You inject the solution into the power cell."
-
-		if(S.reagents.has_reagent("phoron", 5))
+		if(S.reagents.has_reagent(/singleton/reagent/toxin/phoron, 5))
 
 			rigged = 1
 
-			log_admin("LOG: [user.name] ([user.ckey]) injected a power cell with phoron, rigging it to explode.",ckey=key_name(user))
+			log_admin("LOG: [user.name] ([user.ckey]) injected a power cell with phoron, rigging it to explode.")
 			message_admins("[key_name_admin(user)] injected a power cell with phoron, rigging it to explode.")
 
 		S.reagents.clear_reagents()
-	else if(istype(W, /obj/item/device/assembly_holder))
-		var/obj/item/device/assembly_holder/assembly = W
-		if (istype(assembly.a_left, /obj/item/device/assembly/signaler) && istype(assembly.a_right, /obj/item/device/assembly/signaler))
+		return
+	else if(istype(attacking_item, /obj/item/assembly_holder))
+		var/obj/item/assembly_holder/assembly = attacking_item
+		if (istype(assembly.a_left, /obj/item/assembly/signaler) && istype(assembly.a_right, /obj/item/assembly/signaler))
 			//TODO: Look into this bad code
 			user.drop_item()
 			user.drop_from_inventory(src)
 
-			new /obj/item/device/radiojammer/improvised(assembly, src, user)
+			new /obj/item/radiojammer/improvised(assembly, src, user)
 		else
-			user << "<span class='notice'>You'd need both devices to be signallers for this to work.</span>"
+			to_chat(user, SPAN_NOTICE("You'd need both devices to be signallers for this to work."))
+		return
+	else if(attacking_item.tool_behaviour == TOOL_MULTITOOL && ishuman(user) && user.get_inactive_hand() == src)
+		if(charge < 10)
+			to_chat(user, SPAN_WARNING("\The [src] doesn't have enough charge to produce sufficient current!"))
+			return
+		var/mob/living/carbon/human/H = user
+		var/siemens_coeff = 1
+		if(H.gloves)
+			siemens_coeff = H.gloves.siemens_coefficient
+		if(siemens_coeff >= 0.75 && prob(10 * siemens_coeff))
+			to_chat(H, SPAN_WARNING("You probe \the [src] with \the [attacking_item] and feel a jolt of electricity shoot through you! It reads out that [100 * siemens_coeff]% of the current was let through."))
+			H.electrocute_act(5, src, siemens_coeff, H.hand ? BP_R_HAND : BP_L_HAND) // hand holding the battery gets shocked
+		else
+			to_chat(H, SPAN_NOTICE("You probe \the [src] with \the [attacking_item]. It reads out that [100 * siemens_coeff]% of the current was let through."))
+		return
+	return ..()
 
-/obj/item/weapon/cell/proc/explode()
+/obj/item/cell/proc/explode()
 	var/turf/T = get_turf(src.loc)
 /*
  * 1000-cell	explosion(T, -1, 0, 1, 1)
@@ -137,28 +185,51 @@
 	log_admin("LOG: Rigged power cell explosion, last touched by [fingerprintslast]")
 	message_admins("LOG: Rigged power cell explosion, last touched by [fingerprintslast]")
 
-	explosion(T, devastation_range, heavy_impact_range, light_impact_range, flash_range)
+	explosion(T, devastation_range, heavy_impact_range, light_impact_range, flash_range, spreading = TRUE)
 
 	qdel(src)
 
-/obj/item/weapon/cell/proc/corrupt()
+/obj/item/cell/proc/corrupt()
 	charge /= 2
 	maxcharge /= 2
 	if (prob(10))
 		rigged = 1 //broken batterys are dangerous
 
-/obj/item/weapon/cell/emp_act(severity)
+///A cell loses a random amount of charge, up to it's maxcharge, when it takes a heavy EMP, up to half it's maxcharge if hit by a light EMP.
+/obj/item/cell/emp_act(severity)
+	. = ..()
+
 	//remove this once emp changes on dev are merged in
 	if(isrobot(loc))
 		var/mob/living/silicon/robot/R = loc
 		severity *= R.cell_emp_mult
-
-	charge -= maxcharge / severity
+	if(severity)
+		var/used = rand(0, (maxcharge / severity))
+		use(used)
 	if (charge < 0)
 		charge = 0
-	..()
+	SEND_SIGNAL(src, COMSIG_CELL_CHARGE, charge)
 
-/obj/item/weapon/cell/ex_act(severity)
+/**
+ * Drains a percentage of the power from the battery
+ *
+ * * divisor - The fraction to remove, after multiplication with `cell_emp_mult` if a robot, calculated as maxcharge / divisor
+ */
+/obj/item/cell/proc/powerdrain(divisor)
+	SHOULD_NOT_SLEEP(TRUE)
+
+	if(isrobot(loc))
+		var/mob/living/silicon/robot/R = loc
+		divisor *= R.cell_emp_mult
+
+	charge -= maxcharge / divisor
+	if (charge < 0)
+		charge = 0
+	if(self_charge_percentage && charge < maxcharge)
+		START_PROCESSING(SSprocessing, src) // Always attempt at least one process if the battery level is ever reduced.
+	SEND_SIGNAL(src, COMSIG_CELL_CHARGE, charge)
+
+/obj/item/cell/ex_act(severity)
 
 	switch(severity)
 		if(1.0)
@@ -178,7 +249,7 @@
 				corrupt()
 	return
 
-/obj/item/weapon/cell/proc/get_electrocute_damage()
+/obj/item/cell/proc/get_electrocute_damage()
 	switch (charge)
 /*		if (9000 to INFINITY)
 			return min(rand(90,150),rand(90,150))

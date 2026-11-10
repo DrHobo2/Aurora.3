@@ -3,9 +3,12 @@
 
 /datum/alarm_handler
 	var/category = ""
-	var/list/datum/alarm/alarms = new		// All alarms, to handle cases when an origin has been deleted with one or more active alarms
-	var/list/datum/alarm/alarms_assoc = new	// Associative list of alarms, to efficiently acquire them based on origin.
-	var/list/listeners = new				// A list of all objects interested in alarm changes.
+	// All alarms, to handle cases when an origin has been deleted with one or more active alarms
+	var/list/datum/alarm/alarms = new
+	// Associative list of alarms, to efficiently acquire them based on origin.
+	var/list/datum/alarm/alarms_assoc = new
+	// A list of all objects interested in alarm changes.
+	var/list/listeners = new
 
 /datum/alarm_handler/process()
 	for(var/datum/alarm/A in alarms)
@@ -17,6 +20,8 @@
 	//Proper origin and source mandatory
 	if(!(origin && source))
 		return
+
+	var/report_to_station = is_station_level(origin.z)
 	origin = origin.get_alarm_origin()
 
 	new_alarm = 0
@@ -25,13 +30,13 @@
 	if(existing)
 		existing.set_source_data(source, duration, severity)
 	else
-		existing = new/datum/alarm(origin, source, duration, severity)
+		existing = new/datum/alarm(origin, source, duration, severity, report_to_station)
 		new_alarm = 1
 
 	alarms |= existing
 	alarms_assoc[origin] = existing
 	if(new_alarm)
-		sortTim(alarms, /proc/cmp_alarm, FALSE)
+		sortTim(alarms, GLOBAL_PROC_REF(cmp_alarm), FALSE)
 		on_alarm_change(existing, ALARM_RAISED)
 
 	return new_alarm
@@ -48,15 +53,20 @@
 		return check_alarm_cleared(existing)
 
 /datum/alarm_handler/proc/major_alarms()
-	return alarms
+	return station_alarms()
 
 /datum/alarm_handler/proc/has_major_alarms()
-	if(alarms && alarms.len)
-		return 1
-	return 0
+	return length(station_alarms())
 
 /datum/alarm_handler/proc/minor_alarms()
-	return alarms
+	return station_alarms()
+
+/// Returns alarms which should be reported to the station-wide alarm network.
+/datum/alarm_handler/proc/station_alarms()
+	. = list()
+	for(var/datum/alarm/alarm in alarms)
+		if(alarm.report_to_station)
+			. += alarm
 
 /datum/alarm_handler/proc/check_alarm_cleared(var/datum/alarm/alarm)
 	if ((alarm.end_time && world.time > alarm.end_time) || !alarm.sources.len)
@@ -67,7 +77,9 @@
 	return 0
 
 /datum/alarm_handler/proc/on_alarm_change(var/datum/alarm/alarm, var/was_raised)
-	for(var/obj/machinery/camera/C in alarm.cameras())
+	if(!alarm.report_to_station)
+		return
+	for(var/obj/structure/machinery/camera/C in alarm.cameras())
 		if(was_raised)
 			C.add_network(category)
 		else
@@ -100,3 +112,7 @@
 /datum/alarm_handler/proc/notify_listeners(var/alarm, var/was_raised)
 	for(var/listener in listeners)
 		call(listener, listeners[listener])(src, alarm, was_raised)
+
+
+#undef ALARM_RAISED
+#undef ALARM_CLEARED

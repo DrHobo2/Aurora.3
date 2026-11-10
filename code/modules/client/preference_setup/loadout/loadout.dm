@@ -1,5 +1,5 @@
-var/list/loadout_categories = list()
-var/list/gear_datums = list()
+GLOBAL_LIST_INIT(loadout_categories, list())
+GLOBAL_LIST_INIT(gear_datums, list())
 
 /datum/loadout_category
 	var/category = ""
@@ -15,19 +15,23 @@ var/list/gear_datums = list()
 	for(var/geartype in subtypesof(/datum/gear))
 		var/datum/gear/G = geartype
 
+		//We do not want placeholders
+		if(G.type == G.abstract_type)
+			continue
+
 		var/use_name = initial(G.display_name)
 		var/use_category = initial(G.sort_category)
 
-		if(!loadout_categories[use_category])
-			loadout_categories[use_category] = new /datum/loadout_category(use_category)
-		var/datum/loadout_category/LC = loadout_categories[use_category]
-		gear_datums[use_name] = new geartype
-		LC.gear[use_name] = gear_datums[use_name]
+		if(!GLOB.loadout_categories[use_category])
+			GLOB.loadout_categories[use_category] = new /datum/loadout_category(use_category)
+		var/datum/loadout_category/LC = GLOB.loadout_categories[use_category]
+		GLOB.gear_datums[use_name] = new geartype
+		LC.gear[use_name] = GLOB.gear_datums[use_name]
 
-	sortTim(loadout_categories, /proc/cmp_text_asc, FALSE)
-	for(var/loadout_category in loadout_categories)
-		var/datum/loadout_category/LC = loadout_categories[loadout_category]
-		sortTim(LC.gear, /proc/cmp_text_asc, FALSE)
+	sortTim(GLOB.loadout_categories, GLOBAL_PROC_REF(cmp_text_asc), FALSE)
+	for(var/loadout_category in GLOB.loadout_categories)
+		var/datum/loadout_category/LC = GLOB.loadout_categories[loadout_category]
+		sortTim(LC.gear, GLOBAL_PROC_REF(cmp_text_asc), FALSE)
 
 	return TRUE
 
@@ -36,35 +40,84 @@ var/list/gear_datums = list()
 	sort_order = 1
 	var/current_tab = "General"
 	var/gear_reset = FALSE
+	var/search_input_value = ""
 
 /datum/category_item/player_setup_item/loadout/load_character(var/savefile/S)
 	S["gear"] >> pref.gear
+	S["gear_list"] >> pref.gear_list
+
+/datum/category_item/player_setup_item/loadout/load_character_special(var/savefile/S)
+	pref.gear_modified = FALSE
+	//Query the ss13_characters_gear table
+	if(GLOB.config.sql_saves && establish_db_connection(GLOB.dbcon))
+		var/fetched_gear = list()
+
+		var/DBQuery/character_gear_query = GLOB.dbcon.NewQuery("SELECT slot, name, tweaks FROM ss13_characters_gear WHERE char_id = :char_id:")
+		character_gear_query.Execute(list("char_id"=pref.current_character))
+		while(character_gear_query.NextRow())
+			CHECK_TICK
+			var/slot = character_gear_query.item[1]
+			var/name = character_gear_query.item[2]
+
+			if(!fetched_gear[slot])
+				fetched_gear[slot] = list()
+
+			var/tweaks = list()
+			if(character_gear_query.item[3])
+				tweaks = json_decode(character_gear_query.item[3])
+
+			fetched_gear[slot][name]=tweaks
+
+		pref.gear_list = fetched_gear
+	return
+
+/datum/category_item/player_setup_item/loadout/save_character_special(var/savefile/S)
+	//Persist the loadout to the database
+	if(GLOB.config.sql_saves && establish_db_connection(GLOB.dbcon) && pref.gear_modified)
+		var/gear_string = json_encode(pref.gear_list["[pref.gear_slot]"])
+		var/DBQuery/character_gear_save_query = GLOB.dbcon.NewQuery("CALL `update_character_gear`(:char_id:, :slot_id:, :gear_data:)")
+		character_gear_save_query.Execute(list("char_id"=pref.current_character,"slot_id"=pref.gear_slot,"gear_data"=gear_string))
+		pref.gear_modified = FALSE
+	return
 
 /datum/category_item/player_setup_item/loadout/save_character(var/savefile/S)
-	S["gear"] << pref.gear
+	pref.gear_list["[pref.gear_slot]"] = pref.gear
+	to_file(S["gear_list"], pref.gear_list)
+	to_file(S["gear_slot"], pref.gear_slot)
+
+/datum/category_item/player_setup_item/loadout/gather_load_query()
+	return list("ss13_characters" = list("vars" = list("gear_slot"), "args" = list("id")))
 
 /datum/category_item/player_setup_item/loadout/gather_load_parameters()
 	return list("id" = pref.current_character)
 
-/datum/category_item/player_setup_item/loadout/gather_load_query()
-	return list("ss13_characters" = list("vars" = list("gear"), "args" = list("id")))
-
 /datum/category_item/player_setup_item/loadout/gather_save_query()
-	return list("ss13_characters" = list("gear", "id" = 1, "ckey" = 1))
+	return list("ss13_characters" = list("gear_slot", "id" = 1, "ckey" = 1))
 
 /datum/category_item/player_setup_item/loadout/gather_save_parameters()
-	return list("gear" = json_encode(pref.gear), "id" = pref.current_character, "ckey" = PREF_CLIENT_CKEY)
+	return list("gear_slot" = pref.gear_slot, "id" = pref.current_character, "ckey" = PREF_CLIENT_CKEY)
+
 
 /datum/category_item/player_setup_item/loadout/proc/valid_gear_choices(var/max_cost)
 	. = list()
 	var/mob/preference_mob = preference_mob()
-	for(var/gear_name in gear_datums)
-		var/datum/gear/G = gear_datums[gear_name]
+	var/list/whitelist_cache = list()
+
+	if(preference_mob)
+		if(preference_mob.client)
+			preference_mob.client.load_whitelist_status()
+		for(var/species in GLOB.all_species)
+			var/datum/species/S = GLOB.all_species[species]
+			if(is_alien_whitelisted(preference_mob, S))
+				whitelist_cache += S.name
+
+	for(var/gear_name in GLOB.gear_datums)
+		var/datum/gear/G = GLOB.gear_datums[gear_name]
 		if(max_cost && G.cost > max_cost)
 			continue
-		if(G.whitelisted && preference_mob)
+		else if(G.whitelisted && whitelist_cache.len)
 			for(var/species in G.whitelisted)
-				if(is_alien_whitelisted(preference_mob, global.all_species[species]))
+				if(species in whitelist_cache)
 					. += gear_name
 					break
 		else
@@ -73,94 +126,144 @@ var/list/gear_datums = list()
 /datum/category_item/player_setup_item/loadout/sanitize_character(var/sql_load = 0)
 	if (sql_load)
 		gear_reset = FALSE
-		if (istext(pref.gear))
-			try
-				pref.gear = json_decode(pref.gear)
-			catch
-				log_debug("SQL CHARACTER LOAD: Unable to load custom loadout for client [pref.client ? pref.client.ckey : "UNKNOWN"].")
 
-				pref.gear = list()
+		pref.gear_slot = text2num(pref.gear_slot)
+
+		if (istext(pref.gear_list))
+			try
+				pref.gear_list = json_decode(pref.gear_list)
+			catch
+				LOG_DEBUG("SQL CHARACTER LOAD: Unable to load custom loadout for client [pref.client ? pref.client.ckey : "UNKNOWN"].")
 				gear_reset = TRUE
 
 	var/mob/preference_mob = preference_mob()
-	if(!islist(pref.gear))
-		pref.gear = list()
+
+	if(!islist(pref.gear_list))
+		pref.gear_list = list()
+
+	if(!isnull(pref.gear_slot) && islist(pref.gear_list["[pref.gear_slot]"]))
+		pref.gear = pref.gear_list["[pref.gear_slot]"]
+	else
+	// old format, try to recover it.
+		if(!islist(pref.gear_list["1"]))
+			pref.gear = pref.gear_list.Copy()
+			pref.gear_list = list("1" = pref.gear)
+			pref.gear_slot = 1
+		else
+			pref.gear = list()
+			pref.gear_list = list("1" = pref.gear)
+			pref.gear_slot = 1
 
 	for(var/gear_name in pref.gear)
-		if(!(gear_name in gear_datums))
+		if(!(gear_name in GLOB.gear_datums))
 			pref.gear -= gear_name
 	var/total_cost = 0
+	var/list/player_valid_gear_choices = valid_gear_choices()
 	for(var/gear_name in pref.gear)
-		if(!gear_datums[gear_name])
-			preference_mob << "<span class='warning'>You cannot have more than one of the \the [gear_name]</span>"
+		if(!GLOB.gear_datums[gear_name])
+			to_chat(preference_mob, SPAN_WARNING("You cannot have more than one of the \the [gear_name]"))
 			pref.gear -= gear_name
-		else if(!(gear_name in valid_gear_choices()))
-			preference_mob << "<span class='warning'>You cannot take \the [gear_name] as you are not whitelisted for the species.</span>"
+		else if(!(gear_name in player_valid_gear_choices))
+			to_chat(preference_mob, SPAN_WARNING("You cannot take \the [gear_name] as you are not whitelisted for the species."))
 			pref.gear -= gear_name
 		else
-			var/datum/gear/G = gear_datums[gear_name]
-			if(total_cost + G.cost > MAX_GEAR_COST)
+			var/datum/gear/G = GLOB.gear_datums[gear_name]
+			if(total_cost + G.cost > GLOB.config.loadout_cost)
 				pref.gear -= gear_name
-				preference_mob << "<span class='warning'>You cannot afford to take \the [gear_name]</span>"
+				to_chat(preference_mob, SPAN_WARNING("You cannot afford to take \the [gear_name]"))
 			else
 				total_cost += G.cost
 
-/datum/category_item/player_setup_item/loadout/content()
+/datum/category_item/player_setup_item/loadout/ui_data(var/mob/user)
 	var/total_cost = 0
 	if(pref.gear && pref.gear.len)
 		for(var/i = 1; i <= pref.gear.len; i++)
-			var/datum/gear/G = gear_datums[pref.gear[i]]
+			var/datum/gear/G = GLOB.gear_datums[pref.gear[i]]
 			if(G)
 				total_cost += G.cost
-
-	var/fcolor =  "#3366CC"
-	if(total_cost < MAX_GEAR_COST)
-		fcolor = "#E67300"
-	. = list()
-	. += "<table align = 'center' width = 100%>"
-	if (gear_reset)
-		. += "<tr><td colspan=3><center><i>Your loadout failed to load and will be reset if you save this slot.</i></center></td></tr>"
-	. += "<tr><td colspan=3><center><b><font color = '[fcolor]'>[total_cost]/[MAX_GEAR_COST]</font> loadout points spent.</b> \[<a href='?src=\ref[src];clear_loadout=1'>Clear Loadout</a>\]</center></td></tr>"
-
-	. += "<tr><td colspan=3><center><b>"
-	var/firstcat = 1
-	for(var/category in loadout_categories)
-
-		if(firstcat)
-			firstcat = 0
-		else
-			. += " |"
-		if(category == current_tab)
-			. += " [category] "
-		else
-			var/datum/loadout_category/LC = loadout_categories[category]
-			var/tcolor =  "#3366CC"
-			for(var/thing in LC.gear)
-				if(thing in pref.gear)
-					tcolor = "#E67300"
-					break
-			. += " <a href='?src=\ref[src];select_category=[category]'><font color = '[tcolor]'>[category]</font></a> "
-	. += "</b></center></td></tr>"
-
-	var/datum/loadout_category/LC = loadout_categories[current_tab]
-	. += "<tr><td colspan=3><hr></td></tr>"
-	. += "<tr><td colspan=3><b><center>[LC.category]</center></b></td></tr>"
-	. += "<tr><td colspan=3><hr></td></tr>"
+	var/list/categories = list()
+	for(var/category in GLOB.loadout_categories)
+		var/datum/loadout_category/category_data = GLOB.loadout_categories[category]
+		var/has_selected = FALSE
+		for(var/thing in category_data.gear)
+			if(thing in pref.gear)
+				has_selected = TRUE
+				break
+		categories += list(list("name" = category, "selected" = category == current_tab, "has_selected" = has_selected))
+	var/datum/loadout_category/LC = GLOB.loadout_categories[current_tab]
+	var/list/items = list()
+	var/list/player_valid_gear_choices = valid_gear_choices()
 	for(var/gear_name in LC.gear)
-		if(!(gear_name in valid_gear_choices()))
+		if(!(gear_name in player_valid_gear_choices))
 			continue
 		var/datum/gear/G = LC.gear[gear_name]
+		var/datum/job/job = pref.return_chosen_high_job()
+		var/available = (G.check_faction(pref.faction) \
+			&& (job && G.check_role(job.title)) \
+			&& G.check_culture(text2path(pref.culture)) \
+			&& G.check_origin(text2path(pref.origin)) \
+			&& G.check_religion(pref.religion)) \
+			&& G.check_citizenship(pref.citizenship)
 		var/ticked = (G.display_name in pref.gear)
-		. += "<tr style='vertical-align:top'><td width=25%><a href='?src=\ref[src];toggle_gear=[G.display_name]'><font color='[ticked ? "#E67300" : "#3366CC"]'>[G.display_name]</font></a></td>"
-		. += "<td width = 10% style='vertical-align:top'>[G.cost]</td>"
-		. += "<td><font size=2><i>[G.description]</i></font></td></tr>"
+		var/found_searched_text = FALSE
+		if(findtext(G.display_name, search_input_value))
+			found_searched_text = TRUE
+		for(var/datum/gear_tweak/tweak in G.gear_tweaks)
+			var/datum/gear_tweak/path/path = tweak
+			if(path && istype(path) && path.valid_paths)
+				for(var/x in path.valid_paths)
+					if(findtext(x, search_input_value))
+						found_searched_text = TRUE
+		if(!found_searched_text)
+			continue
+		var/list/restrictions = list()
+		if(G.allowed_roles)
+			restrictions += "Role: [english_list(G.allowed_roles)]"
+		if(G.culture_restriction)
+			var/list/cultures = list()
+			for(var/culture in G.culture_restriction)
+				var/singleton/origin_item/C = GET_SINGLETON(culture)
+				cultures += C.name
+			restrictions += "Culture: [english_list(cultures)]"
+		if(G.origin_restriction)
+			var/list/origins = list()
+			for(var/origin in G.origin_restriction)
+				var/singleton/origin_item/O = GET_SINGLETON(origin)
+				origins += O.name
+			restrictions += "Origin: [english_list(origins)]"
+		if(G.whitelisted)
+			restrictions += "Valid species: [english_list(G.whitelisted)]"
+		var/list/tweaks = list()
 		if(ticked)
-			. += "<tr><td colspan=3>"
 			for(var/datum/gear_tweak/tweak in G.gear_tweaks)
-				. += " <a href='?src=\ref[src];gear=[G.display_name];tweak=\ref[tweak]'>[tweak.get_contents(get_tweak_metadata(G, tweak))]</a>"
-			. += "</td></tr>"
-	. += "</table>"
-	. = jointext(.,null)
+				var/tweak_metadata = get_tweak_metadata(G, tweak)
+				tweaks += list(list(
+					"label" = html_decode(strip_html(html_decode(tweak.get_contents(tweak_metadata)))) || "Customize",
+					"preview_color" = istype(tweak, /datum/gear_tweak/color) ? tweak_metadata : null,
+					"topic" = list("gear" = G.display_name, "tweak" = REF(tweak))
+				))
+		var/list/item_data = list(
+			"name" = G.display_name,
+			"cost" = G.cost,
+			"description" = G.description,
+			"available" = available,
+			"selected" = ticked,
+			"restrictions" = restrictions,
+			"tweaks" = tweaks
+		)
+		items += list(item_data)
+	return list(
+		"kind" = "loadout",
+		"name" = name,
+		"ref" = REF(src),
+		"slot" = pref.gear_slot,
+		"cost" = total_cost,
+		"cost_limit" = GLOB.config.loadout_cost,
+		"gear_reset" = gear_reset,
+		"search" = search_input_value,
+		"categories" = categories,
+		"items" = items
+	)
 
 /datum/category_item/player_setup_item/loadout/proc/get_gear_metadata(var/datum/gear/G)
 	. = pref.gear[G.display_name]
@@ -181,65 +284,341 @@ var/list/gear_datums = list()
 
 /datum/category_item/player_setup_item/loadout/OnTopic(href, href_list, user)
 	if(href_list["toggle_gear"])
-		var/datum/gear/TG = gear_datums[href_list["toggle_gear"]]
+		pref.gear_modified = TRUE
+		var/datum/gear/TG = GLOB.gear_datums[href_list["toggle_gear"]]
 		if(TG.display_name in pref.gear)
 			pref.gear -= TG.display_name
 		else
 			var/total_cost = 0
 			for(var/gear_name in pref.gear)
-				var/datum/gear/G = gear_datums[gear_name]
+				var/datum/gear/G = GLOB.gear_datums[gear_name]
 				if(istype(G)) total_cost += G.cost
-			if((total_cost+TG.cost) <= MAX_GEAR_COST)
+			if((total_cost+TG.cost) <= GLOB.config.loadout_cost)
 				pref.gear += TG.display_name
-		return TOPIC_REFRESH
+		return TOPIC_REFRESH_UPDATE_PREVIEW
 	if(href_list["gear"] && href_list["tweak"])
-		var/datum/gear/gear = gear_datums[href_list["gear"]]
+		pref.gear_modified = TRUE
+		var/datum/gear/gear = GLOB.gear_datums[href_list["gear"]]
 		var/datum/gear_tweak/tweak = locate(href_list["tweak"])
 		if(!tweak || !istype(gear) || !(tweak in gear.gear_tweaks))
 			return TOPIC_NOACTION
-		var/metadata = tweak.get_metadata(user, get_tweak_metadata(gear, tweak))
+		var/metadata = tweak.get_metadata(user, get_tweak_metadata(gear, tweak), null, gear.path)
 		if(!metadata || !CanUseTopic(user))
 			return TOPIC_NOACTION
 		set_tweak_metadata(gear, tweak, metadata)
-		return TOPIC_REFRESH
+		return TOPIC_REFRESH_UPDATE_PREVIEW
+
+	if(href_list["next_slot"] || href_list["prev_slot"])
+		if(pref.gear_modified)
+			tgui_alert(user, "Gear has been Modified - Save First or Reload", "Gear Modified", list("OK"))
+			return TOPIC_NOACTION
+		//Set the current slot in the gear list to the currently selected gear
+		pref.gear_list["[pref.gear_slot]"] = pref.gear
+
+		//If we're moving up a slot..
+		if(href_list["next_slot"])
+			//change the current slot number
+			pref.gear_slot = pref.gear_slot+1
+			if(pref.gear_slot > GLOB.config.loadout_slots)
+				pref.gear_slot = 1
+		//If we're moving down a slot..
+		else if(href_list["prev_slot"])
+			//change current slot one down
+			pref.gear_slot = pref.gear_slot-1
+			if(pref.gear_slot < 1)
+				pref.gear_slot = GLOB.config.loadout_slots
+		// Set the currently selected gear to whatever's in the new slot
+		if(pref.gear_list["[pref.gear_slot]"])
+			pref.gear = pref.gear_list["[pref.gear_slot]"]
+		else
+			pref.gear = list()
+			pref.gear_list["[pref.gear_slot]"] = list()
+		// Refresh?
+		return TOPIC_REFRESH_UPDATE_PREVIEW
+
 	else if(href_list["select_category"])
 		current_tab = href_list["select_category"]
 		return TOPIC_REFRESH
+
 	else if(href_list["clear_loadout"])
+		pref.gear_modified = TRUE
 		pref.gear.Cut()
-		return TOPIC_REFRESH
+		return TOPIC_REFRESH_UPDATE_PREVIEW
+
+	else if(href_list["duplicate_loadout"])
+		if(pref.gear_modified)
+			tgui_alert(user, "Gear has been Modified - Save First or Reload", "Gear Modified", list("OK"))
+			return TOPIC_NOACTION
+
+		var/source_slot = pref.gear_slot
+		var/list/available_slots = list()
+		for(var/slot = 1 to GLOB.config.loadout_slots)
+			if(slot != source_slot)
+				available_slots += "Slot [slot]"
+
+		var/selected_slot = tgui_input_list(user, "Choose the loadout slot to replace with a copy of Slot [source_slot].", "Duplicate Loadout", available_slots)
+		if(!selected_slot || !CanUseTopic(user))
+			return TOPIC_NOACTION
+
+		var/target_slot = text2num(copytext(selected_slot, 6))
+		if(target_slot < 1 || target_slot > GLOB.config.loadout_slots || target_slot == source_slot)
+			return TOPIC_NOACTION
+
+		var/confirmation = tgui_alert(user, "Are you sure you want to replace everything in Slot [target_slot] with a copy of Slot [source_slot]?", "Duplicate Loadout", list("Yes", "No"))
+		if(confirmation != "Yes" || !CanUseTopic(user) || pref.gear_slot != source_slot || pref.gear_modified)
+			return TOPIC_NOACTION
+
+		var/list/duplicated_gear = deep_copy_list(pref.gear)
+		pref.gear_list["[target_slot]"] = duplicated_gear
+		pref.gear_slot = target_slot
+		pref.gear = duplicated_gear
+		pref.gear_modified = TRUE
+		return TOPIC_REFRESH_UPDATE_PREVIEW
+
+	else if(href_list["search_input_refresh"] != null) // empty str is false
+		search_input_value = sanitize(href_list["search_input_refresh"], 100)
+		return TOPIC_REFRESH_UPDATE_PREVIEW
+
 	return ..()
 
 /datum/gear
-	var/display_name       //Name/index. Must be unique.
-	var/description        //Description of this gear. If left blank will default to the description of the pathed item.
-	var/path               //Path to item.
-	var/cost = 1           //Number of points used. Items in general cost 1 point, storage/armor/gloves/special use costs 2 points.
-	var/slot               //Slot to equip to.
-	var/list/allowed_roles //Roles that can spawn with this item.
-	var/whitelisted        //Term to check the whitelist for..
+	/**
+	 * Name and index, _must be unique_
+	 *
+	 * Otherwise, if this is just a placeholder, set the `abstract_type` variable to the path of itself
+	 */
+	var/display_name
+
+	/**
+	 * Description of this gear
+	 *
+	 * If left blank will default to the description of the pathed item.
+	 */
+	var/description
+
+	///The path to item to spawn
+	var/path
+
+	///Number of points used. Items in general cost 1 point, storage/armor/gloves/special use costs 2 points.
+	var/cost = 1
+
+	/**
+	 * Slot to equip to, one of the `slot_*` defines, see `code\__DEFINES\items_clothing.dm`
+	 *
+	 * If `null`, it will be sent to the storage (eg. backpack)
+	 */
+	var/slot
+
+	/**
+	 * A `/list` of roles that can spawn with this item
+	 *
+	 * If left `null`, any role can spawn with this item
+	 */
+	var/list/allowed_roles
+
+	/**
+	 * A `/list` of `SPECIES_*` that can spawn with this item
+	 *
+	 * If left `null`, any specie can spawn with this item
+	 */
+	var/list/whitelisted
+
+	/**
+	 * A string of the faction that can use this item
+	 *
+	 * If left `null`, any faction can spawn with this item
+	 */
+	var/faction
+
+	/**
+	 * A string of the religion that can use this item
+	 *
+	 * If left `null`, any religion can spawn with this item
+	 */
+	var/religion
+
+	/**
+	 * A string of the citizenship that can use this item
+	 *
+	 * If left `null`, any citizenship can spawn with this item
+	 */
+	var/citizenship
+
+	/**
+	 * A `/list` of [/singleton/origin_item/culture] paths that can use this item
+	 */
+	var/list/singleton/origin_item/culture/culture_restriction
+
+	/**
+	 * A `/list` of [/singleton/origin_item/origin] paths that can use this item
+	 */
+	var/list/singleton/origin_item/origin/origin_restriction
+
+	///A string of the category this item will be listed in
 	var/sort_category = "General"
-	var/list/gear_tweaks = list() //List of datums which will alter the item after it has been spawned.
+
+	///A `/list` of [/datum/gear_tweak] to apply
+	var/list/datum/gear_tweak/gear_tweaks = list()
+
+	///Bitflag field of `GEAR_*`, see `code\modules\client\preference_setup\loadout\_defines.dm`
+	var/flags = GEAR_HAS_NAME_SELECTION | GEAR_HAS_DESC_SELECTION
+
+	///Boolean, if this gear is an augment
+	var/augment = FALSE
 
 /datum/gear/New()
 	..()
 	if(!description)
 		var/obj/O = path
 		description = initial(O.desc)
+	if(flags & GEAR_HAS_COLOR_SELECTION)
+		gear_tweaks += list(GLOB.gear_tweak_free_color_choice)
+	if(flags & GEAR_HAS_ALPHA_SELECTION)
+		gear_tweaks += list(GLOB.gear_tweak_alpha_choice)
+	if(flags & GEAR_HAS_ACCENT_COLOR_SELECTION)
+		gear_tweaks += list(GLOB.gear_tweak_accent_color)
+	if(flags & GEAR_HAS_NAME_SELECTION)
+		gear_tweaks += list(GLOB.gear_tweak_free_name)
+	if(flags & GEAR_HAS_DESC_SELECTION)
+		gear_tweaks += list(GLOB.gear_tweak_free_desc)
+	if(flags & GEAR_HAS_COLOR_ROTATION_SELECTION)
+		gear_tweaks += list(GLOB.gear_tweak_color_rotation)
+	if(ispath(path, /obj/item/clothing/accessory))
+		gear_tweaks += list(GLOB.gear_tweak_accessory_slot)
 
 /datum/gear_data
 	var/path
 	var/location
+	var/faction_requirement
 
-/datum/gear_data/New(var/path, var/location)
+/datum/gear_data/New(var/path, var/location, var/faction)
 	src.path = path
 	src.location = location
+	src.faction_requirement = faction
 
-/datum/gear/proc/spawn_item(var/location, var/metadata)
+/datum/gear/proc/cant_spawn_item_reason(var/location, var/metadata, var/mob/living/carbon/human/human, var/datum/job/job, var/datum/preferences/prefs)
+	var/datum/gear_data/gd = new(path, location, faction)
+	for(var/datum/gear_tweak/gt in gear_tweaks)
+		if(metadata["[gt]"])
+			gt.tweak_gear_data(metadata["[gt]"], gd, human)
+		else
+			gt.tweak_gear_data(gt.get_default(), gd, human)
+
+	var/obj/spawning_item = gd.path
+	if(length(allowed_roles) && !(job.title in allowed_roles))
+		return "You cannot spawn with the [initial(spawning_item.name)] with your current job!"
+	if(!check_species_whitelist(human))
+		return "You cannot spawn with the [initial(spawning_item.name)] with your current species!"
+	if(gd.faction_requirement && (human.employer_faction != "Stellar Corporate Conglomerate" && gd.faction_requirement != human.employer_faction))
+		return "You cannot spawn with the [initial(spawning_item.name)] with your current faction!"
+	if(!check_religion(prefs.religion))
+		return "You cannot spawn with the [initial(spawning_item.name)] with your current religion!"
+	if(!check_citizenship(prefs.citizenship))
+		return "You cannot spawn with the [initial(spawning_item.name)] with your current citizenship!"
+	if(!check_culture(text2path(prefs.culture)))
+		return "You cannot spawn with the [initial(spawning_item.name)] with your current culture!"
+	if(!check_origin(text2path(prefs.origin)))
+		return "You cannot spawn with the [initial(spawning_item.name)] with your current origin!"
+	return null
+
+/// Returns a list of spawn item data. The first entry is the path, the second is the location
+/datum/gear/proc/get_spawn_item_data(var/location, var/metadata, var/mob/living/carbon/human/H)
+	var/datum/gear_data/gd = new(path, location, faction)
+	for(var/datum/gear_tweak/gt in gear_tweaks)
+		if(metadata["[gt]"])
+			gt.tweak_gear_data(metadata["[gt]"], gd, H)
+		else
+			gt.tweak_gear_data(gt.get_default(), gd, H)
+	return list(gd.path, gd.location)
+
+/datum/gear/proc/spawn_item(var/location, var/metadata, var/mob/living/carbon/human/H)
+	var/list/spawn_item_data = get_spawn_item_data(location, metadata, H)
+	var/spawn_path = spawn_item_data[1]
+	var/spawn_location = spawn_item_data[2]
+
+	if(ispath(spawn_path, /obj/item/organ/external))
+		var/obj/item/organ/external/external_aug = spawn_path
+		var/obj/item/organ/external/replaced_limb = H.get_organ(initial(external_aug.limb_name))
+		replaced_limb.droplimb(TRUE, DROPLIMB_EDGE, FALSE)
+		qdel(replaced_limb)
+
+	// Handling for "Organ swapping" augments. Anything that shares an organ tag with a pre-existing organ.
+	if(ispath(spawn_path, /obj/item/organ/internal))
+		var/obj/item/organ/internal/internal_aug = spawn_path
+		var/obj/item/organ/internal/replaced_organ = H.internal_organs_by_name[internal_aug.organ_tag]
+		if(replaced_organ && internal_aug.organ_tag == replaced_organ.organ_tag)
+			replaced_organ.removed(H, null)
+			qdel(replaced_organ)
+
+	var/item = new spawn_path(spawn_location)
+	if(istype(item, /obj/item/organ/internal) && ishuman(H))
+		var/obj/item/organ/internal/I = item
+		var/obj/item/organ/external/E = H.get_organ(I.parent_organ)
+		if(E)
+			I.replaced(H, E)
+
+	for(var/datum/gear_tweak/gt in gear_tweaks)
+		if(metadata["[gt]"])
+			gt.tweak_item(item, metadata["[gt]"], H)
+		else
+			gt.tweak_item(item, gt.get_default(), H)
+
+	return item
+
+/datum/gear/proc/spawn_random(var/location)
 	var/datum/gear_data/gd = new(path, location)
 	for(var/datum/gear_tweak/gt in gear_tweaks)
-		gt.tweak_gear_data(metadata["[gt]"], gd)
+		gt.tweak_gear_data(gt.get_random(), gd)
 	var/item = new gd.path(gd.location)
 	for(var/datum/gear_tweak/gt in gear_tweaks)
-		gt.tweak_item(item, metadata["[gt]"])
+		gt.tweak_item(item, gt.get_random())
 	return item
+
+/datum/gear/proc/check_species_whitelist(mob/living/carbon/human/H)
+	if(whitelisted && (!(H.species.name in whitelisted)))
+		return FALSE
+	return TRUE
+
+// arg should be a faction name string
+/datum/gear/proc/check_faction(var/faction_)
+	if((faction && faction_ && faction_ != "None" && faction_ != "Stellar Corporate Conglomerate") && (faction != faction_))
+		return FALSE
+	return TRUE
+
+// arg should be a religion name string
+/datum/gear/proc/check_religion(var/user_religion)
+	if(!religion || !user_religion)
+		return TRUE
+	if(religion == user_religion)
+		return TRUE
+	if(islist(religion) && (user_religion in religion))
+		return TRUE
+	return FALSE
+
+// arg should be a citizenship name string
+/datum/gear/proc/check_citizenship(var/user_citizenship)
+	if(!citizenship || !user_citizenship)
+		return TRUE
+	if(citizenship == user_citizenship)
+		return TRUE
+	if(islist(citizenship) && (user_citizenship in citizenship))
+		return TRUE
+	return FALSE
+
+// arg should be a role name string
+/datum/gear/proc/check_role(var/role)
+	if(role && allowed_roles && !(role in allowed_roles))
+		return FALSE
+	return TRUE
+
+// arg should be a culture path
+/datum/gear/proc/check_culture(var/culture)
+	if(culture && culture_restriction && !(culture in culture_restriction))
+		return FALSE
+	return TRUE
+
+// arg should be a origin path
+/datum/gear/proc/check_origin(var/origin)
+	if(origin && origin_restriction && !(origin in origin_restriction))
+		return FALSE
+	return TRUE

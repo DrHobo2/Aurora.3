@@ -1,5 +1,5 @@
 /datum/export/large/crate
-	cost = 500
+	cost = 15
 	k_elasticity = 0
 	unit_name = "crate"
 	export_types = list(/obj/structure/closet/crate)
@@ -8,10 +8,10 @@
 /datum/export/large/crate/total_printout() // That's why a goddamn metal crate costs that much.
 	. = ..()
 	if(.)
-		. += " Thanks for participating in Nanotrasen Crates Recycling Program."
+		. += " Thanks for participating in NanoTrasen Crates Recycling Program."
 
 /datum/export/large/crate/wooden
-	cost = 100
+	cost = 15
 	unit_name = "large wooden crate"
 	export_types = list(/obj/structure/closet/crate/large)
 	exclude_types = list()
@@ -29,7 +29,7 @@
 /datum/export/large/crate/coffin
 	cost = 250//50 wooden crates cost 2000 points, and you can make 10 coffins in seconds with those planks. Each coffin selling for 250 means you can make a net gain of 500 points for wasting your time making coffins.
 	unit_name = "coffin"
-	export_types = list(/obj/structure/closet/coffin)
+	export_types = list(/obj/structure/closet/crate/coffin)
 
 /datum/export/large/reagent_dispenser
 	cost = 100 // +0-400 depending on amount of reagents left
@@ -37,7 +37,9 @@
 
 /datum/export/large/reagent_dispenser/get_cost(obj/O)
 	var/obj/structure/reagent_dispensers/D = O
-	var/ratio = D.reagents.total_volume / D.reagents.maximum_volume
+	var/ratio
+	if(D?.reagents)
+		ratio = D.reagents.total_volume / D.reagents.maximum_volume
 
 	return ..() + round(contents_cost * ratio)
 
@@ -53,53 +55,48 @@
 /datum/export/large/reagent_dispenser/beer
 	unit_name = "beer keg"
 	contents_cost = 700
-	export_types = list(/obj/structure/reagent_dispensers/beerkeg)
+	export_types = list(/obj/structure/reagent_dispensers/keg/beerkeg)
 
 
 
 /datum/export/large/emitter
 	cost = 200
 	unit_name = "emitter"
-	export_types = list(/obj/machinery/power/emitter)
+	export_types = list(/obj/structure/machinery/power/emitter)
 
 /datum/export/large/field_generator
 	cost = 200
 	unit_name = "field generator"
-	export_types = list(/obj/machinery/field_generator)
+	export_types = list(/obj/structure/machinery/field_generator)
 
-/datum/export/large/collector
-	cost = 200
-	unit_name = "collector"
-	export_types = list(/obj/machinery/power/rad_collector)
-
-/datum/export/large/collector/pa
+/datum/export/large/pa
 	cost = 300
 	unit_name = "particle accelerator part"
 	export_types = list(/obj/structure/particle_accelerator)
 
-/datum/export/large/collector/pa/controls
+/datum/export/large/pa/controls
 	cost = 500
 	unit_name = "particle accelerator control console"
-	export_types = list(/obj/machinery/particle_accelerator/control_box)
+	export_types = list(/obj/structure/machinery/particle_accelerator/control_box)
 
 /datum/export/large/pipedispenser
 	cost = 500
 	unit_name = "pipe dispenser"
-	export_types = list(/obj/machinery/pipedispenser)
+	export_types = list(/obj/structure/machinery/pipedispenser)
 
 /datum/export/large/supermatter
 	cost = 9000
 	unit_name = "supermatter shard"
-	export_types = list(/obj/machinery/power/supermatter)
+	export_types = list(/obj/structure/machinery/power/supermatter)
 
 
 /datum/export/large/iv
 	cost = 50
 	unit_name = "iv drip"
-	export_types = list(/obj/machinery/iv_drip)
+	export_types = list(/obj/structure/machinery/iv_drip)
 
 /datum/export/large/barrier
 	cost = 25
 	unit_name = "security barrier"
-	export_types = list(/obj/machinery/deployable/barrier)
+	export_types = list(/obj/structure/machinery/deployable/barrier)
 

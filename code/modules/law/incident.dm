@@ -7,7 +7,7 @@
 	var/list/evidence = list() // If its a prison sentence, it'll require evidence
 
 	var/list/arbiters = list( "Witness" = list() ) // The person or list of people who were involved in the conviction of the criminal
-	var/mob/living/carbon/human/criminal // The person who committed the crimes
+	var/datum/weakref/criminal // The person who committed the crimes
 	var/datum/weakref/card // The ID of the criminal
 
 	var/datetime = "" //When the crime has been commited
@@ -26,15 +26,12 @@
 
 	..()
 
-/datum/crime_incident/proc/addArbiter( var/obj/item/weapon/card/id/C, var/title )
+/datum/crime_incident/proc/addArbiter( var/obj/item/card/id/C, var/title )
 	if( !istype( C ))
 		return "Invalid ID card!"
-
-	if( !C.mob )
-		return "ID card not tied to a NanoTrasen Employee!"
-
-	// if( criminal == C.mob ) //Uncommented because you should be able to give a statement in your case
-	// 	return "The criminal cannot hold official court positions in his own trial!"
+	var/mob/living/carbon/human/M = C.mob_id.resolve()
+	if( !M )
+		return "ID card not tied to an SCC Employee!"
 
 	var/list/same_access // The card requires one of these access codes to become this title
 	var/minSeverity = 1
@@ -42,7 +39,7 @@
 	switch( title )
 		if( "Witness" ) // anyone can be a witness
 			var/list/L = arbiters[title]
-			L += list( C.mob ) // some reason adding a mob counts as adding a list, so it would add the mob contents
+			L += list( M ) // some reason adding a mob counts as adding a list, so it would add the mob contents
 			arbiters[title] = L
 			return 0
 
@@ -50,13 +47,14 @@
 		return "The severity of the incident does not call for a [title]."
 
 	if( same_access && same_access.len )
-		arbiters[title] = C.mob
+		arbiters[title] = M
 		return 0
 	else
-		return "Could not add [C.mob] as [title]."
+		return "Could not add [M] as [title]."
 
 /datum/crime_incident/proc/missingSentenceReq()
-	if( !istype( criminal ))
+	var/mob/living/carbon/human/C = criminal.resolve()
+	if( !istype( C ))
 		return "No criminal selected!"
 
 	if( !charges.len )
@@ -136,7 +134,8 @@
 
 //type: 0 - brig sentence, 1 - fine, 2 - prison sentence
 /datum/crime_incident/proc/renderGuilty( var/mob/living/user, var/type=0 )
-	if( !criminal )
+	var/mob/living/carbon/human/C = criminal.resolve()
+	if( !C )
 		return
 
 	created_by = "[user.ckey] - [user.real_name]"
@@ -155,12 +154,15 @@
 	return generateReport()
 
 /datum/crime_incident/proc/generateReport()
+	var/mob/living/carbon/human/C = criminal.resolve()
+	if( !C )
+		return
 	. = "<center>Security Incident Report</center><hr>"
 
 	. += "<br>"
-	. += "<b>CRIMINAL</b>: <i>[criminal]</i><br><br>"
+	. += "<b>CRIMINAL</b>: <i>[C]</i><br><br>"
 
-	. += "[criminal] was found guilty of the following crimes on [game_year]-[time2text(world.realtime, "MMM-DD")].<br>"
+	. += "[C] was found guilty of the following crimes on [GLOB.game_year]-[time2text(world.realtime, "MMM-DD")].<br>"
 
 	if( brig_sentence != 0 )
 		. += "As decided by the arbiter(s), they will serve the following sentence:<br>"
@@ -169,7 +171,7 @@
 		else
 			. += "\t<b>BRIG</b>: <i>[brig_sentence] minutes</i><br>"
 	else if ( fine != 0 )
-		. += "As decided by the arbiter(s), they have been fined [fine] credits.<br>"
+		. += "As decided by the arbiter(s), they have been fined [fine]电.<br>"
 	else
 		. += "As decided by the arbiter(s), they will serve no time for their crimes.<br>"
 	. += "<br><table>"
@@ -186,9 +188,10 @@
 	return .
 
 /datum/crime_incident/proc/saveCharInfraction()
-	var/datum/char_infraction/cinf = new()
-	cinf.char_id = criminal.character_id
-	cinf.UID = UID
+	var/mob/living/carbon/human/C = criminal.resolve()
+	var/datum/record/char_infraction/cinf = new()
+	cinf.char_id = C.character_id
+	cinf.id = UID
 	cinf.notes = notes
 	cinf.charges = json_decode(json_encode(charges)) //Thats there to strip all the non-needed values from the data before saving it to the db
 	cinf.evidence = json_decode(json_encode(evidence))
@@ -200,19 +203,16 @@
 	cinf.felony = felony
 	cinf.created_by = created_by
 	// Check if player is a antag
-	if(isnull(criminal.mind.special_role))
+	if(isnull(C.mind.special_role))
 		cinf.saveToDB()
-	for (var/datum/data/record/E in data_core.general)
-		if(E.fields["name"] == criminal.name)
-			for (var/datum/data/record/R in data_core.security)
-				if(R.fields["id"] == E.fields["id"])
-					R.fields["incidents"] += cinf
+	var/datum/record/general/R = SSrecords.find_record("name", C.name)
+	if(istype(R) && istype(R.security))
+		R.security.incidents += cinf
 
-/datum/char_infraction
+/datum/record/char_infraction
 	var/db_id = 0
 	var/char_id
-	var/UID // The unique identifier for this incident
-	var/notes = "" // The written explanation of the crime
+	notes = "" // The written explanation of the crime
 	var/list/charges = list() // What laws were broken in this incident
 	var/list/evidence = list() // If its a prison sentence, it'll require evidence
 	var/list/arbiters = list( "Witness" = list() ) // The person or list of people who were involved in the conviction of the criminal
@@ -222,33 +222,33 @@
 	var/fine = 0// how much space dosh do they need to cough up if they want to go free
 	var/felony = 0// will the criminal become a felon as a result of being found guilty of his crimes?
 	var/created_by //The ckey and name of the person that created that charge
+	excluded_fields = list("db_id", "char_id", "created_by", "felony", "evidence", "arbiters", "prison_sentence")
 
-/datum/char_infraction/proc/getBrigSentence()
+/datum/record/char_infraction/proc/getBrigSentence()
 	if(brig_sentence < PERMABRIG_SENTENCE)
 		return "[brig_sentence] min"
 	else
 		return "Holding until Transfer"
 
-/datum/char_infraction/proc/saveToDB()
-	establish_db_connection(dbcon)
-	if(!dbcon.IsConnected())
-		error("SQL database connection failed. Infractions Datum failed to save information")
+/datum/record/char_infraction/proc/saveToDB()
+	if(!establish_db_connection(GLOB.dbcon))
+		log_world("ERROR: SQL database connection failed. Infractions Datum failed to save information")
 		return
 
 	//Dont save the infraction to the db if the char id is 0
 	if(char_id == 0)
-		log_debug("Infraction: Not saved to the db - Char ID = 0")
+		LOG_DEBUG("Infraction: Not saved to the db - Char ID = 0")
 		return
 
 	//Check for Level 3 infractions and dont run the query if there are some
 	for( var/datum/law/L in charges )
 		if (L.severity == 3)
-			log_debug("Infraction: Not saved to the db - Red Level Infraction")
+			LOG_DEBUG("Infraction: Not saved to the db - Red Level Infraction")
 			return
 
 	var/list/sql_args[] = list(
 		"char_id" = char_id,
-		"uid" = UID,
+		"uid" = id,
 		"datetime" = datetime,
 		"notes" = notes,
 		"charges" = json_encode(charges),
@@ -258,10 +258,10 @@
 		"fine" = fine,
 		"felony" = felony,
 		"created_by" = created_by,
-		"game_id" = game_id
+		"game_id" = GLOB.round_id
 	)
 	//Insert a new entry into the db. Upate if a entry with the same chard_id and UID already exists
-	var/DBQuery/infraction_insert_query = dbcon.NewQuery({"INSERT INTO ss13_character_incidents
+	var/DBQuery/infraction_insert_query = GLOB.dbcon.NewQuery({"INSERT INTO ss13_character_incidents
 		(char_id,  UID, datetime, notes, charges, evidence, arbiters, brig_sentence, fine, felony, created_by, game_id)
 	VALUES
 		(:char_id:, :uid:, :datetime:, :notes:, :charges:, :evidence:, :arbiters:, :brig_sentence:, :fine:, :felony:, :created_by:, :game_id:)
@@ -278,27 +278,26 @@
 	"})
 	infraction_insert_query.Execute(sql_args)
 
-/datum/char_infraction/proc/deleteFromDB(var/deleted_by)
-	establish_db_connection(dbcon)
-	if(!dbcon.IsConnected())
-		error("SQL database connection failed. Infractions Datum failed to save information")
+/datum/record/char_infraction/proc/deleteFromDB(var/deleted_by)
+	if(!establish_db_connection(GLOB.dbcon))
+		log_world("ERROR: SQL database connection failed. Infractions Datum failed to save information")
 		return
 
 	//Dont save the infraction to the db if the char id is 0
 	if(char_id == 0)
-		log_debug("Infraction: Not deleted from the db - char_id = 0")
+		LOG_DEBUG("Infraction: Not deleted from the db - char_id = 0")
 		return
 
 	//Dont delete if the db_id is 0 (Then the incident has not been loaded from the db)
 	if(db_id == 0)
-		log_debug("Infraction: Not deleted from the db - db_id 0")
+		LOG_DEBUG("Infraction: Not deleted from the db - db_id 0")
 
 	var/list/sql_args[] = list(
 		"id" = db_id,
 		"deleted_by" = deleted_by
 	)
 	//Insert a new entry into the db. Upate if a entry with the same chard_id and UID already exists
-	var/DBQuery/infraction_delete_query = dbcon.NewQuery({"UPDATE ss13_character_incidents
+	var/DBQuery/infraction_delete_query = GLOB.dbcon.NewQuery({"UPDATE ss13_character_incidents
 	SET
 		deleted_by=:deleted_by:,
 		deleted_at=NOW()

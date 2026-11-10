@@ -6,8 +6,12 @@
 	icon_state = "muzzle_laser"
 	light_color = LIGHT_COLOR_RED
 
+/obj/effect/projectile/muzzle/laser/scc
+	icon_state = "muzzle_scc"
+	light_color = COLOR_INDIGO
+
 /obj/effect/projectile/muzzle/laser/blue
-	icon_state = "muzzle_laser_blue"
+	icon_state = "muzzle_blue"
 	light_color = LIGHT_COLOR_BLUE
 
 /obj/effect/projectile/muzzle/disabler
@@ -56,7 +60,7 @@
 
 /obj/effect/projectile/muzzle/emitter
 	icon_state = "muzzle_emitter"
-	light_color = LIGHT_COLOR_GREEN
+	light_color = COLOR_SPRING_GREEN
 
 /obj/effect/projectile/muzzle/bullet
 	icon_state = "muzzle_bullet"
@@ -71,3 +75,15 @@
 
 /obj/effect/projectile/muzzle/gauss
 	icon_state = "muzzle_gauss"
+
+/obj/effect/projectile/muzzle/bfg
+	icon_state = "muzzle_bfg"
+	light_color = LIGHT_COLOR_GREEN
+
+/obj/effect/projectile/muzzle/hegemony
+	icon_state = "muzzle_hegemony"
+	light_color = LIGHT_COLOR_ORANGE
+
+/obj/effect/projectile/muzzle/tesla
+	icon_state = "muzzle_lightning"
+	light_color = LIGHT_COLOR_CYAN

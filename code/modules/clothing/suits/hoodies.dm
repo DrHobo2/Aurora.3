@@ -1,104 +1,147 @@
 //Hoods for winter coats and chaplain hoodie etc
 
 /obj/item/clothing/suit/storage/hooded
-	var/obj/item/clothing/head/winterhood/hood
-	var/hoodtype = null
-	var/suittoggled = 0
-	var/hooded = 0
+	var/opened = FALSE
+	sprite_sheets = list(
+		BODYTYPE_VAURCA_BULWARK = 'icons/mob/species/bulwark/hoodie.dmi'
+	)
+	var/hoodtype = /obj/item/clothing/head/winterhood
 
 /obj/item/clothing/suit/storage/hooded/Initialize()
 	. = ..()
-	MakeHood()
+	new hoodtype(src)
 
-/obj/item/clothing/suit/storage/hooded/Destroy()
-	QDEL_NULL(hood)
-	return ..()
-
-/obj/item/clothing/suit/storage/hooded/proc/MakeHood()
-	if(!hood)
-		hood = new hoodtype(src)
-
-/obj/item/clothing/suit/storage/hooded/equipped(mob/user, slot)
-	if(slot != slot_wear_suit)
-		RemoveHood()
-	..()
-
-/obj/item/clothing/suit/storage/hooded/proc/RemoveHood()
-	icon_state = initial(icon_state)
-	item_state = initial(item_state)
-	suittoggled = 0
-
-	// Hood got nuked. Probably because of RIGs or the like.
-	if (!hood)
-		MakeHood()
-		return
-
-	if(ishuman(hood.loc))
-		var/mob/living/carbon/H = hood.loc
-		H.unEquip(hood, 1)
-		H.update_inv_wear_suit()
-	hood.forceMove(src)
-
-/obj/item/clothing/suit/storage/hooded/dropped()
-	RemoveHood()
-
-/obj/item/clothing/suit/storage/hooded/on_slotmove()
-	RemoveHood()
+/obj/item/clothing/suit/storage/hooded/update_icon(var/hooded = FALSE)
+	SEND_SIGNAL(src, COMSIG_ITEM_STATE_CHECK, args)
+	icon_state = "[initial(icon_state)][opened ? "_open" : ""][hooded ? "_t" : ""]"
+	item_state = icon_state
+	. = ..()
+	if(usr)
+		usr.update_inv_wear_suit()
 
 /obj/item/clothing/suit/storage/hooded/verb/ToggleHood()
-
-	set name ="Toggle Coat Hood"
-	set category = "Object"
+	set name = "Toggle Coat Hood"
+	set category = "Object.Equipped"
 	set src in usr
 
-	if(!use_check(usr))
+	if(use_check_and_message(usr))
 		return 0
 
-	if(!suittoggled)
-		if(ishuman(loc))
-			var/mob/living/carbon/human/H = src.loc
-			if(H.wear_suit != src)
-				to_chat(H, "<span class='warning'>You must be wearing [src] to put up the hood!</span>")
-				return
-			if(H.head)
-				to_chat(H, "<span class='warning'>You're already wearing something on your head!</span>")
-				return
-			else
-				H.equip_to_slot_if_possible(hood,slot_head,0,0,1)
-				suittoggled = 1
-				icon_state = "[initial(icon_state)]_t"
-				item_state = "[initial(item_state)]_t"
-				H.update_inv_wear_suit()
-	else
-		RemoveHood()
+	SEND_SIGNAL(src, COMSIG_ITEM_UPDATE_STATE)
+	update_icon()
 
+/obj/item/clothing/suit/storage/hooded/AltClick(mob/user)
+	ToggleHood(user)
 
 //hoodies and the like
 
 /obj/item/clothing/suit/storage/hooded/wintercoat
 	name = "winter coat"
-	desc = "A heavy jacket made from animal furs."
-	icon = 'icons/obj/hoodies.dmi'
+	desc = "A heavy coat made from animal furs."
+	icon = 'icons/obj/item/clothing/suit/storage/toggle/hoodies.dmi'
 	icon_state = "coatwinter"
 	item_state = "coatwinter"
-	contained_sprite = 1
+	contained_sprite = TRUE
 	body_parts_covered = UPPER_TORSO|LOWER_TORSO|ARMS
 	cold_protection = UPPER_TORSO|LOWER_TORSO|ARMS
-	min_cold_protection_temperature = SPACE_SUIT_MIN_COLD_PROTECTION_TEMPERATURE
-	armor = list(melee = 0, bullet = 0, laser = 0,energy = 0, bomb = 0, bio = 10, rad = 0)
-	hooded = 1
-	hoodtype = /obj/item/clothing/head/winterhood
+	min_cold_protection_temperature = WINTER_MIN_COLD_PROTECTION_TEMPERATURE
+	armor = list(
+		BIO = ARMOR_BIO_MINOR
+	)
+	siemens_coefficient = 0.75
+	protects_against_weather = TRUE
 
 /obj/item/clothing/head/winterhood
 	name = "winter hood"
-	desc = "A hood attached to a heavy winter jacket."
-	icon = 'icons/obj/hoodies.dmi'
-	icon_state = "generic_hood"
+	desc = "A hood attached to a heavy winter coat."
+	icon = 'icons/obj/item/clothing/suit/storage/toggle/hoodies.dmi'
+	icon_state = "coatwinter_hood"
+	contained_sprite = TRUE
 	body_parts_covered = HEAD
 	cold_protection = HEAD
+	siemens_coefficient = 0.75
 	flags_inv = HIDEEARS | BLOCKHAIR | HIDEEARS
-	min_cold_protection_temperature = SPACE_SUIT_MIN_COLD_PROTECTION_TEMPERATURE
+	min_cold_protection_temperature = WINTER_MIN_COLD_PROTECTION_TEMPERATURE
 	canremove = 0
+	protects_against_weather = TRUE
+	var/hooded = FALSE
+
+/obj/item/clothing/head/winterhood/Initialize(mapload, material_key)
+	. = ..()
+	if(isclothing(loc))
+		var/obj/item/clothing/coat = loc
+		RegisterSignal(coat, COMSIG_ITEM_REMOVE, PROC_REF(RemoveHood))
+		RegisterSignal(coat, COMSIG_QDELETING, TYPE_PROC_REF(/datum, Destroy))
+		RegisterSignal(coat, COMSIG_ITEM_STATE_CHECK, PROC_REF(hooded))
+		RegisterSignal(coat, COMSIG_ITEM_UPDATE_STATE, PROC_REF(change_hood))
+		RegisterSignal(coat, COMSIG_ITEM_ICON_UPDATE, TYPE_PROC_REF(/atom, update_icon))
+		color = coat.color
+		accent_color = coat.accent_color
+		icon_state = "[coat.icon_state]_hood"
+		item_state = "[coat.icon_state]_hood"
+
+/obj/item/clothing/head/winterhood/update_icon(mob/user)
+	if(isclothing(loc))
+		var/obj/item/clothing/coat = loc
+		color = coat.color
+		accent_color = coat.accent_color
+		icon_state = "[coat.icon_state]_hood"
+		item_state = "[coat.icon_state]_hood"
+	return ..()
+
+/obj/item/clothing/head/winterhood/proc/hooded(var/hood, list/arguments)
+	arguments[1] = hooded
+
+/obj/item/clothing/head/winterhood/proc/change_hood(var/parent)
+	if(!hooded)
+		if(CheckSlot(parent))
+			var/mob/living/carbon/human/H = get_human(parent)
+			hooded = TRUE
+			update_icon(H)
+			H.equip_to_slot_if_possible(src,slot_head,0,0,1)
+			usr.visible_message(SPAN_NOTICE("[usr] pulls up the hood on \the [src]."))
+	else
+		RemoveHood(parent)
+		usr.visible_message(SPAN_NOTICE("[usr] pulls down the hood on \the [src]."))
+
+/obj/item/clothing/head/winterhood/proc/RemoveHood(var/parent)
+	if(ishuman(loc))
+		var/mob/living/carbon/H = loc
+		H.unEquip(src, 1)
+		forceMove(parent)
+		update_icon(H)
+		hooded = FALSE
+
+/obj/item/clothing/head/winterhood/proc/get_human(var/obj/parent)
+	var/mob/living/carbon/human/H
+	if(isclothing(parent.loc))
+		if(ishuman(parent.loc.loc))
+			H = parent.loc.loc
+	else if(ishuman(parent.loc))
+		H = parent.loc
+	return H
+
+/obj/item/clothing/head/winterhood/proc/CheckSlot(var/parent)
+	var/mob/living/carbon/human/H = get_human(parent)
+	var/obj/base_item = loc
+	if(isclothing(loc.loc))
+		base_item = loc.loc
+
+	if(H)
+		if(H.wear_suit != base_item && H.w_uniform != base_item)
+			to_chat(H, SPAN_WARNING("You must be wearing [base_item] to put up the hood!"))
+			return FALSE
+		else if(H.head)
+			to_chat(H, SPAN_WARNING("You're already wearing something on your head!"))
+			return FALSE
+		else
+			return TRUE
+	return FALSE
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/red
+	name = "red winter coat"
+	icon_state = "coatred"
+	item_state = "coatred"
 
 /obj/item/clothing/suit/storage/hooded/wintercoat/captain
 	name = "captain's winter coat"
@@ -109,25 +152,26 @@
 	name = "security winter coat"
 	icon_state = "coatsecurity"
 	item_state = "coatsecurity"
-	armor = list(melee = 25, bullet = 0, laser = 0, energy = 0, bomb = 0, bio = 0, rad = 0)
 
 /obj/item/clothing/suit/storage/hooded/wintercoat/medical
 	name = "medical winter coat"
 	icon_state = "coatmedical"
 	item_state = "coatmedical"
-	armor = list(melee = 0, bullet = 0, laser = 0,energy = 0, bomb = 0, bio = 50, rad = 0)
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/iac
+	name = "IAC winter coat"
+	icon_state = "coatIAC"
+	item_state = "coatIAC"
 
 /obj/item/clothing/suit/storage/hooded/wintercoat/science
 	name = "science winter coat"
 	icon_state = "coatscience"
 	item_state = "coatscience"
-	armor = list(melee = 0, bullet = 0, laser = 0,energy = 0, bomb = 10, bio = 0, rad = 0)
 
 /obj/item/clothing/suit/storage/hooded/wintercoat/engineering
 	name = "engineering winter coat"
 	icon_state = "coatengineer"
 	item_state = "coatengineer"
-	armor = list(melee = 0, bullet = 0, laser = 0, energy = 0, bomb = 0, bio = 0, rad = 20)
 
 /obj/item/clothing/suit/storage/hooded/wintercoat/engineering/atmos
 	name = "atmospherics winter coat"
@@ -140,7 +184,7 @@
 	item_state = "coathydro"
 
 /obj/item/clothing/suit/storage/hooded/wintercoat/cargo
-	name = "cargo winter coat"
+	name = "operations winter coat"
 	icon_state = "coatcargo"
 	item_state = "coatcargo"
 
@@ -149,6 +193,71 @@
 	icon_state = "coatminer"
 	item_state = "coatminer"
 
+/obj/item/clothing/suit/storage/hooded/wintercoat/idris
+	name = "idris winter coat"
+	icon_state = "coatidris"
+	item_state = "coatidris"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/idris/alt
+	icon_state = "coatidris_alt"
+	item_state = "coatidris_alt"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/zavod
+	name = "zavodskoi winter coat"
+	icon_state = "coatzavod"
+	item_state = "coatzavod"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/zavod/alt
+	icon_state = "coatzavod_alt"
+	item_state = "coatzavod_alt"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/pmc
+	name = "pmcg winter coat"
+	icon_state = "coatpmc"
+	item_state = "coatpmc"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/pmc/alt
+	name = "epmc winter coat"
+	icon_state = "coatepmc"
+	item_state = "coatepmc"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/heph
+	name = "hephaestus winter coat"
+	icon_state = "coatheph"
+	item_state = "coatheph"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/nt
+	name = "nanotrasen winter coat"
+	icon_state = "coatnt"
+	item_state = "coatnt"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/zeng
+	name = "zeng-hu winter coat"
+	icon_state = "coatzeng"
+	item_state = "coatzeng"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/zeng/alt
+	icon_state = "coatzeng_alt"
+	item_state = "coatzeng_alt"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/orion
+	name = "orion winter coat"
+	icon_state = "coatorion"
+	item_state = "coatorion"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/orion/alt
+	icon_state = "coatorion_alt"
+	item_state = "coatorion_alt"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/scc
+	name = "scc winter coat"
+	icon_state = "coatscc"
+	item_state = "coatscc"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/scc/alt
+	icon_state = "coatscc_alt"
+	item_state = "coatscc_alt"
+
 /obj/item/clothing/suit/storage/hooded/wintercoat/corgi
 	name = "corgi costume"
 	desc = "A corgi costume made of legit corgi hide."
@@ -156,11 +265,12 @@
 	item_state = "corgi"
 	flags_inv = HIDEJUMPSUIT
 	hoodtype = /obj/item/clothing/head/winterhood/corgi
+	min_cold_protection_temperature = null
 
 /obj/item/clothing/head/winterhood/corgi
 	name = "corgi hood"
 	desc = "A hood attached to a corgi costume."
-	icon_state = "corgi_helm"
+	min_cold_protection_temperature = null
 
 /obj/item/clothing/suit/storage/hooded/wintercoat/carp
 	name = "space carp costume"
@@ -169,77 +279,198 @@
 	item_state = "carp"
 	flags_inv = HIDEJUMPSUIT
 	hoodtype = /obj/item/clothing/head/winterhood/carp
+	min_cold_protection_temperature = null
 
 /obj/item/clothing/head/winterhood/carp
 	name = "space carp hood"
 	desc = "A hood attached to a space carp costume."
-	icon_state = "carp_helm"
+	min_cold_protection_temperature = null
 
 /obj/item/clothing/suit/storage/hooded/wintercoat/hoodie
 	name = "hoodie"
 	desc = "Warm and cozy."
 	icon_state = "hoodie"
-	var/icon_open = "hoodie_open"
-	var/icon_closed = "hoodie"
 	item_state = "hoodie"
 	hoodtype = /obj/item/clothing/head/winterhood/hoodie
+	min_cold_protection_temperature = MODERATE_MIN_COLD_PROTECTION_TEMPERATURE
 
-/obj/item/clothing/suit/storage/hooded/wintercoat/hoodie/RemoveHood()
-	..()
-	icon_open = initial(icon_open)
-	icon_closed = initial(icon_closed)
-
-/obj/item/clothing/suit/storage/hooded/wintercoat/hoodie/verb/Toggle() //copied from storage toggle
-	set name = "Toggle Coat Buttons"
-	set category = "Object"
+/obj/item/clothing/suit/storage/hooded/wintercoat/hoodie/verb/Toggle()
+	set name = "Toggle Coat Zipper"
+	set category = "Object.Equipped"
 	set src in usr
-	if(use_check(usr))
+	if(use_check_and_message(usr))
 		return 0
-	if(icon_state == icon_open)
-		icon_state = icon_closed
-		item_state = icon_closed
-		to_chat(usr, "You zip the hoodie.")
-	else if(icon_state == icon_closed)
-		icon_state = icon_open
-		item_state = icon_open
-		to_chat(usr, "You unzip the hoodie.")
-	else
-		to_chat(usr, "You attempt to zip the velcro on your [src], before promptly realising how silly you are.")
-		return
+	opened = !opened
+	to_chat(usr, "You [opened ? "unzip" : "zip"] \the [src].")
+	playsound(src, 'sound/items/zip.ogg', EQUIP_SOUND_VOLUME, TRUE)
+	update_icon()
 	update_clothing_icon()
-
-/obj/item/clothing/suit/storage/hooded/wintercoat/hoodie/verb/ToggleHoodie()
-	set name ="Toggle Coat Hood"
-	set category = "Object"
-	set src in usr
-
-	if(use_check(usr))
-		return 0
-
-	if(!suittoggled)
-		if(ishuman(loc))
-			var/mob/living/carbon/human/H = src.loc
-			if(H.wear_suit != src)
-				to_chat(H, "<span class='warning'>You must be wearing [src] to put up the hood!</span>")
-				return
-			if(H.head)
-				to_chat(H, "<span class='warning'>You're already wearing something on your head!</span>")
-				return
-			else
-				H.equip_to_slot_if_possible(hood,slot_head,0,0,1)
-				suittoggled = 1
-				icon_open = "[initial(icon_open)]_t" // this is where the change is.
-				icon_closed = "[initial(icon_closed)]_t"
-				icon_state = "[initial(icon_state)]_t"
-				item_state = "[initial(item_state)]_t"
-				H.update_inv_wear_suit()
-	else
-		RemoveHood()
+	usr.update_inv_head()
 
 /obj/item/clothing/head/winterhood/hoodie
 	name = "hood"
 	desc = "A hood attached to a warm hoodie."
-	icon_state = "hoodie_hood"
+	min_cold_protection_temperature = MODERATE_MIN_COLD_PROTECTION_TEMPERATURE
 
-/obj/item/clothing/suit/storage/hooded/wintercoat/hoodie/grey //legacy item. for raiders, shuttle spawn
-	color = "#777777"
+/obj/item/clothing/suit/storage/hooded/wintercoat/hoodie/random/Initialize()
+	. = ..()
+	color = get_random_colour(lower = 150)
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/hoodie/short
+	icon_state = "hoodie_short"
+	item_state = "hoodie_short"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/hoodie/crop
+	icon_state = "hoodie_crop"
+	item_state = "hoodie_crop"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/hoodie/sleeveless
+	icon_state = "hoodie_sleeveless"
+	item_state = "hoodie_sleeveless"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/hoodie/sleeveless_crop
+	icon_state = "hoodie_sleeveless_crop"
+	item_state = "hoodie_sleeveless_crop"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/konyang
+	name = "konyang village coat"
+	desc = "A highly prized hooded coat with unmatched breathability and insulation. Imported from Konyang, this garment is made with a weave derived from the feathers of indigenous birds."
+	icon_state = "konyang_village"
+	item_state = "konyang_village"
+	hoodtype = /obj/item/clothing/head/winterhood/konyang
+
+/obj/item/clothing/head/winterhood/konyang
+	name = "konyang village hood"
+	desc = "A light, waterproof hood attached to a Konyanger coat."
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/mars
+	name = "martian hoodie"
+	desc = "An orange hoodie jacket featuring the face of Warrant Officer August 'Gus' Maldarth, typically worn as a symbol of both solidarity with Mars, and a sign of protest against the Sol Alliance government. \
+	Strangely, Maldarth seems to be mispelled as 'Maldrath' on this garment. Additionally, #GusticeForGus can be seen written on the back. It seems to have typeface issues."
+	desc_extended = "In November 2462, the planet of Mars was devastated by a phoron explosion widely believed to be\
+	caused by experiments the Solarian government was conducting on the planet. As a result, an earlier whistleblower,\
+	Gus Maldarth was regarded as a martyr after being silenced by operatives allegedly working on the behalf of Sol."
+	icon_state = "hoodie_mars"
+	item_state = "hoodie_mars"
+	hoodtype = /obj/item/clothing/head/winterhood/mars
+	min_cold_protection_temperature = MODERATE_MIN_COLD_PROTECTION_TEMPERATURE
+
+/obj/item/clothing/head/winterhood/mars
+	name = "martian hood"
+	desc = "A hood attached to a warm Martian hoodie."
+	min_cold_protection_temperature = MODERATE_MIN_COLD_PROTECTION_TEMPERATURE
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/colorable
+	icon_state = "coatwinter_colorable"
+	item_state = "coatwinter_colorable"
+	has_accents = TRUE
+	hoodtype = /obj/item/clothing/head/winterhood/colorable
+
+/obj/item/clothing/head/winterhood/colorable
+	icon_state = "coatwinter_colorable_hood"
+	has_accents = TRUE
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/colorable/ponczo
+	name = "visegradi ponczo"
+	desc = "A type of shelter-half or zeltbahn, the ponczo is a ubiquitous article of clothing on the planet of Visegrad. Resembling a long smock or raincoat, the ponczo is as waterproof as it is rugged. While true shelter-halves can be made into a tent, most ponczos are no longer capable of this."
+	icon_state = "ponczo"
+	item_state = "ponczo"
+	hoodtype = /obj/item/clothing/head/winterhood/colorable/ponczo
+	min_cold_protection_temperature = LIGHT_MIN_COLD_PROTECTION_TEMPERATURE
+
+/obj/item/clothing/head/winterhood/colorable/ponczo
+	name = "visegradi ponczo hood"
+	desc = "A hood for a Visegradi ponczo."
+	min_cold_protection_temperature = LIGHT_MIN_COLD_PROTECTION_TEMPERATURE
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/patterned_ponczo
+	name = "red visegradi patterned ponczo"
+	desc = "A type of shelter-half or zeltbahn, the ponczo is a ubiquitous article of clothing on the planet of Visegrad. Resembling a long smock or raincoat, the ponczo is as waterproof as it is rugged. While true shelter-halves can be made into a tent, most ponczos are no longer capable of this. This one is red, and has a patterned design."
+	icon_state = "red_ponczo"
+	item_state = "red_ponczo"
+	hoodtype = /obj/item/clothing/head/winterhood/patterned_ponczo
+	min_cold_protection_temperature = LIGHT_MIN_COLD_PROTECTION_TEMPERATURE
+
+/obj/item/clothing/head/winterhood/patterned_ponczo
+	name = "red visegradi ponczo hood"
+	desc = "A hood for a Visegradi ponczo."
+	min_cold_protection_temperature = LIGHT_MIN_COLD_PROTECTION_TEMPERATURE
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/patterned_ponczo/brown
+	name = "brown visegradi patterned ponczo"
+	desc = "A type of shelter-half or zeltbahn, the ponczo is a ubiquitous article of clothing on the planet of Visegrad. Resembling a long smock or raincoat, the ponczo is as waterproof as it is rugged. While true shelter-halves can be made into a tent, most ponczos are no longer capable of this. This one is brown, and has a patterned design."
+	icon_state = "brown_ponczo"
+	item_state = "brown_ponczo"
+	hoodtype = /obj/item/clothing/head/winterhood/patterned_ponczo/brown
+
+/obj/item/clothing/head/winterhood/patterned_ponczo/brown
+	name = "brown visegradi ponczo hood"
+	desc = "A hood for a Visegradi ponczo."
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/patterned_ponczo/blue
+	name = "blue visegradi patterned ponczo"
+	desc = "A type of shelter-half or zeltbahn, the ponczo is a ubiquitous article of clothing on the planet of Visegrad. Resembling a long smock or raincoat, the ponczo is as waterproof as it is rugged. While true shelter-halves can be made into a tent, most ponczos are no longer capable of this. This one is blue, and has a patterned design."
+	icon_state = "blue_ponczo"
+	item_state = "blue_ponczo"
+	hoodtype = /obj/item/clothing/head/winterhood/patterned_ponczo/blue
+
+/obj/item/clothing/head/winterhood/patterned_ponczo/blue
+	name = "blue visegradi ponczo hood"
+	desc = "A hood for a Visegradi ponczo."
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/parka
+	name = "nanotrasen parka"
+	desc = "A heavy fur-lined jacket designed to keep you extra warm in sub-zero conditions. This one has the NanoTrasen logo on it."
+	icon_state = "ntpark"
+	item_state = "ntpark"
+	hoodtype = /obj/item/clothing/head/winterhood/parka
+
+/obj/item/clothing/head/winterhood/parka
+	name = "nanotrasen parka hood"
+	desc = "A fur-lined hood attached to a parka."
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/parka/vintage
+	name = "vintage parka"
+	desc = "An old-fashioned fur-lined jacket made to keep you nice and toasty on cold winter days. Or at least alive."
+	icon_state = "vintagepark"
+	item_state = "vintagepark"
+	hoodtype = /obj/item/clothing/head/winterhood/parka/vintage
+
+/obj/item/clothing/head/winterhood/parka/vintage
+	name = "vintage parka hood"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/parka/colorable
+	name = "parka"
+	desc = "A heavy fur-lined jacket designed to keep you extra warm in sub-zero conditions."
+	icon_state = "parka_colorable"
+	item_state = "parka_colorable"
+	has_accents = TRUE
+	hoodtype = /obj/item/clothing/head/winterhood/parka/colorable
+
+/obj/item/clothing/head/winterhood/parka/colorable
+	name = "parka hood"
+	icon_state = "parka_colorable_hood"
+	has_accents = TRUE
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/jacket
+	name = "winter jacket"
+	desc = "A warm jacket made from synthetic fabrics."
+	icon_state = "winter_jacket"
+	item_state = "winter_jacket"
+	hoodtype = /obj/item/clothing/head/winterhood/jacket
+
+/obj/item/clothing/head/winterhood/jacket
+	name = "winter jacket hood"
+	desc = "A warm hood made from synthetic fabrics attached to a jacket."
+	icon_state = "winter_jacket_hood"
+
+/obj/item/clothing/suit/storage/hooded/wintercoat/jacket/colorable
+	icon_state = "winter_jacket_colorable"
+	item_state = "winter_jacket_colorable"
+	has_accents = TRUE
+	hoodtype = /obj/item/clothing/head/winterhood/jacket/colorable
+
+/obj/item/clothing/head/winterhood/jacket/colorable
+	icon_state = "winter_jacket_colorable_hood"
+	has_accents = TRUE
+

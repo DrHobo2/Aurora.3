@@ -1,8 +1,8 @@
 /* Filing cabinets!
  * Contains:
- *		Filing Cabinets
- *		Security Record Cabinets
- *		Medical Record Cabinets
+ * * Filing Cabinets
+ * * Security Record Cabinets
+ * * Medical Record Cabinets
  */
 
 
@@ -16,6 +16,29 @@
 	icon_state = "filingcabinet"
 	density = 1
 	anchored = 1
+	maxhealth = OBJECT_HEALTH_VERY_LOW
+	armor = list(MELEE = ARMOR_MELEE_SMALL, BULLET = ARMOR_BALLISTIC_MINOR)
+
+	var/static/list/accepted_items = list(
+		/obj/item/paper,
+		/obj/item/folder,
+		/obj/item/photo,
+		/obj/item/paper_bundle,
+		/obj/item/sample,
+		/obj/item/book,
+		/obj/item/card,
+		/obj/item/forensics/slide,
+		/obj/item/forensics/swab,
+		/obj/item/storage/photo_album,
+		/obj/item/clipboard,
+		/obj/item/disk,
+		/obj/item/pen,
+		/obj/item/clothing/accessory/badge,
+		/obj/item/pack,
+		/obj/item/hand,
+		/obj/item/key,
+		/obj/item/paper_scanner
+)
 
 
 /obj/structure/filingcabinet/chestdrawer
@@ -26,73 +49,63 @@
 /obj/structure/filingcabinet/filingcabinet	//not changing the path to avoid unecessary map issues, but please don't name stuff like this in the future -Pete
 	icon_state = "tallcabinet"
 
-
 /obj/structure/filingcabinet/Initialize()
 	. = ..()
 	for(var/obj/item/I in loc)
-		if(istype(I, /obj/item/weapon/paper) || istype(I, /obj/item/weapon/folder) || istype(I, /obj/item/weapon/photo) || istype(I, /obj/item/weapon/paper_bundle))
+		if(is_type_in_list(I, accepted_items))
 			I.forceMove(src)
 
-
-/obj/structure/filingcabinet/attackby(obj/item/P as obj, mob/user as mob)
-	if(istype(P, /obj/item/weapon/paper) || istype(P, /obj/item/weapon/folder) || istype(P, /obj/item/weapon/photo) || istype(P, /obj/item/weapon/paper_bundle))
-		user << "<span class='notice'>You put [P] in [src].</span>"
-		user.drop_from_inventory(P,src)
-		icon_state = "[initial(icon_state)]-open"
-		sleep(5)
+/obj/structure/filingcabinet/attackby(obj/item/attacking_item, mob/user)
+	if(is_type_in_list(attacking_item, accepted_items))
+		to_chat(user, SPAN_NOTICE("You put [attacking_item] in [src]."))
+		user.drop_from_inventory(attacking_item, src)
+		flick("[initial(icon_state)]-open", src)
+		playsound(loc, 'sound/items/bureaucracy/filingcabinet.ogg', 50, 1)
+		sleep(40)
 		icon_state = initial(icon_state)
 		updateUsrDialog()
-	else if(P.iswrench())
-		playsound(loc, 'sound/items/Ratchet.ogg', 50, 1)
+	else if(attacking_item.tool_behaviour == TOOL_WRENCH)
+		attacking_item.play_tool_sound(get_turf(src), 50)
 		anchored = !anchored
-		user << "<span class='notice'>You [anchored ? "wrench" : "unwrench"] \the [src].</span>"
+		to_chat(user, SPAN_NOTICE("You [anchored ? "wrench" : "unwrench"] \the [src]."))
 	else
-		user << "<span class='notice'>You can't put [P] in [src]!</span>"
+		to_chat(user, SPAN_NOTICE("You can't put [attacking_item] in [src]!"))
 
+/obj/structure/filingcabinet/on_death(damage, damage_flags, damage_type, armor_penetration, obj/weapon)
+	for(var/obj/item/thing in src)
+		if(prob(25))
+			if(istype(thing, /obj/item/paper))
+				if(prob(50))
+					var/obj/item/paper/paper = thing
+					paper.crumple()
+			thing.forceMove(get_turf(src))
+	. = ..()
 
 /obj/structure/filingcabinet/attack_hand(mob/user as mob)
 	if(contents.len <= 0)
-		user << "<span class='notice'>\The [src] is empty.</span>"
+		to_chat(user, SPAN_NOTICE("\The [src] is empty."))
 		return
 
 	user.set_machine(src)
 	var/dat = "<center><table>"
 	for(var/obj/item/P in src)
-		dat += "<tr><td><a href='?src=\ref[src];retrieve=\ref[P]'>[P.name]</a></td></tr>"
+		dat += "<tr><td><a href='byond://?src=[REF(src)];retrieve=[REF(P)]'>[P.name]</a></td></tr>"
 	dat += "</table></center>"
 	user << browse("<html><head><title>[name]</title></head><body>[dat]</body></html>", "window=filingcabinet;size=350x300")
 
-	return
-
-/obj/structure/filingcabinet/attack_tk(mob/user)
-	if(anchored)
-		attack_self_tk(user)
-	else
-		..()
-
-/obj/structure/filingcabinet/attack_self_tk(mob/user)
-	if(contents.len)
-		if(prob(40 + contents.len * 5))
-			var/obj/item/I = pick(contents)
-			I.forceMove(loc)
-			if(prob(25))
-				step_rand(I)
-			user << "<span class='notice'>You pull \a [I] out of [src] at random.</span>"
-			return
-	user << "<span class='notice'>You find nothing in [src].</span>"
-
 /obj/structure/filingcabinet/Topic(href, href_list)
 	if(href_list["retrieve"])
-		usr << browse("", "window=filingcabinet") // Close the menu
+		usr << browse("", "window=filingcabinet") // Close the menu)
 
 		//var/retrieveindex = text2num(href_list["retrieve"])
 		var/obj/item/P = locate(href_list["retrieve"])//contents[retrieveindex]
 		if(istype(P) && (P.loc == src) && src.Adjacent(usr))
 			usr.put_in_hands(P)
 			updateUsrDialog()
-			icon_state = "[initial(icon_state)]-open"
+			flick("[initial(icon_state)]-open",src)
+			playsound(loc, 'sound/items/bureaucracy/filingcabinet.ogg', 50, 1)
 			spawn(0)
-				sleep(5)
+				sleep(20)
 				icon_state = initial(icon_state)
 
 
@@ -105,31 +118,37 @@
 
 /obj/structure/filingcabinet/security/proc/populate()
 	if(virgin)
-		for(var/datum/data/record/G in data_core.general)
-			var/datum/data/record/S
-			for(var/datum/data/record/R in data_core.security)
-				if((R.fields["name"] == G.fields["name"] || R.fields["id"] == G.fields["id"]))
-					S = R
-					break
-			var/obj/item/weapon/paper/P = new /obj/item/weapon/paper(src)
-			P.info = "<CENTER><B>Security Record</B></CENTER><BR>"
-			P.info += "Name: [G.fields["name"]] ID: [G.fields["id"]]<BR>\nSex: [G.fields["sex"]]<BR>\nAge: [G.fields["age"]]<BR>\nFingerprint: [G.fields["fingerprint"]]<BR>\nPhysical Status: [G.fields["p_stat"]]<BR>\nMental Status: [G.fields["m_stat"]]<BR>"
-			P.info += "<BR>\n<CENTER><B>Security Data</B></CENTER><BR>\nCriminal Status: [S.fields["criminal"]]<BR>\n<BR>\nMinor Crimes: [S.fields["mi_crim"]]<BR>\nDetails: [S.fields["mi_crim_d"]]<BR>\n<BR>\nMajor Crimes: [S.fields["ma_crim"]]<BR>\nDetails: [S.fields["ma_crim_d"]]<BR>\n<BR>\nImportant Notes:<BR>\n\t[replacetext(S.fields["notes"], "\n", "<BR>")]<BR>\n<BR>\n<CENTER><B>Comments/Log</B></CENTER><BR>"
-			var/counter = 1
-			while(S.fields["com_[counter]"])
-				P.info += "[S.fields["com_[counter]"]]<BR>"
-				counter++
-			P.info += "</TT>"
-			P.name = "Security Record ([G.fields["name"]])"
-			virgin = 0	//tabbing here is correct- it's possible for people to try and use it
-						//before the records have been generated, so we do this inside the loop.
-	..()
+		for(var/datum/record/general/R in SSrecords.records)
+			if(istype(R) && istype(R.security))
+				var/obj/item/paper/P = new /obj/item/paper(src)
+				P.info = "<CENTER><B>Security Record</B></CENTER><BR>"
+				P.info += {"
+Name: [R.name] ID: [R.id]<BR>
+Sex: [R.sex]<BR>
+Age: [R.age]<BR>
+Fingerprint: [R.fingerprint]<BR>
+Physical Status: [R.physical_status]<BR>
+Mental Status: [R.mental_status]<BR>
+<BR>
+<CENTER><B>Security Data</B></CENTER><BR>
+Criminal Status: [R.security.criminal]<BR><BR>
+Crimes: [R.security.crimes]<BR><BR>
+Important Notes:<BR>
+\t[replacetext(R.security.notes, "\n", "<BR>")]<BR>\n<BR>
+<CENTER><B>Comments/Log</B></CENTER><BR>
+"}
+				for(var/comment in R.security.comments)
+					P.info += "[comment]<BR>"
+				P.info += "</TT>"
+				P.name = "Security Record ([R.name])"
+				virgin = 0	//tabbing here is correct- it's possible for people to try and use it
+							//before the records have been generated, so we do this inside the loop.
 
 /obj/structure/filingcabinet/security/attack_hand()
 	populate()
 	..()
 
-/obj/structure/filingcabinet/security/attack_tk()
+/obj/structure/filingcabinet/security/do_simple_ranged_interaction(var/mob/user)
 	populate()
 	..()
 
@@ -141,33 +160,37 @@
 
 /obj/structure/filingcabinet/medical/proc/populate()
 	if(virgin)
-		for(var/datum/data/record/G in data_core.general)
-			var/datum/data/record/M
-			for(var/datum/data/record/R in data_core.medical)
-				if((R.fields["name"] == G.fields["name"] || R.fields["id"] == G.fields["id"]))
-					M = R
-					break
-			if(M)
-				var/obj/item/weapon/paper/P = new /obj/item/weapon/paper(src)
+		for(var/datum/record/general/R in SSrecords.records)
+			if(istype(R) && istype(R.medical))
+				var/obj/item/paper/P = new /obj/item/paper(src)
 				var/info = "<CENTER><B>Medical Record</B></CENTER><BR>"
-				info += "Name: [G.fields["name"]] ID: [G.fields["id"]]<BR>\nSex: [G.fields["sex"]]<BR>\nAge: [G.fields["age"]]<BR>\nFingerprint: [G.fields["fingerprint"]]<BR>\nPhysical Status: [G.fields["p_stat"]]<BR>\nMental Status: [G.fields["m_stat"]]<BR>"
-
-				info += "<BR>\n<CENTER><B>Medical Data</B></CENTER><BR>\nBlood Type: [M.fields["b_type"]]<BR>\nDNA: [M.fields["b_dna"]]<BR>\n<BR>\nMinor Disabilities: [M.fields["mi_dis"]]<BR>\nDetails: [M.fields["mi_dis_d"]]<BR>\n<BR>\nMajor Disabilities: [M.fields["ma_dis"]]<BR>\nDetails: [M.fields["ma_dis_d"]]<BR>\n<BR>\nAllergies: [M.fields["alg"]]<BR>\nDetails: [M.fields["alg_d"]]<BR>\n<BR>\nCurrent Diseases: [M.fields["cdi"]] (per disease info placed in log/comment section)<BR>\nDetails: [M.fields["cdi_d"]]<BR>\n<BR>\nImportant Notes:<BR>\n\t[replacetext(M.fields["notes"], "\n", "<BR>")]<BR>\n<BR>\n<CENTER><B>Comments/Log</B></CENTER><BR>"
-				var/counter = 1
-				while(M.fields["com_[counter]"])
-					info += "[M.fields["com_[counter]"]]<BR>"
-					counter++
+				info += {"
+Name: [R.name] ID: [R.id]<BR>
+Sex: [R.sex]<BR>
+Age: [R.age]<BR>
+Fingerprint: [R.fingerprint]<BR>
+Physical Status: [R.physical_status]<BR>
+Mental Status: [R.mental_status]<BR>
+<BR>
+<CENTER><B>Medical Data</B></CENTER><BR>
+Blood Type: [R.medical.blood_type]<BR>
+DNA: [R.medical.blood_dna]<BR><BR>
+Important Notes:<BR>
+[replacetext(R.medical.notes, "\n", "<BR>")]<BR><BR>
+<CENTER><B>Comments/Log</B></CENTER><BR>
+"}
+				for(var/comment in R.medical.comments)
+					info += "[comment]<BR>"
 				info += "</TT>"
-				var/pname = "Medical Record ([G.fields["name"]])"
+				var/pname = "Medical Record ([R.name])"
 				P.set_content_unsafe(pname, info)
 			virgin = 0	//tabbing here is correct- it's possible for people to try and use it
 						//before the records have been generated, so we do this inside the loop.
-	..()
 
 /obj/structure/filingcabinet/medical/attack_hand()
 	populate()
 	..()
 
-/obj/structure/filingcabinet/medical/attack_tk()
+/obj/structure/filingcabinet/medical/do_simple_ranged_interaction(var/mob/user)
 	populate()
 	..()

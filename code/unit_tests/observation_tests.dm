@@ -1,108 +1,53 @@
-/proc/is_listening_to_movement(var/atom/movable/listening_to, var/listener)
-	return moved_event.is_listening(listening_to, listener)
+/proc/is_listening_to_movement(var/atom/movable/listening_to, var/mob/abstract/ghost/listener)
+	if(!listener.orbiting)
+		return FALSE
 
-datum/unit_test/observation
+	var/list/procs = (listener.orbiting.tracker._signal_procs ||= list())
+	var/list/target_procs = (procs[listening_to] ||= list())
+	var/exists = target_procs[COMSIG_MOVABLE_MOVED]
+	return exists
+
+/datum/unit_test/observation
 	name = "OBSERVATION template"
+	groups = list("generic")
+
 	async = 0
 
-datum/unit_test/observation/moved_observer_shall_register_on_follow
+/datum/unit_test/observation/moved_observer_shall_register_on_follow
 	name = "OBSERVATION: Moved - Observer Shall Register on Follow"
+	groups = list("generic")
 
-datum/unit_test/observation/moved_observer_shall_register_on_follow/start_test()
+/datum/unit_test/observation/moved_observer_shall_register_on_follow/start_test()
 	var/turf/T = locate(20,20,1)
 	var/mob/living/carbon/human/H = new(T)
-	var/mob/abstract/observer/O = new(T)
+	var/mob/abstract/ghost/observer/O = new(T)
 
 	O.ManualFollow(H)
 	if(is_listening_to_movement(H, O))
-		pass("The observer is now following the mob.")
+		TEST_PASS("The observer is now following the mob.")
 	else
-		fail("The observer is not following the mob.")
+		TEST_FAIL("The observer is not following the mob.")
 
-	QDEL_IN(H, 10 SECONDS)
-	QDEL_IN(O, 10 SECONDS)
+	qdel(H)
+	qdel(O)
 	return 1
 
-datum/unit_test/observation/moved_observer_shall_unregister_on_nofollow
+/datum/unit_test/observation/moved_observer_shall_unregister_on_nofollow
 	name = "OBSERVATION: Moved - Observer Shall Unregister on NoFollow"
+	groups = list("generic")
 
-datum/unit_test/observation/moved_observer_shall_unregister_on_nofollow/start_test()
+/datum/unit_test/observation/moved_observer_shall_unregister_on_nofollow/start_test()
 	var/turf/T = locate(20,20,1)
 	var/mob/living/carbon/human/H = new(T)
-	var/mob/abstract/observer/O = new(T)
+	var/mob/abstract/ghost/observer/O = new(T)
 
 	O.ManualFollow(H)
-	O.stop_following()
+	QDEL_NULL(O.orbiting)
 	if(!is_listening_to_movement(H, O))
-		pass("The observer is no longer following the mob.")
+		TEST_PASS("The observer is no longer following the mob.")
 	else
-		fail("The observer is still following the mob.")
+		TEST_FAIL("The observer is still following the mob.")
 
-	QDEL_IN(H, 10 SECONDS)
-	QDEL_IN(O, 10 SECONDS)
-	return 1
-
-datum/unit_test/observation/moved_shall_not_register_on_enter_without_listeners
-	name = "OBSERVATION: Moved - Shall Not Register on Enter Without Listeners"
-
-datum/unit_test/observation/moved_shall_not_register_on_enter_without_listeners/start_test()
-	var/turf/T = locate(20,20,1)
-	var/mob/living/carbon/human/H = new(T)
-	var/obj/structure/closet/C = new(T)
-
-	H.forceMove(C)
-	if(!is_listening_to_movement(C, H))
-		pass("The mob did not register to the closet's moved event.")
-	else
-		fail("The mob has registered to the closet's moved event.")
-
-	QDEL_IN(C, 10 SECONDS)
-	QDEL_IN(H, 10 SECONDS)
-	return 1
-
-datum/unit_test/observation/moved_shall_registers_recursively_on_new_listener
-	name = "OBSERVATION: Moved - Shall Register Recursively on New Listener"
-
-datum/unit_test/observation/moved_shall_registers_recursively_on_new_listener/start_test()
-	var/turf/T = locate(20,20,1)
-	var/mob/living/carbon/human/H = new(T)
-	var/obj/structure/closet/C = new(T)
-	var/mob/abstract/observer/O = new(T)
-
-	H.forceMove(C)
-	O.ManualFollow(H)
-	var/listening_to_closet = is_listening_to_movement(C, H)
-	var/listening_to_human = is_listening_to_movement(H, O)
-	if(listening_to_closet && listening_to_human)
-		pass("Recursive moved registration succesful.")
-	else
-		fail("Recursive moved registration failed. Human listening to closet: [listening_to_closet] - Observer listening to human: [listening_to_human]")
-
-	QDEL_IN(C, 10 SECONDS)
-	QDEL_IN(H, 10 SECONDS)
-	QDEL_IN(O, 10 SECONDS)
-	return 1
-
-datum/unit_test/observation/moved_shall_registers_recursively_with_existing_listener
-	name = "OBSERVATION: Moved - Shall Register Recursively with Existing Listener"
-
-datum/unit_test/observation/moved_shall_registers_recursively_with_existing_listener/start_test()
-	var/turf/T = locate(20,20,1)
-	var/mob/living/carbon/human/H = new(T)
-	var/obj/structure/closet/C = new(T)
-	var/mob/abstract/observer/O = new(T)
-
-	O.ManualFollow(H)
-	H.forceMove(C)
-	var/listening_to_closet = is_listening_to_movement(C, H)
-	var/listening_to_human = is_listening_to_movement(H, O)
-	if(listening_to_closet && listening_to_human)
-		pass("Recursive moved registration succesful.")
-	else
-		fail("Recursive moved registration failed. Human listening to closet: [listening_to_closet] - Observer listening to human: [listening_to_human]")
-
-	QDEL_IN(C, 10 SECONDS)
-	QDEL_IN(H, 10 SECONDS)
-	QDEL_IN(O, 10 SECONDS)
-
+	qdel(H)
+	qdel(O)
 	return 1

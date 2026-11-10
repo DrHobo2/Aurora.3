@@ -1,188 +1,232 @@
 
-/obj/machinery/light_construct
+/obj/structure/machinery/light_construct
 	name = "light fixture frame"
 	desc = "A light fixture under construction."
-	icon = 'icons/obj/lighting.dmi'
+	icon = 'icons/obj/machinery/light.dmi'
 	icon_state = "tube-construct-stage1"
-	anchored = 1
-	layer = 5
+	anchored = TRUE
+	layer = ABOVE_HUMAN_LAYER
 	var/stage = 1
 	var/fixture_type = "tube"
 	var/sheets_refunded = 2
-	var/obj/machinery/light/newlight = null
-	var/obj/item/weapon/cell/cell
+	var/obj/structure/machinery/light/newlight = null
+	var/obj/item/cell/cell
 	var/cell_connectors = TRUE
 
-/obj/machinery/light_construct/Initialize()
+/obj/structure/machinery/light_construct/Initialize()
 	. = ..()
 	if (fixture_type == "bulb")
 		icon_state = "bulb-construct-stage1"
+	if (fixture_type == "spotlight")
+		icon_state = "slight-construct-stage1"
+	if (fixture_type == "floorbulb")
+		icon_state = "floor-construct-stage1"
+	if (fixture_type == "floorlight")
+		icon_state = "floortube-construct-stage1"
 
-/obj/machinery/light_construct/Destroy()
+/obj/structure/machinery/light_construct/Destroy()
 	QDEL_NULL(cell)
 	return ..()
 
-/obj/machinery/light_construct/examine(mob/user)
-	if(!..(user, 2))
-		return
+/obj/structure/machinery/light_construct/get_examine_text(mob/user, distance, is_adjacent, infix, suffix)
+	. = ..()
+	if(is_adjacent)
+		switch(stage)
+			if(1)
+				. += SPAN_NOTICE("It's an empty frame.")
+			if(2)
+				. += SPAN_NOTICE("It's wired.")
+			if(3)
+				. += SPAN_NOTICE("The casing is closed.")
 
-	switch(src.stage)
-		if(1)
-			to_chat(user, "It's an empty frame.")
-		if(2)
-			to_chat(user, "It's wired.")
-		if(3)
-			to_chat(user, "The casing is closed.")
-
-	if (cell_connectors)
-		if (cell)
-			to_chat(user, "You see [cell] inside the casing.")
-		else
-			to_chat(user, "The casing has no power cell installed.")
-	else
-		to_chat(user, "This casing doesn't support a backup power cell.")
-
-/obj/machinery/light_construct/attackby(obj/item/weapon/W as obj, mob/user as mob)
-	add_fingerprint(user)
-	if (W.iswrench())
-		if (src.stage == 1)
-			playsound(src.loc, 'sound/items/Ratchet.ogg', 75, 1)
-			usr << "You begin deconstructing [src]."
-			if (!do_after(usr, 30, act_target = src))
-				return
-			new /obj/item/stack/material/steel(get_turf(src.loc), sheets_refunded)
-			user.visible_message(
-				"[user] deconstructs [src].",
-				"You deconstruct [src]."
-			)
-			playsound(src.loc, 'sound/items/Deconstruct.ogg', 75, 1)
+		if (cell_connectors)
 			if (cell)
-				cell.forceMove(get_turf(src))
-				cell = null
-			qdel(src)
-		if (src.stage == 2)
-			usr << "You have to remove the wires first."
-			return
+				. += SPAN_NOTICE("You see [cell] inside the casing.")
+			else
+				. += SPAN_NOTICE("The casing has no power cell installed.")
+		else
+			. += SPAN_WARNING("This casing doesn't support a backup power cell.")
 
-		if (src.stage == 3)
-			usr << "You have to unscrew the case first."
-			return
+/obj/structure/machinery/light_construct/attackby(obj/item/attacking_item, mob/user)
+	add_fingerprint(user)
+	if(attacking_item.tool_behaviour == TOOL_WRENCH)
+		switch(stage)
+			if(1)
+				to_chat(user, SPAN_NOTICE("You begin taking \the [src] apart..."))
+				if(!attacking_item.use_tool(src, usr, 30, volume = 50))
+					return
+				new /obj/item/stack/material/steel(get_turf(src), sheets_refunded)
+				user.visible_message(SPAN_NOTICE("\The [user] takes \the [src] apart."),
+										SPAN_WARNING("You take \the [src] apart."))
+				if(cell)
+					cell.forceMove(get_turf(src))
+					cell = null
+				qdel(src)
+			if(2)
+				to_chat(user, SPAN_WARNING("You have to remove the wires first."))
+				return
+			if(3)
+				to_chat(user, SPAN_WARNING("You have to unscrew the case first."))
+				return
 
-	if(W.iswirecutter())
-		if (src.stage != 2) return
-		src.stage = 1
+	if(attacking_item.tool_behaviour == TOOL_WIRECUTTER)
+		if(stage != 2)
+			return
+		stage = 1
 		switch(fixture_type)
-			if ("tube")
-				src.icon_state = "tube-construct-stage1"
+			if("tube")
+				icon_state = "tube-construct-stage1"
 			if("bulb")
-				src.icon_state = "bulb-construct-stage1"
-		new /obj/item/stack/cable_coil(get_turf(src.loc), 1, "red")
-		user.visible_message(
-			"[user] removes the wiring from [src].",
-			"You remove the wiring from [src].",
-			"You hear something being cut."
-		)
-		playsound(src.loc, 'sound/items/Wirecutter.ogg', 100, 1)
+				icon_state = "bulb-construct-stage1"
+			if("spotlight")
+				icon_state = "slight-construct-stage1"
+			if ("floorbulb")
+				icon_state = "floor-construct-stage1"
+			if ("floorlight")
+				icon_state = "floortube-construct-stage1"
+		new /obj/item/stack/cable_coil(get_turf(src), 1, "red")
+		user.visible_message(SPAN_NOTICE("\The [user] removes the wiring from \the [src]."),
+								SPAN_NOTICE("You remove the wiring from [src]."),
+								SPAN_WARNING("You hear something being cut."))
+		playsound(get_turf(src), 'sound/items/Wirecutter.ogg', 100, TRUE)
 		return
 
-	if(W.iscoil())
-		if (src.stage != 1) return
-		var/obj/item/stack/cable_coil/coil = W
-		if (coil.use(1))
+	if(attacking_item.tool_behaviour == TOOL_CABLECOIL)
+		if(stage != 1)
+			return
+		var/obj/item/stack/cable_coil/coil = attacking_item
+		if(coil.use(1))
 			switch(fixture_type)
-				if ("tube")
-					src.icon_state = "tube-construct-stage2"
+				if("tube")
+					icon_state = "tube-construct-stage2"
 				if("bulb")
-					src.icon_state = "bulb-construct-stage2"
-			src.stage = 2
-			user.visible_message(
-				"[user] adds wires to [src].",
-				"You add wires to [src]."
-			)
+					icon_state = "bulb-construct-stage2"
+				if("spotlight")
+					icon_state = "slight-construct-stage2"
+				if ("floorbulb")
+					icon_state = "floor-construct-stage2"
+				if ("floorlight")
+					icon_state = "floortube-construct-stage2"
+			stage = 2
+			user.visible_message(SPAN_NOTICE("\The [user] adds wires to \the [src]."),
+									SPAN_NOTICE("You add wires to \the [src]."))
 		return
 
-	if(W.isscrewdriver())
-		if (stage == 2)
+	if(attacking_item.tool_behaviour == TOOL_SCREWDRIVER)
+		if(stage == 2)
 			switch(fixture_type)
 				if("tube")
 					icon_state = "tube_empty"
 				if("bulb")
 					icon_state = "bulb_empty"
+				if("spotlight")
+					icon_state = "slight_empty"
+				if ("floorbulb")
+					icon_state = "floor_empty"
+				if ("floorlight")
+					icon_state = "floortube_empty"
 			stage = 3
-			user.visible_message(
-				"[user] closes [src]'s casing.",
-				"You close [src]'s casing.",
-				"You hear something being screwed in."
-			)
-			playsound(src.loc, 'sound/items/Screwdriver.ogg', 75, 1)
+			user.visible_message(SPAN_NOTICE("\The [user] closes \the [src]'s casing."),
+									SPAN_NOTICE("You close \the [src]'s casing."),
+									SPAN_WARNING("You hear something being screwed in."))
+			attacking_item.play_tool_sound(get_turf(src), 75)
 
 			switch(fixture_type)
 				if("tube")
-					newlight = new /obj/machinery/light/built(src.loc)
+					newlight = new /obj/structure/machinery/light/built(get_turf(src))
 				if("bulb")
-					newlight = new /obj/machinery/light/small/built(src.loc)
+					newlight = new /obj/structure/machinery/light/small/built(get_turf(src))
+				if("spotlight")
+					newlight = new /obj/structure/machinery/light/spot/built(get_turf(src))
+				if("floorbulb")
+					newlight = new /obj/structure/machinery/light/small/floor/built(get_turf(src))
+				if("floorlight")
+					newlight = new /obj/structure/machinery/light/floor/built(get_turf(src))
 
 			newlight.dir = src.dir
-			if (cell)
+			if(cell)
 				newlight.cell = cell
 				cell.forceMove(newlight)
 				cell = null
 
-			src.transfer_fingerprints_to(newlight)
+			transfer_fingerprints_to(newlight)
 			qdel(src)
 			return
 
-	if (istype(W, /obj/item/weapon/cell))
-		if (!cell_connectors)
-			to_chat(user, "<span class='notice'>[src] does not have power cell connectors.</span>")
+	if(istype(attacking_item, /obj/item/cell))
+		if(!cell_connectors)
+			to_chat(user, SPAN_WARNING("\The [src] does not have power cell connectors."))
 			return
-		if (!user.unEquip(W))
+		if(!user.unEquip(attacking_item))
 			return
-		if (cell)
-			user.visible_message(
-				"<span class='notice'>[user] swaps [W] out for [src]'s cell.</span>",
-				"<span class='notice'>You swap out [src]'s cell out for [W].</span>"
-			)
+		if(cell)
+			user.visible_message(SPAN_NOTICE("\The [user] swaps \the [attacking_item] out for \the [src]'s cell."),
+									SPAN_NOTICE("You swap out \the [src]'s cell out for \the [attacking_item]."))
+			user.drop_from_inventory(attacking_item, src)
 			cell.forceMove(get_turf(src))
 			user.put_in_hands(cell)
 		else
-			user.visible_message(
-				"<span class='notice'>[user] installs [W] in [src].</span>",
-				"<span class='notice'>You hook up [W] to [src]'s cell terminals.</span>"
-			)
-			playsound(src, 'sound/machines/click.ogg', 50, TRUE)
-			W.forceMove(src)
-			cell = W
-			add_fingerprint(user)
-			return
-
-	if (W.iscrowbar())
-		if (!cell_connectors)
-			to_chat(user, "<span class='notice'>[src] does not have a power cell connector.</span>")
-			return
-
-		if (!cell)
-			to_chat(user, "<span class='notice'>[src] does not have a power cell installed.</span>")
-			return
-
-		playsound(src.loc, 'sound/items/Crowbar.ogg', 50, TRUE)
-		visible_message(
-			"[user] removes [cell] from [src].",
-			"<span class='notice'>You remove [cell] from [src].</span>"
-		)
-		cell.forceMove(get_turf(src))
-		cell = null
+			user.visible_message(SPAN_NOTICE("\The [user] installs \the [attacking_item] into \the [src]."),
+									SPAN_NOTICE("You hook up \the [attacking_item] to \the [src]'s cell terminals."))
+			user.drop_from_inventory(attacking_item, src)
+		cell = attacking_item
+		playsound(get_turf(src), 'sound/machines/click.ogg', 50, TRUE)
 		return
 
+	if(attacking_item.tool_behaviour == TOOL_CROWBAR)
+		if(!cell_connectors)
+			to_chat(user, SPAN_WARNING("\The [src] does not have a power cell connector."))
+			return
+		if(!cell)
+			to_chat(user, SPAN_WARNING("\The [src] does not have a power cell installed."))
+			return
+
+		attacking_item.play_tool_sound(get_turf(src), 50)
+		visible_message(SPAN_NOTICE("\The [user] removes \the [cell] from the [src]."),
+						SPAN_NOTICE("You remove \the [cell] from \the [src]."))
+		cell.forceMove(get_turf(src))
+		user.put_in_hands(cell)
+		cell = null
+		return
 	..()
 
-/obj/machinery/light_construct/small
+/obj/structure/machinery/light_construct/small
 	name = "small light fixture frame"
 	desc = "A small light fixture under construction."
-	icon = 'icons/obj/lighting.dmi'
+	icon = 'icons/obj/machinery/light.dmi'
 	icon_state = "bulb-construct-stage1"
-	anchored = 1
-	layer = 5
+	anchored = TRUE
 	stage = 1
 	fixture_type = "bulb"
 	sheets_refunded = 1
+
+/obj/structure/machinery/light_construct/spot
+	name = "spotlight fixture frame"
+	desc = "A spotlight fixture under construction."
+	icon = 'icons/obj/machinery/light.dmi'
+	icon_state = "slight-construct-stage1"
+	anchored = TRUE
+	stage = 1
+	fixture_type = "spotlight"
+	sheets_refunded = 3
+
+/obj/structure/machinery/light_construct/small/floor
+	name = "small floor light fixture frame"
+	desc = "A small floor light fixture under construction."
+	icon = 'icons/obj/machinery/light.dmi'
+	icon_state = "floor-construct-stage1"
+	anchored = TRUE
+	layer = TURF_DETAIL_LAYER
+	stage = 1
+	fixture_type = "floorbulb"
+	sheets_refunded = 1
+
+/obj/structure/machinery/light_construct/floor
+	name = "floor light fixture frame"
+	desc = "A floor light fixture under construction."
+	icon = 'icons/obj/machinery/light.dmi'
+	icon_state = "floortube-construct-stage1"
+	anchored = TRUE
+	layer = TURF_DETAIL_LAYER
+	stage = 1
+	fixture_type = "floorlight"

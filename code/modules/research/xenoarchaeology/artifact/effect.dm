@@ -24,7 +24,7 @@
 /datum/artifact_effect/New(var/atom/location)
 	..()
 	holder = location
-	effect = rand(0,MAX_EFFECT)
+	effect = rand(2,MAX_EFFECT)
 	trigger = rand(0,MAX_TRIGGER)
 
 	//this will be replaced by the excavation code later, but it's here just in case
@@ -42,8 +42,13 @@
 			effectrange = rand(5, 15)
 		if(3)
 			//large range, long charge time
-			chargelevelmax = rand(20, 120)
-			effectrange = rand(20, 200)
+			chargelevelmax = rand(20, 60)
+			effectrange = rand(15, 20)
+
+/datum/artifact_effect/Destroy(force)
+	holder = null
+
+	. = ..()
 
 /datum/artifact_effect/proc/ToggleActivate(var/reveal_toggle = 1)
 	//so that other stuff happens first
@@ -53,8 +58,8 @@
 		else
 			activated = 1
 		if(reveal_toggle && holder)
-			if(istype(holder, /obj/machinery/artifact))
-				var/obj/machinery/artifact/A = holder
+			if(istype(holder, /obj/structure/machinery/artifact))
+				var/obj/structure/machinery/artifact/A = holder
 				A.icon_state = "ano[A.icon_num][activated]"
 			var/display_msg
 			if(activated)
@@ -64,9 +69,9 @@
 			var/atom/toplevelholder = holder
 			while(!istype(toplevelholder.loc, /turf))
 				toplevelholder = toplevelholder.loc
-			toplevelholder.visible_message("<span class='warning'>\icon[toplevelholder] [toplevelholder] [display_msg]</span>")
+			toplevelholder.visible_message(SPAN_WARNING("[icon2html(toplevelholder, viewers(get_turf(toplevelholder)))] [toplevelholder] [display_msg]"))
 
-/datum/artifact_effect/proc/DoEffectTouch(var/mob/user)
+/datum/artifact_effect/proc/DoEffectTouch(var/mob/living/user)
 /datum/artifact_effect/proc/DoEffectAura(var/atom/holder)
 /datum/artifact_effect/proc/DoEffectPulse(var/atom/holder)
 /datum/artifact_effect/proc/UpdateMove()
@@ -83,39 +88,28 @@
 			DoEffectPulse()
 
 //returns 0..1, with 1 being no protection and 0 being fully protected
-proc/GetAnomalySusceptibility(var/mob/living/carbon/human/H)
+/proc/GetAnomalySusceptibility(var/mob/living/carbon/human/H)
 	if(!H || !istype(H))
 		return 1
 
 	//anomaly suits give best protection, but excavation suits are almost as good
-	if(istype(H.back,/obj/item/weapon/rig/hazmat))
-		var/obj/item/weapon/rig/hazmat/rig = H.back
-		if(rig.suit_is_deployed() && !rig.offline)
+	if(istype(H.back,/obj/item/rig))
+		var/obj/item/rig/rig = H.back
+		if(rig.suit_is_deployed() && !rig.offline && rig.anomaly_protection)
 			return 0 //<- Maximum level of protection achieved.
 
+	var/list/clothing = list(H.w_uniform, H.wear_suit, H.head, H.glasses, H.gloves)
 	var/protected = 0
 
-	if(istype(H.wear_suit,/obj/item/clothing/suit/bio_suit/anomaly))
-		protected += 0.6
-	else if(istype(H.wear_suit,/obj/item/clothing/suit/space/anomaly))
-		protected += 0.5
+	for(var/obj/item/clothing/C in clothing)
+		protected += C.anomaly_protection
 
-	if(istype(H.head,/obj/item/clothing/head/bio_hood/anomaly))
-		protected += 0.3
-	else if(istype(H.head,/obj/item/clothing/head/helmet/space/anomaly))
-		protected += 0.2
-
-	//latex gloves and science goggles also give a bit of bonus protection
-	if(istype(H.gloves,/obj/item/clothing/gloves/latex))
-		protected += 0.1
 	/*
 	If you have Anomaly Suit, Anomaly Hood, Latex Gloves AND Science Goggles, you will have
 		0.6 + 0.3 + 0.1 + 0.1 = 1.1
 	maximum protection level. The CLAMP01 instruction make sure that "protected" will be
 	always in 0..1 range boundaries.
 	*/
-	if(istype(H.glasses,/obj/item/clothing/glasses/science))
-		protected += 0.1 //<- In case of full not-Anomaly clothing, you'll have 0.5 + 0.2 + 0.1 + 0.1 = 0.9 maximum protection level.
 
 	//As said before, in case of a value of 1.1, "protected" will be setted to 1.
 	protected = CLAMP01(protected)

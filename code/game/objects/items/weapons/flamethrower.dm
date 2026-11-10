@@ -1,208 +1,460 @@
-/obj/item/weapon/flamethrower
+/obj/item/flamethrower
 	name = "flamethrower"
-	desc = "You are a firestarter!"
-	icon = 'icons/obj/flamethrower.dmi'
-	icon_state = "flamethrowerbase"
+	desc = "A flamethrower created by modifying a welding tool to fit an external tank."
+	icon = 'icons/obj/item/flamethrower.dmi'
+	icon_state = "flamethrower1"
 	item_state = "flamethrower_0"
-	flags = CONDUCT
-	force = 3.0
-	throwforce = 10.0
+	contained_sprite = TRUE
+
+	w_class = WEIGHT_CLASS_BULKY
+	obj_flags = OBJ_FLAG_CONDUCTABLE
+	force = 3
+	throwforce = 10
 	throw_speed = 1
 	throw_range = 5
-	w_class = 3.0
+
+	light_color = LIGHT_COLOR_FIRE
+
 	origin_tech = list(TECH_COMBAT = 1, TECH_PHORON = 1)
-	matter = list(DEFAULT_WALL_MATERIAL = 500)
-	var/status = 0
+	matter = list(MATERIAL_STEEL = 500)
+
+	var/secured = FALSE // Whether we have an igniter secured (screwdrivered) to us or not
 	var/throw_amount = 100
-	var/lit = 0	//on or off
-	var/operating = 0//cooldown
-	var/turf/previousturf = null
-	var/obj/item/weapon/weldingtool/weldtool = null
-	var/obj/item/device/assembly/igniter/igniter = null
-	var/obj/item/weapon/tank/phoron/ptank = null
+	var/lit = FALSE //on or off
+	var/operating = FALSE //cooldown
+	var/obj/item/weldingtool/welding_tool = null
+	var/obj/item/assembly/igniter/igniter = null
+	var/obj/item/reagent_containers/fuel_container = null
+	/// How much range the flamethrower has. Upgraded welding tools increase this.
+	var/range = 4
+	var/max_container = WEIGHT_CLASS_SMALL
+	/// Are we a military-grade flamethrower? If so, accept combat-grade fuels (like napalm) and don't check for a welding tool
+	var/is_military = FALSE
 
+/obj/item/flamethrower/feedback_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	if(is_adjacent)
+		if(fuel_container)
+			if(fuel_container.reagents)
+				. += SPAN_NOTICE("The loaded [fuel_container.name] has about [fuel_container.reagents.total_volume] unit\s left.")
+			else
+				. += SPAN_NOTICE("The loaded [fuel_container.name] is empty.")
+		if(igniter)
+			. += SPAN_NOTICE("It has \a [igniter] installed.")
+		else
+			. += SPAN_WARNING("It has no igniter installed.")
+	if(distance <= 3)
+		if(welding_tool)
+			. += SPAN_NOTICE("It has \a [welding_tool] installed.")
+		else if(!is_military)
+			. += SPAN_WARNING("It has no welding tool installed.")
 
-/obj/item/weapon/flamethrower/Destroy()
-	if(weldtool)
-		qdel(weldtool)
-	if(igniter)
-		qdel(igniter)
-	if(ptank)
-		qdel(ptank)
+	if(lit)
+		. += SPAN_WARNING("\The [src] is currently lit!")
 
+/obj/item/flamethrower/mechanics_hints(mob/user, distance, is_adjacent)
+	. = ..()
+	if(!is_military)
+		. += SPAN_INFO("Use a wrench on the flamethrower to dismantle it.")
+		. += SPAN_INFO("You may choose to dismantle it piece-wise, or the whole thing.")
+		. += SPAN_WARNING("It is not recommended to use military-grade fuels with this improvised flamethrower.")
+	else
+		. += SPAN_INFO("This military-grade flamethrower can accept combat-grade fuels.")
+
+/obj/item/flamethrower/upgrade_hints(mob/user, distance, is_adjacent)
+	. = ..()
+	if(!is_military)
+		. += SPAN_INFO("Upgrading the welding tool increases the flamethrower's range.")
+
+/obj/item/flamethrower/Initialize(mapload, var/welder)
+	. = ..()
+	icon_state = "flamethrower" // update to use the non-map version
+	if(welder)
+		welding_tool = welder
+		welding_tool.forceMove(src)
+		processUpgrade()
+	update_icon()
+
+/obj/item/flamethrower/Destroy()
+	QDEL_NULL(welding_tool)
+	QDEL_NULL(igniter)
+	QDEL_NULL(fuel_container)
 	return ..()
 
-
-/obj/item/weapon/flamethrower/process()
+/obj/item/flamethrower/process()
 	if(!lit)
+		STOP_PROCESSING(SSprocessing, src)
+		update_icon()
+		return null
+	else if ((!welding_tool && !is_military) || !fuel_container || !fuel_container.reagents || fuel_container.reagents.total_volume <= 0)
+		lit = FALSE
+		balloon_alert_to_viewers("*fffft*")
+		playsound(loc, 'sound/items/welder_deactivate.ogg', 50, TRUE)
+		update_icon()
 		STOP_PROCESSING(SSprocessing, src)
 		return null
 	var/turf/location = loc
-	if(istype(location, /mob/))
+	if(ismob(location))
 		var/mob/M = location
 		if(M.l_hand == src || M.r_hand == src)
 			location = M.loc
 	if(isturf(location)) //start a fire if possible
 		location.hotspot_expose(700, 2)
-	return
 
+/obj/item/flamethrower/update_icon()
+	ClearOverlays()
+	AddOverlays("+[initial(welding_tool.icon_state)]")
 
-/obj/item/weapon/flamethrower/update_icon()
-	cut_overlays()
 	if(igniter)
-		add_overlay("+igniter[status]")
-	if(ptank)
-		add_overlay("+ptank")
+		AddOverlays("+igniter[secured]")
+
+	if(fuel_container)
+		AddOverlays("+phoron_tank")
+
 	if(lit)
-		add_overlay("+lit")
+		AddOverlays("+lit")
+		set_light(1.4, 2)
 		item_state = "flamethrower_1"
 	else
+		set_light(0)
 		item_state = "flamethrower_0"
-	return
 
-/obj/item/weapon/flamethrower/afterattack(atom/target, mob/user, proximity)
-	if(!proximity) return
-	// Make sure our user is still holding us
-	if(user && user.get_active_hand() == src)
-		var/turf/target_turf = get_turf(target)
-		if(target_turf)
-			var/turflist = getline(user, target_turf)
-			flame_turf(turflist)
+	update_held_icon()
 
-/obj/item/weapon/flamethrower/attackby(obj/item/W as obj, mob/user as mob)
-	if(user.stat || user.restrained() || user.lying)	return
-	if(W.iswrench() && !status)//Taking this apart
+/obj/item/flamethrower/isFlameSource()
+	return lit
+
+/obj/item/flamethrower/proc/processUpgrade()
+	if(!welding_tool)
+		return
+	if(istype(welding_tool, /obj/item/weldingtool/emergency))
+		range = 3
+	else if(istype(welding_tool, /obj/item/weldingtool/largetank) || istype(welding_tool, /obj/item/weldingtool/experimental))
+		range = 5
+	else if(istype(welding_tool, /obj/item/weldingtool/hugetank))
+		range = 6
+	else
+		range = 4
+
+/obj/item/flamethrower/afterattack(atom/target, mob/user, proximity)
+	if(!welding_tool && !is_military)
+		balloon_alert(user, "no welding tool!")
+		return
+	var/turf/target_turf = get_turf(target)
+	if(target_turf)
+		var/turflist = get_line(user, target_turf)
+		flame_turf(turflist)
+
+/obj/item/flamethrower/attackby(obj/item/attacking_item, mob/user)
+	if(use_check_and_message(user))
+		return TRUE
+
+	if(attacking_item.tool_behaviour == TOOL_WRENCH && !secured)//Taking this apart
 		var/turf/T = get_turf(src)
-		if(weldtool)
-			weldtool.forceMove(T)
-			weldtool = null
+		var/list/options = list(
+			"Dismantle All" = image(icon = attacking_item.icon, icon_state = attacking_item.icon_state)
+		)
+		if(welding_tool)
+			options["Remove Welding Tool"] = image(icon = welding_tool.icon, icon_state = welding_tool.icon_state)
 		if(igniter)
-			igniter.forceMove(T)
-			igniter = null
-		if(ptank)
-			ptank.forceMove(T)
-			ptank = null
-		new /obj/item/stack/rods(T)
-		qdel(src)
-		return
+			options["Remove Igniter"] = image(icon = igniter.icon, icon_state = igniter.icon_state)
 
-	if(W.isscrewdriver() && igniter && !lit)
-		status = !status
-		user << "<span class='notice'>[igniter] is now [status ? "secured" : "unsecured"]!</span>"
+		var/choice = show_radial_menu(user, src, options, require_near = TRUE, tooltips = TRUE)
+		var/duration = 1 SECOND
+		if(choice == "Dismantle All")
+			duration *= 2 // Twice as long to dismantle the whole thing.
+		if(!attacking_item.use_tool(src, user, duration))
+			return TRUE
+		switch(choice)
+			if("Dismantle All")
+				TakeApart(T)
+				return TRUE
+			if("Remove Welding Tool")
+				welding_tool.forceMove(T)
+				welding_tool = null
+				update_icon()
+			if("Remove Igniter")
+				igniter.forceMove(T)
+				igniter = null
+				update_icon()
+
+		return TRUE
+
+	else if(attacking_item.tool_behaviour == TOOL_SCREWDRIVER && igniter && !lit && !is_military)
+		if(!attacking_item.use_tool(src, user, 1 SECOND))
+			return TRUE
+		secured = !secured
+		to_chat(user, SPAN_NOTICE("[igniter] is now [secured ? "secured" : "unsecured"]!"))
 		update_icon()
-		return
+		return TRUE
 
-	if(isigniter(W))
-		var/obj/item/device/assembly/igniter/I = W
-		if(I.secured)	return
-		if(igniter)		return
-		user.drop_from_inventory(I,src)
+	else if(attacking_item.tool_behaviour == TOOL_WELDER && !is_military)
+		var/obj/item/weldingtool/tool = attacking_item
+		if(welding_tool)
+			balloon_alert(user, "welding tool already installed!")
+			return TRUE
+		if(!do_after(user, 1 SECOND, src))
+			return FALSE
+		user.drop_from_inventory(tool, src)
+		playsound(src, 'sound/items/Deconstruct.ogg', 50, TRUE)
+		welding_tool = tool
+		processUpgrade()
+		update_icon()
+		return TRUE
+
+	else if(isigniter(attacking_item) && !is_military)
+		var/obj/item/assembly/igniter/I = attacking_item
+		if(I.secured)
+			to_chat(user, SPAN_WARNING("\The [I] is not ready to attach yet! Use a screwdriver on it first."))
+			return TRUE
+		if(igniter)
+			to_chat(user, SPAN_WARNING("\The [src] already has an igniter installed."))
+			return TRUE
+		user.drop_from_inventory(I, src)
+		playsound(src, 'sound/machines/click.ogg', 50, TRUE)
 		igniter = I
 		update_icon()
-		return
+		return TRUE
 
-	if(istype(W,/obj/item/weapon/tank/phoron))
-		if(ptank)
-			user << "<span class='notice'>There appears to already be a phoron tank loaded in [src]!</span>"
-			return
-		user.drop_from_inventory(W,src)
-		ptank = W
+	else if(istype(attacking_item, /obj/item/reagent_containers) && attacking_item.is_open_container() && (attacking_item.w_class <= max_container))
+		if(user.unEquip(attacking_item, target = src))
+			if(fuel_container)
+				user.put_in_hands(fuel_container)
+				to_chat(user, SPAN_NOTICE("You swap out the [fuel_container] from \the [src]!"))
+			else
+				to_chat(user, SPAN_NOTICE("You load the [attacking_item] into \the [src]!"))
+			fuel_container = attacking_item
+			update_icon()
+			return TRUE
+
+	else if(attacking_item.isFlameSource()) // you can light it with external input, even without an igniter
+		attempt_lighting(user, TRUE)
 		update_icon()
-		return
+		return TRUE
+	return ..()
 
-	if(istype(W, /obj/item/device/analyzer))
-		var/obj/item/device/analyzer/A = W
-		A.analyze_gases(src, user)
-		return
-	..()
+/obj/item/flamethrower/proc/TakeApart(turf/T)
+	if(welding_tool)
+		welding_tool.forceMove(T)
+		welding_tool = null
+	if(igniter)
+		igniter.forceMove(T)
+		igniter = null
+	if(fuel_container)
+		fuel_container.forceMove(T)
+		fuel_container = null
+	new /obj/item/stack/rods(T)
+	qdel(src)
 	return
 
-
-/obj/item/weapon/flamethrower/attack_self(mob/user as mob)
-	if(user.stat || user.restrained() || user.lying)	return
-	user.set_machine(src)
-	if(!ptank)
-		user << "<span class='notice'>Attach a phoron tank first!</span>"
+/obj/item/flamethrower/attack_self(mob/user)
+	if(use_check_and_message(user))
 		return
-	var/dat = text("<TT><B>Flamethrower (<A HREF='?src=\ref[src];light=1'>[lit ? "<font color='red'>Lit</font>" : "Unlit"]</a>)</B><BR>\n Tank Pressure: [ptank.air_contents.return_pressure()]<BR>\nAmount to throw: <A HREF='?src=\ref[src];amount=-100'>-</A> <A HREF='?src=\ref[src];amount=-10'>-</A> <A HREF='?src=\ref[src];amount=-1'>-</A> [throw_amount] <A HREF='?src=\ref[src];amount=1'>+</A> <A HREF='?src=\ref[src];amount=10'>+</A> <A HREF='?src=\ref[src];amount=100'>+</A><BR>\n<A HREF='?src=\ref[src];remove=1'>Remove phorontank</A> - <A HREF='?src=\ref[src];close=1'>Close</A></TT>")
-	user << browse(dat, "window=flamethrower;size=600x300")
-	onclose(user, "flamethrower")
-	return
-
-
-/obj/item/weapon/flamethrower/Topic(href,href_list[])
-	if(href_list["close"])
-		usr.unset_machine()
-		usr << browse(null, "window=flamethrower")
+	var/list/options = list(
+		"Eject Tank" = image('icons/obj/item/reagent_containers/glass.dmi', "beaker"),
+		"Light" = image('icons/effects/effects.dmi', "exhaust")
+	)
+	var/handle = show_radial_menu(user, user, options, radius = 42, tooltips=TRUE)
+	if(!handle)
 		return
-	if(usr.stat || usr.restrained() || usr.lying)	return
-	usr.set_machine(src)
-	if(href_list["light"])
-		if(!ptank)	return
-		if(ptank.air_contents.gas["phoron"] < 1)	return
-		if(!status)	return
-		lit = !lit
-		if(lit)
-			START_PROCESSING(SSprocessing, src)
-	if(href_list["amount"])
-		throw_amount = throw_amount + text2num(href_list["amount"])
-		throw_amount = max(50, min(5000, throw_amount))
-	if(href_list["remove"])
-		if(!ptank)	return
-		usr.put_in_hands(ptank)
-		ptank = null
-		lit = 0
-		usr.unset_machine()
-		usr << browse(null, "window=flamethrower")
-	for(var/mob/M in viewers(1, loc))
-		if((M.client && M.machine == src))
-			attack_self(M)
+	switch(handle)
+		if("Eject Tank")
+			if(!fuel_container)
+				return
+			user.put_in_hands(fuel_container)
+			fuel_container = null
+			lit = FALSE
+		if("Light")
+			attempt_lighting(user)
+		else
+			return
+
 	update_icon()
-	return
 
+/obj/item/flamethrower/proc/attempt_lighting(var/mob/user, var/external)
+	if(!external) // if it's external input, we can't unlight it, but we don't need to check for an igniter either
+		if(lit) // you can extinguish the flamethrower without an igniter
+			lit = FALSE
+			balloon_alert_to_viewers("*fffft*")
+			STOP_PROCESSING(SSprocessing, src)
+			if(!external)
+				playsound(loc, 'sound/items/welder_deactivate.ogg', 50, TRUE)
+			update_icon()
+			return
+		if(!secured) // can't light via the flamethrower unless we have an igniter secured
+			if(igniter)
+				to_chat(user, SPAN_WARNING("\The [igniter] isn't secured, you need to use a screwdriver on it first."))
+			else
+				to_chat(user, SPAN_WARNING("\The [src] doesn't have a secured igniter installed."))
+			return
+	if(lit)
+		balloon_alert(user, "already lit!")
+		return
+	if(!fuel_container)
+		balloon_alert(user, "no fuel container loaded!")
+		return
+	if(!fuel_container.reagents || fuel_container.reagents.total_volume <= 0)
+		balloon_alert(user, "fuel container is empty!")
+		return
+	lit = TRUE
+	balloon_alert_to_viewers("*whoosh*")
+	update_icon()
+	START_PROCESSING(SSprocessing, src)
+	if(!external)
+		playsound(loc, 'sound/items/welder_activate.ogg', 50, TRUE)
+
+#define REQUIRED_POWER_TO_FIRE_FLAMETHROWER 10
+#define FLAMETHROWER_POWER_MULTIPLIER 1.5
+#define FLAMETHROWER_RELEASE_AMOUNT 5
 
 //Called from turf.dm turf/dblclick
-/obj/item/weapon/flamethrower/proc/flame_turf(turflist)
-	if(!lit || operating)	return
-	operating = 1
-	for(var/turf/T in turflist)
+/obj/item/flamethrower/proc/flame_turf(list/turflist)
+	if(!fuel_container)
+		return
+	if(!lit || operating)
+		return
+
+	var/turf/operator_turf = get_turf(src)
+
+	turflist -= operator_turf //Don't flame the turf you're standing on
+
+	var/size = length(turflist)
+	if(!size)
+		return
+	LIST_RESIZE(turflist, min(size, range))
+
+	var/power = 0
+	var/datum/reagents/fuel_reagents = fuel_container.reagents
+	var/datum/reagents/my_fraction = new(fuel_reagents.maximum_volume, src)
+	fuel_reagents.trans_to_holder(my_fraction, FLAMETHROWER_RELEASE_AMOUNT * length(turflist))
+	var/fire_color = null
+	var/obj/effect/decal/cleanable/napalm/fire_effect = null
+	var/highest_amount = 0
+	for(var/reagent in my_fraction.reagent_volumes)
+		var/singleton/reagent/fuel = GET_SINGLETON(reagent)
+		fire_effect = fuel.flamethrower_effect
+		power += fuel.accelerant_quality * FLAMETHROWER_POWER_MULTIPLIER * (my_fraction.reagent_volumes[reagent] / length(turflist)) //Flamethrowers inflate flammability compared to a pool of fuel
+		if(fire_effect)
+			if(!is_military)		// Are we attempting to use a powerful fuel with a shoddy flamer?
+				explode_in_hand(power)
+				return
+		else if(is_military)//Military-grade flamethrowers have a 150% power increase if they do not already have a flame effect
+			power *= 1.5
+		if(my_fraction.reagent_volumes[reagent] > highest_amount && fuel.accelerant_quality > 0)
+			highest_amount = my_fraction.reagent_volumes[reagent]
+			fire_color = fuel.fire_color
+
+	if(power < REQUIRED_POWER_TO_FIRE_FLAMETHROWER)
+		audible_message(SPAN_DANGER("\The [src] sputters."))
+		balloon_alert_to_viewers("*pshhhh*")
+		playsound(src, 'sound/weapons/flamethrower/flamethrower_empty.ogg', 50, TRUE, -3)
+		my_fraction.remove_any(FLAMETHROWER_RELEASE_AMOUNT) //Wastes some fuel
+		return_fuel(fuel_reagents, my_fraction)
+		return
+
+	playsound(src, pick('sound/weapons/flamethrower/flamethrower1.ogg','sound/weapons/flamethrower/flamethrower2.ogg','sound/weapons/flamethrower/flamethrower3.ogg' ), 50, TRUE, -3)
+
+	operating = TRUE
+
+	for(var/turf/T in (turflist))
 		if(T.density || istype(T, /turf/space))
-			break
-		if(!previousturf && length(turflist)>1)
-			previousturf = get_turf(src)
-			continue	//so we don't burn the tile we be standin on
-		if(previousturf && LinkBlocked(previousturf, T))
-			break
-		ignite_turf(T)
-		sleep(1)
-	previousturf = null
-	operating = 0
-	for(var/mob/M in viewers(1, loc))
-		if((M.client && M.machine == src))
-			attack_self(M)
-	return
+			continue
+
+		if(LinkBlocked(operator_turf, T))
+			continue
+
+		//If we have a flamethrower effect, use it instead of directly using a turf fire
+		if(fire_effect)
+			new fire_effect(T, power, TRUE, TRUE)
+		else
+			//Consume part of our fuel to create a fire spot
+			T.IgniteTurf(power, fire_color)
+			T.hotspot_expose(power * 3 + 380)
+		my_fraction.remove_any(FLAMETHROWER_RELEASE_AMOUNT)
+		sleep(0.1 SECONDS)
+
+	return_fuel(fuel_reagents, my_fraction)
+
+	operating = FALSE
+
+#undef REQUIRED_POWER_TO_FIRE_FLAMETHROWER
+#undef FLAMETHROWER_POWER_MULTIPLIER
+#undef FLAMETHROWER_RELEASE_AMOUNT
+
+/obj/item/flamethrower/proc/explode_in_hand(power)
+	audible_message(SPAN_WARNING("\The [src] sputters a bit, throwing out some liquid."))
+	balloon_alert_to_viewers("*pshhhhhhhhhhhhhh*")
+	playsound(src, 'sound/weapons/flamethrower/flamethrower_empty.ogg', 50, TRUE, -3, frequency = 22000)
+	visible_message(SPAN_DANGER("\The [src] shakes uncontrollably!"))
+	sleep(0.5 SECONDS)
+	// Explode in a 3x3 area
+	var/list/turflist = circle_view_turfs(src.loc, 1)
+	var/turf_amount = length(turflist)
+	var/power_div = power/turf_amount
+	visible_message(SPAN_DANGER("\The [src] explodes!"))
+	playsound(src, SFX_EXPLOSION, 20, TRUE, -1, frequency = 48000)
+	for(var/turf/T as anything in turflist)
+		if(T.density || istype(T, /turf/space))
+			continue
+		T.IgniteTurf(power_div)
+		T.hotspot_expose(power_div * 3 + 380)
+	qdel(src)
 
 
-/obj/item/weapon/flamethrower/proc/ignite_turf(turf/target)
-	//TODO: DEFERRED Consider checking to make sure tank pressure is high enough before doing this...
-	//Transfer 5% of current tank air contents to turf
-	var/datum/gas_mixture/air_transfer = ptank.air_contents.remove_ratio(0.02*(throw_amount/100))
-	//air_transfer.toxins = air_transfer.toxins * 5 // This is me not comprehending the air system. I realize this is retarded and I could probably make it work without fucking it up like this, but there you have it. -- TLE
-	new/obj/effect/decal/cleanable/liquid_fuel/flamethrower_fuel(target,air_transfer.gas["phoron"]*15,get_dir(loc,target))
-	air_transfer.gas["phoron"] = 0
-	target.assume_air(air_transfer)
-	//Burn it based on transfered gas
-	//target.hotspot_expose(part4.air_contents.temperature*2,300)
-	target.hotspot_expose((ptank.air_contents.temperature*2) + 380,500) // -- More of my "how do I shot fire?" dickery. -- TLE
-	//location.hotspot_expose(1000,500,1)
-	return
 
-/obj/item/weapon/flamethrower/full/New(var/loc)
-	..()
-	weldtool = new /obj/item/weapon/weldingtool(src)
-	weldtool.status = 0
-	igniter = new /obj/item/device/assembly/igniter(src)
-	igniter.secured = 0
-	status = 1
-	update_icon()
-	return
+/obj/item/flamethrower/proc/return_fuel(datum/reagents/_return, datum/reagents/_fraction)
+	if(fuel_container) //In the event we earlied out that means some fuel goes back into tank
+		if(_fraction.total_volume > 0)
+			_fraction.trans_to_holder(_return, _fraction.total_volume)
+	QDEL_NULL(_fraction)
+
+/obj/item/flamethrower/full/Initialize() // slightly weird looking initialize cuz it has to do some stuff first
+	welding_tool = new /obj/item/weldingtool(src)
+	welding_tool.status = FALSE
+	igniter = new /obj/item/assembly/igniter(src)
+	igniter.secured = FALSE
+	secured = TRUE
+	fuel_container = new /obj/item/reagent_containers/glass/beaker/large(src)
+	fuel_container.reagents.add_reagent(/singleton/reagent/fuel, 120)
+	processUpgrade()
+	return ..()
+
+/obj/item/flamethrower/military
+	name = "\improper IK-163 flamethrower"
+	desc = "A military-grade flamethrower by Ingkom. Capable of using a wide variety of chemicals."
+	desc_extended = "The IK-163 was a flamethrower developed by Ingkom well before the Interstellar War. While flamethwrowers are generally considered \
+	obsolete, Zavodskoi Interstellar still markets the IK-163 for niche uses, and the occasional military leader with more ego than sense."
+	is_military = TRUE
+	secured = TRUE
+	range = 6
+	icon = 'icons/obj/item/military_flamethrower.dmi'
+	icon_state = "mil_flamethrower"
+	item_state = "flamethrower_0"
+	worn_x_dimension = 48
+	// Military-grade flamethrowers don't use welders
+
+/obj/item/flamethrower/military/Initialize(mapload, welder)
+	. = ..()
+	igniter = new /obj/item/assembly/igniter(src)
+	igniter.secured = FALSE
+
+/obj/item/flamethrower/military/update_icon()
+	ClearOverlays()
+
+	if(fuel_container)
+		AddOverlays("ptank")
+
+	if(lit)
+		AddOverlays("lit")
+		set_light(1.4, 2)
+		item_state = "flamethrower_1"
+	else
+		set_light(0)
+		item_state = "flamethrower_0"
+
+	update_held_icon()
+
+/obj/item/flamethrower/military/full/Initialize(mapload, welder)
+	fuel_container = new /obj/item/reagent_containers/glass/beaker/large(src)
+	fuel_container.reagents.add_reagent(/singleton/reagent/fuel/napalm, 120)
+	return ..()

@@ -3,148 +3,150 @@
 //						BONE SURGERY							//
 //////////////////////////////////////////////////////////////////
 
-/datum/surgery_step/glue_bone
+/singleton/surgery_step/glue_bone
+	name = "Repair Broken Bone"
 	allowed_tools = list(
-	/obj/item/weapon/bonegel = 100,	\
-	/obj/item/weapon/tape_roll = 60
+	/obj/item/surgery/bone_gel = 100,	\
+	/obj/item/tape_roll = 60
 	)
-	can_infect = 1
+	can_infect = TRUE
 	blood_level = 1
+	base_surgery_time = 4 SECONDS
+	skill_requirements = alist(SURGERY_SKILL_COMPONENT = SKILL_LEVEL_TRAINED)
 
-	min_duration = 50
-	max_duration = 60
+/singleton/surgery_step/glue_bone/can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	if(!..())
+		return FALSE
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	return affected && !BP_IS_ROBOTIC(affected) && affected.open >= ORGAN_OPEN_RETRACTED && affected.open < ORGAN_ENCASED_RETRACTED && affected.stage == BONE_PRE_OP && (affected.status & ORGAN_BROKEN)
 
-	can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		if (!hasorgans(target))
-			return 0
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		return affected && !(affected.status & ORGAN_ROBOT) && affected.open >= 2 && affected.open < 3 && affected.stage == 0
+/singleton/surgery_step/glue_bone/begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	if (affected.stage == BONE_PRE_OP)
+		user.visible_message("<b>[user]</b> starts applying some of [tool] to the damaged bones in [target]'s [affected.name]." , \
+		SPAN_NOTICE("You start applying some of [tool] to the damaged bones in [target]'s [affected.name]."))
+	target.custom_pain("Something in your [affected.name] is causing you a lot of pain!",1)
+	..()
 
-	begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		if (affected.stage == 0)
-			user.visible_message("[user] starts applying medication to the damaged bones in [target]'s [affected.name] with \the [tool]." , \
-			"You start applying medication to the damaged bones in [target]'s [affected.name] with \the [tool].")
-		target.custom_pain("Something in your [affected.name] is causing you a lot of pain!",1)
-		..()
+/singleton/surgery_step/glue_bone/end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	user.visible_message("<b>[user]</b> applies some of [tool] to [target]'s bone in [affected.name].", \
+		SPAN_NOTICE("You apply some of [tool] to [target]'s bone in [affected.name]."))
+	affected.stage = BONE_GLUED
 
-	end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		user.visible_message("<span class='notice'>[user] applies some [tool] to [target]'s bone in [affected.name]</span>", \
-			"<span class='notice'>You apply some [tool] to [target]'s bone in [affected.name] with \the [tool].</span>")
-		affected.stage = 1
+/singleton/surgery_step/glue_bone/fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	user.visible_message(SPAN_WARNING("[user]'s hand slips, smearing some of [tool] in the incision in [target]'s [affected.name]!") , \
+	SPAN_WARNING("Your hand slips, smearing some of [tool] in the incision in [target]'s [affected.name]!"))
+	target.apply_damage(15, DAMAGE_PAIN)
 
-	fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		user.visible_message("<span class='warning'>[user]'s hand slips, smearing [tool] in the incision in [target]'s [affected.name]!</span>" , \
-		"<span class='warning'>Your hand slips, smearing [tool] in the incision in [target]'s [affected.name]!</span>")
-
-/datum/surgery_step/set_bone
+/singleton/surgery_step/set_bone
+	name = "Set Broken Bone"
 	allowed_tools = list(
-	/obj/item/weapon/bonesetter = 100,	\
-	/obj/item/weapon/wrench = 75		\
+	TOOL_BONESET = 100,	\
+	TOOL_WRENCH = 75		\
 	)
+	base_surgery_time = 5 SECONDS
+	skill_requirements = alist(SURGERY_SKILL_COMPONENT = SKILL_LEVEL_TRAINED)
 
-	min_duration = 60
-	max_duration = 70
+/singleton/surgery_step/set_bone/can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	if(!..())
+		return FALSE
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	return affected && affected.name != BP_HEAD && !BP_IS_ROBOTIC(affected) && affected.open >= ORGAN_OPEN_RETRACTED && affected.stage == BONE_GLUED
 
-	can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		if (!hasorgans(target))
-			return 0
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		return affected && affected.name != "head" && !(affected.status & ORGAN_ROBOT) && affected.open >= 2 && affected.stage == 1
+/singleton/surgery_step/set_bone/begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	user.visible_message("[user] is beginning to set the bone in [target]'s [affected.name] in place with \the [tool]." , \
+		"You are beginning to set the bone in [target]'s [affected.name] in place with \the [tool].")
+	target.custom_pain("The pain in your [affected.name] is going to make you pass out!",1)
+	..()
 
-	begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		user.visible_message("[user] is beginning to set the bone in [target]'s [affected.name] in place with \the [tool]." , \
-			"You are beginning to set the bone in [target]'s [affected.name] in place with \the [tool].")
-		target.custom_pain("The pain in your [affected.name] is going to make you pass out!",1)
-		..()
+/singleton/surgery_step/set_bone/end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	if(affected.status & ORGAN_BROKEN)
+		user.visible_message("<b>[user]</b> sets the bone in [target]'s [affected.name] in place with \the [tool].", \
+			SPAN_NOTICE("You set the bone in [target]'s [affected.name] in place with \the [tool]."))
+		affected.stage = BONE_SET
+	else
+		user.visible_message(SPAN_NOTICE("[user] sets the bone in [target]'s [affected.name] [SPAN_WARNING("in the WRONG place with \the [tool].")]"), \
+			SPAN_NOTICE("You set the bone in [target]'s [affected.name] [SPAN_WARNING("in the WRONG place with \the [tool].")]"))
+		affected.fracture()
 
-	end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		if (affected.status & ORGAN_BROKEN)
-			user.visible_message("<span class='notice'>[user] sets the bone in [target]'s [affected.name] in place with \the [tool].</span>", \
-				"<span class='notice'>You set the bone in [target]'s [affected.name] in place with \the [tool].</span>")
-			affected.stage = 2
-		else
-			user.visible_message("<span class='notice'>[user] sets the bone in [target]'s [affected.name]</span><span class='warning'>in the WRONG place with \the [tool].</span>", \
-				"<span class='notice'>You set the bone in [target]'s [affected.name]</span><span class='warning'>in the WRONG place with \the [tool].</span>")
-			affected.fracture()
+/singleton/surgery_step/set_bone/fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	user.visible_message(SPAN_WARNING("[user]'s hand slips, damaging the bone in [target]'s [affected.name] with \the [tool]!") , \
+		SPAN_WARNING("Your hand slips, damaging the bone in [target]'s [affected.name] with \the [tool]!"))
+	target.apply_damage(5, DAMAGE_BRUTE, target_zone, 0, tool, damage_flags = tool.damage_flags())
 
-	fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		user.visible_message("<span class='warning'>[user]'s hand slips, damaging the bone in [target]'s [affected.name] with \the [tool]!</span>" , \
-			"<span class='warning'>Your hand slips, damaging the bone in [target]'s [affected.name] with \the [tool]!</span>")
-		affected.createwound(BRUISE, 5)
-
-/datum/surgery_step/mend_skull
+/singleton/surgery_step/mend_skull
+	name = "Repair Broken Skull"
 	allowed_tools = list(
-	/obj/item/weapon/bonesetter = 100,	\
-	/obj/item/weapon/wrench = 75		\
+	TOOL_BONESET = 100,	\
+	TOOL_WRENCH = 75		\
 	)
+	base_surgery_time = 5 SECONDS
+	skill_requirements = alist(SURGERY_SKILL_COMPONENT = SKILL_LEVEL_TRAINED)
 
-	min_duration = 60
-	max_duration = 70
+/singleton/surgery_step/mend_skull/can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	if(!..())
+		return FALSE
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	return affected && affected.name == BP_HEAD && !BP_IS_ROBOTIC(affected) && affected.open >= ORGAN_OPEN_RETRACTED && affected.stage == BONE_GLUED
 
-	can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		if (!hasorgans(target))
-			return 0
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		return affected && affected.name == "head" && !(affected.status & ORGAN_ROBOT) && affected.open >= 2 && affected.stage == 1
+/singleton/surgery_step/mend_skull/begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	user.visible_message("[user] is beginning to piece together [target]'s skull with \the [tool]."  , \
+		"You are beginning to piece together [target]'s skull with \the [tool].")
+	..()
 
-	begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		user.visible_message("[user] is beginning to piece together [target]'s skull with \the [tool]."  , \
-			"You are beginning to piece together [target]'s skull with \the [tool].")
-		..()
+/singleton/surgery_step/mend_skull/end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	user.visible_message("<b>[user]</b> sets [target]'s skull with \the [tool]." , \
+		SPAN_NOTICE("You set [target]'s skull with \the [tool]."))
+	affected.stage = ORGAN_OPEN_RETRACTED
 
-	end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		user.visible_message("<span class='notice'>[user] sets [target]'s skull with \the [tool].</span>" , \
-			"<span class='notice'>You set [target]'s skull with \the [tool].</span>")
-		affected.stage = 2
+/singleton/surgery_step/mend_skull/fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	user.visible_message(SPAN_WARNING("[user]'s hand slips, damaging [target]'s face with \the [tool]!")  , \
+		SPAN_WARNING("Your hand slips, damaging [target]'s face with \the [tool]!"))
+	var/obj/item/organ/external/head/h = affected
+	target.apply_damage(10, DAMAGE_BRUTE, target_zone, 0, tool, damage_flags = tool.damage_flags())
+	h.disfigured = 1
 
-	fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		user.visible_message("<span class='warning'>[user]'s hand slips, damaging [target]'s face with \the [tool]!</span>"  , \
-			"<span class='warning'>Your hand slips, damaging [target]'s face with \the [tool]!</span>")
-		var/obj/item/organ/external/head/h = affected
-		h.createwound(BRUISE, 10)
-		h.disfigured = 1
-
-/datum/surgery_step/finish_bone
+/singleton/surgery_step/finish_bone
+	name = "Finish Repairing Broken Bone"
 	allowed_tools = list(
-	/obj/item/weapon/bonegel = 100,	\
-	/obj/item/weapon/tape_roll = 60
+	/obj/item/surgery/bone_gel = 100,	\
+	/obj/item/tape_roll = 60
 	)
-	can_infect = 1
+	can_infect = TRUE
 	blood_level = 1
+	base_surgery_time = 4 SECONDS
+	skill_requirements = alist(SURGERY_SKILL_COMPONENT = SKILL_LEVEL_TRAINED)
 
-	min_duration = 50
-	max_duration = 60
+/singleton/surgery_step/finish_bone/can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	if(!..())
+		return FALSE
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	return affected && affected.open >= ORGAN_OPEN_RETRACTED && affected.open < ORGAN_ENCASED_RETRACTED && !BP_IS_ROBOTIC(affected) && affected.stage == BONE_SET
 
-	can_use(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		if (!hasorgans(target))
-			return 0
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		return affected && affected.open >= 2 && affected.open < 3 && !(affected.status & ORGAN_ROBOT) && affected.stage == 2
-
-	begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		user.visible_message("[user] starts to finish mending the damaged bones in [target]'s [affected.name] with \the [tool].", \
+/singleton/surgery_step/finish_bone/begin_step(mob/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	user.visible_message("[user] starts to finish mending the damaged bones in [target]'s [affected.name] with \the [tool].", \
 		"You start to finish mending the damaged bones in [target]'s [affected.name] with \the [tool].")
-		..()
+	..()
 
-	end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		user.visible_message("<span class='notice'>[user] has mended the damaged bones in [target]'s [affected.name] with \the [tool].</span>"  , \
-			"<span class='notice'>You have mended the damaged bones in [target]'s [affected.name] with \the [tool].</span>" )
-		affected.status &= ~ORGAN_BROKEN
-		affected.status &= ~ORGAN_SPLINTED
-		affected.stage = 0
-		affected.perma_injury = 0
+/singleton/surgery_step/finish_bone/end_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	user.visible_message("<b>[user]</b> has mended the damaged bones in [target]'s [affected.name] with \the [tool]."  , \
+		SPAN_NOTICE("You have mended the damaged bones in [target]'s [affected.name] with \the [tool].") )
+	affected.status &= ~ORGAN_BROKEN
+	affected.status &= ~ORGAN_SPLINTED
+	affected.stage = BONE_PRE_OP
+	affected.perma_injury = 0
 
-	fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
-		var/obj/item/organ/external/affected = target.get_organ(target_zone)
-		user.visible_message("<span class='warning'>[user]'s hand slips, smearing [tool] in the incision in [target]'s [affected.name]!</span>" , \
-		"<span class='warning'>Your hand slips, smearing [tool] in the incision in [target]'s [affected.name]!</span>")
+/singleton/surgery_step/finish_bone/fail_step(mob/living/user, mob/living/carbon/human/target, target_zone, obj/item/tool)
+	var/obj/item/organ/external/affected = target.get_organ(target_zone)
+	user.visible_message(SPAN_WARNING("[user]'s hand slips, smearing [tool] in the incision in [target]'s [affected.name]!") , \
+		SPAN_WARNING("Your hand slips, smearing [tool] in the incision in [target]'s [affected.name]!"))
+	target.apply_damage(15, DAMAGE_PAIN)

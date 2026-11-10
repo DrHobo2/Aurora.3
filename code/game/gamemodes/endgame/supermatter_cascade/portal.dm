@@ -18,7 +18,7 @@
 	overlays = 0
 
 /obj/singularity/narsie/large/exit/process()
-	for(var/mob/M in player_list)
+	for(var/mob/M in GLOB.player_list)
 		if(M.client)
 			M.see_rift(src)
 	eat()
@@ -30,19 +30,7 @@
 	if(!(A.singuloCanEat()))
 		return 0
 
-	if (istype(A, /mob/living/))
-		var/mob/living/L = A
-		if(L.buckled && istype(L.buckled,/obj/structure/bed/))
-			var/turf/O = L.buckled
-			do_teleport(O, pick(endgame_safespawns))
-			L.forceMove(O.loc)
-		else
-			do_teleport(L, pick(endgame_safespawns)) //dead-on precision
-
-	else if (istype(A, /obj/mecha/))
-		do_teleport(A, pick(endgame_safespawns)) //dead-on precision
-
-	else if (isturf(A))
+	if (isturf(A))
 		var/turf/T = A
 		var/dist = get_dist(T, src)
 		if (dist <= consume_range && T.density)
@@ -66,17 +54,12 @@
 				spawn (0)
 					AM.singularity_pull(src, src.current_size)
 
-
-/mob
-	//thou shall always be able to see the rift
-	var/image/riftimage = null
-
 /mob/proc/see_rift(var/obj/singularity/narsie/large/exit/R)
 	var/turf/T_mob = get_turf(src)
 	if((R.z == T_mob.z) && (get_dist(R,T_mob) <= (R.consume_range+10)) && !(R in view(T_mob)))
 		if(!riftimage)
 			riftimage = image('icons/obj/rift.dmi',T_mob,"rift",LIGHTING_LAYER+2,1)
-			riftimage.mouse_opacity = 0
+			riftimage.mouse_opacity = MOUSE_OPACITY_TRANSPARENT
 
 		var/new_x = 32 * (R.x - T_mob.x) + R.pixel_x
 		var/new_y = 32 * (R.y - T_mob.y) + R.pixel_y

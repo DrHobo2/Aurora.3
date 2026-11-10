@@ -1,4 +1,5 @@
 /datum/antagonist/proc/create_antagonist(var/datum/mind/target, var/move, var/gag_announcement, var/preserve_appearance)
+	SHOULD_CALL_PARENT(TRUE)
 
 	if(!target)
 		return
@@ -7,9 +8,8 @@
 	if(!target.current)
 		remove_antagonist(target)
 		return 0
-	if(flags & ANTAG_CHOOSE_NAME)
-		spawn(1)
-			set_antag_name(target.current)
+	if(!preserve_appearance && (flags & ANTAG_CHOOSE_NAME))
+		addtimer(CALLBACK(src, PROC_REF(set_antag_name), target.current),  1)
 	if(move)
 		place_mob(target.current)
 	update_leader()
@@ -18,6 +18,15 @@
 	greet(target)
 	if(!gag_announcement)
 		announce_antagonist_spawn()
+	LAZYDISTINCTADD(SSticker.mode.antag_templates, src)
+
+	// Antags are always guaranteed certain minimum skill levels.
+	// Such that if a player character is promoted to an antagonist, they are always boosted up to a minimum competence required for antagging.
+	for(var/singleton/skill/skill as anything in SSskills.required_skills)
+		var/antag_skill_rank = skill.antag_level
+		var/datum/component/skill/skill_comp = target.current.LoadComponent(skill.component_type, antag_skill_rank)
+		if (skill_comp.skill_level < antag_skill_rank)
+			skill_comp.skill_level = antag_skill_rank
 
 /datum/antagonist/proc/create_default(var/mob/source)
 	var/mob/living/M
@@ -33,7 +42,7 @@
 
 /datum/antagonist/proc/create_id(var/assignment, var/mob/living/carbon/human/player, var/equip = 1)
 
-	var/obj/item/weapon/card/id/W = new id_type(player)
+	var/obj/item/card/id/W = new id_type(player)
 	if(!W) return
 	W.access |= default_access
 	W.assignment = "[assignment]"
@@ -42,15 +51,23 @@
 	return W
 
 /datum/antagonist/proc/create_radio(var/freq, var/mob/living/carbon/human/player)
-	var/obj/item/device/radio/R
+	var/obj/item/radio/R
 
 	switch(freq)
+		if(NINJ_FREQ)
+			R = new /obj/item/radio/headset/ninja(player)
+		if(BLSP_FREQ)
+			R = new /obj/item/radio/headset/bluespace(player)
+		if(BURG_FREQ)
+			R = new /obj/item/radio/headset/burglar(player)
+		if(JOCK_FREQ)
+			R = new /obj/item/radio/headset/jockey(player)
 		if(SYND_FREQ)
-			R = new/obj/item/device/radio/headset/syndicate(player)
+			R = new /obj/item/radio/headset/syndicate(player)
 		if(RAID_FREQ)
-			R = new/obj/item/device/radio/headset/raider(player)
+			R = new /obj/item/radio/headset/raider(player)
 		else
-			R = new/obj/item/device/radio/headset(player)
+			R = new /obj/item/radio/headset(player)
 			R.set_frequency(freq)
 
 	R.set_frequency(freq)
@@ -64,7 +81,7 @@
 
 	var/code
 	if(nuke_spawn)
-		var/obj/machinery/nuclearbomb/nuke = new(get_turf(nuke_spawn))
+		var/obj/structure/machinery/nuclearbomb/nuke = new(get_turf(nuke_spawn))
 		code = "[rand(10000, 99999)]"
 		nuke.r_code = code
 
@@ -77,7 +94,7 @@
 
 		if(paper_spawn_loc)
 			// Create and pass on the bomb code paper.
-			var/obj/item/weapon/paper/P = new(paper_spawn_loc)
+			var/obj/item/paper/P = new(paper_spawn_loc)
 			P.set_content_unsafe("nuclear bomb code", "The nuclear authorization code is: <b>[code]</b>")
 			if(leader && leader.current)
 				if(get_turf(P) == get_turf(leader.current) && !(leader.current.l_hand && leader.current.r_hand))
@@ -87,9 +104,9 @@
 			code_owner = leader
 		if(code_owner)
 			code_owner.store_memory("<B>Nuclear Bomb Code</B>: [code]", 0, 0)
-			code_owner.current << "The nuclear authorization code is: <B>[code]</B>"
+			to_chat(code_owner.current, "The nuclear authorization code is: <B>[code]</B>")
 	else
-		message_admins("<span class='danger'>Could not spawn nuclear bomb. Contact a developer.</span>")
+		message_admins(SPAN_DANGER("Could not spawn nuclear bomb. Contact a developer."))
 		return
 
 	spawned_nuke = code
@@ -98,11 +115,14 @@
 /datum/antagonist/proc/greet(var/datum/mind/player)
 
 	// Basic intro text.
-	player.current << "<span class='danger'><font size=3>You are a [role_text]!</font></span>"
+	to_chat(player.current, SPAN_DANGER("<font size=5>You are a [role_text]!</font>"))
 	if(leader_welcome_text && player == leader)
-		player.current << "<span class='notice'>[leader_welcome_text]</span>"
+		to_chat(player.current, SPAN_NOTICE("[leader_welcome_text]"))
 	else
-		player.current << "<span class='notice'>[welcome_text]</span>"
+		to_chat(player.current, SPAN_NOTICE("[welcome_text]"))
+
+	if(antag_sound)
+		player.current.playsound_local(get_turf(src), sound(antag_sound), 50, FALSE)
 
 	if((flags & ANTAG_HAS_NUKE) && !spawned_nuke)
 		create_nuke()
@@ -113,7 +133,15 @@
 
 /datum/antagonist/proc/set_antag_name(var/mob/living/player)
 	// Choose a name, if any.
-	var/newname = sanitize(input(player, "You are a [role_text]. Would you like to change your name to something else?", "Name change") as null|text, MAX_NAME_LEN)
+	if(ishuman(player))
+		var/mob/living/carbon/human/H = player
+		var/datum/language/L = H.default_language
+		if(!L)
+			L = GLOB.all_languages[LANGUAGE_TCB]
+		H.real_name = L.get_random_name()
+		H.name = H.real_name
+		H.dna.real_name = H.real_name
+	var/newname = sanitizeName(sanitize_readd_odd_symbols(sanitize(input(player, "You are a [role_text]. Would you like to change your name to something else?", "Name change") as null|text)))
 	if (newname)
 		player.real_name = newname
 		player.name = player.real_name

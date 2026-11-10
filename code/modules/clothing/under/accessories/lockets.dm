@@ -1,45 +1,51 @@
 /obj/item/clothing/accessory/locket
 	name = "silver locket"
 	desc = "A silver locket that seems to have space for a photo within."
+	icon = 'icons/obj/item/clothing/accessory/locket.dmi'
 	icon_state = "locket"
 	item_state = "locket"
-	slot_flags = 0
-	w_class = 2
+	contained_sprite = TRUE
 	slot_flags = SLOT_MASK | SLOT_TIE
-	var/base_icon
+	w_class = WEIGHT_CLASS_SMALL
 	var/open
 	var/obj/item/held //Item inside locket.
+
+	drop_sound = 'sound/items/drop/ring.ogg'
+	pickup_sound = 'sound/items/pickup/ring.ogg'
+
+/obj/item/clothing/accessory/locket/get_mask_examine_text(mob/user)
+	return "around [user.get_pronoun("his")] neck"
 
 /obj/item/clothing/accessory/locket/attack_self(mob/user as mob)
 	if(!base_icon)
 		base_icon = icon_state
 
 	if(!("[base_icon]_open" in icon_states(icon)))
-		user << "\The [src] doesn't seem to open."
+		to_chat(user, "\The [src] doesn't seem to open.")
 		return
 
 	open = !open
-	user << "You flip \the [src] [open?"open":"closed"]."
+	to_chat(user, "You flip \the [src] [open?"open":"closed"].")
 	if(open)
 		icon_state = "[base_icon]_open"
 		if(held)
-			user << "\The [held] falls out!"
+			to_chat(user, "\The [held] falls out!")
 			held.forceMove(get_turf(user))
 			src.held = null
 	else
 		icon_state = "[base_icon]"
 
-/obj/item/clothing/accessory/locket/attackby(var/obj/item/O as obj, mob/user as mob)
+/obj/item/clothing/accessory/locket/attackby(obj/item/attacking_item, mob/user)
 	if(!open)
-		user << "You have to open it first."
+		to_chat(user, "You have to open it first.")
 		return
 
-	if(istype(O,/obj/item/weapon/paper) || istype(O, /obj/item/weapon/photo))
+	if(istype(attacking_item,/obj/item/paper) || istype(attacking_item, /obj/item/photo))
 		if(held)
-			usr << "\The [src] already has something inside it."
+			to_chat(usr, "\The [src] already has something inside it.")
 		else
-			usr << "You slip [O] into [src]."
-			user.drop_from_inventory(O,src)
-			src.held = O
+			to_chat(usr, "You slip [attacking_item] into [src].")
+			user.drop_from_inventory(attacking_item, src)
+			src.held = attacking_item
 		return
 	..()

@@ -2,7 +2,7 @@
 	iterations = 5
 	descriptor = "moon caves"
 	wall_type =  /turf/simulated/mineral
-	floor_type = /turf/simulated/floor/asteroid/ash/rocky
+	floor_type = /turf/simulated/floor/exoplanet/asteroid/ash/rocky
 	target_turf_type = /turf/unsimulated/mask
 	var/mineral_sparse =  /turf/simulated/mineral/random
 	var/mineral_rich = /turf/simulated/mineral/random/high_chance
@@ -33,7 +33,7 @@
 		if (CELL_ALIVE(map[i]))
 			ore_turfs += i
 
-	game_log("ASGEN", "Found [ore_turfs.len] ore turfs.")
+	log_asset("ASGEN: Found [ore_turfs.len] ore turfs.")
 	var/ore_count = round(map.len/20)
 	var/door_count = 0
 	var/empty_count = 0
@@ -52,11 +52,12 @@
 			empty_count += 1
 		ore_count--
 
-	game_log("ASGEN", "Set [door_count] turfs to random minerals.")
-	game_log("ASGEN", "Set [empty_count] turfs to high-chance random minerals.")
+	log_asset("ASGEN: Set [door_count] turfs to random minerals.")
+	log_asset("ASGEN: Set [empty_count] turfs to high-chance random minerals.")
 	return 1
 
 /datum/random_map/automata/cave_system/apply_to_map()
+	..()
 	if(!origin_x) origin_x = 1
 	if(!origin_y) origin_y = 1
 	if(!origin_z) origin_z = 1
@@ -90,7 +91,7 @@
 
 		CHECK_TICK
 
-	game_log("ASGEN", "Applied [num_applied] turfs.")
+	log_asset("ASGEN: Applied [num_applied] turfs.")
 
 /datum/random_map/automata/cave_system/high_yield
 	descriptor = "high yield caves"
@@ -128,7 +129,7 @@
 			if(EMPTY_CHAR)
 				new_path = mineral_rich
 			if(FLOOR_CHAR)
-				var/turf/below = GET_BELOW(T)
+				var/turf/below = GET_TURF_BELOW(T)
 				if(below)
 					var/area/below_area = below.loc		// Let's just assume that the turf is not in nullspace.
 					if(below_area.station_area)
@@ -149,15 +150,15 @@
 
 		CHECK_TICK
 
-	game_log("ASGEN", "Applied [num_applied] turfs.")
+	log_asset("ASGEN: Applied [num_applied] turfs.")
 
 /datum/random_map/automata/cave_system/chasms/cleanup()
 	return
 
 /datum/random_map/automata/cave_system/chasms/surface
 	descriptor = "chasm surface"
-	wall_type = /turf/simulated/floor/asteroid/ash
+	wall_type = /turf/simulated/floor/exoplanet/asteroid/ash
 	floor_type = /turf/simulated/open/airless
 	target_turf_type = /turf/unsimulated/chasm_mask
-	mineral_sparse = /turf/simulated/floor/asteroid/ash
-	mineral_rich = /turf/simulated/floor/asteroid/ash
+	mineral_sparse = /turf/simulated/floor/exoplanet/asteroid/ash
+	mineral_rich = /turf/simulated/floor/exoplanet/asteroid/ash

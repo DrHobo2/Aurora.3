@@ -16,30 +16,27 @@
 /turf/simulated/wall/sandstonediamond,
 /area/mine/unexplored)
 "f" = (
-/obj/structure/window/phoronreinforced,
+/obj/structure/window/borosilicate/reinforced,
 /turf/simulated/floor/phoron,
 /area/mine/unexplored)
 "g" = (
-/obj/structure/window/phoronreinforced{
-	icon_state = "phoronrwindow";
+/obj/structure/window/borosilicate/reinforced{
 	dir = 4
 	},
 /turf/simulated/floor/phoron,
 /area/mine/unexplored)
 "h" = (
-/obj/machinery/artifact,
+/obj/structure/machinery/artifact,
 /turf/simulated/floor/airless/ceiling,
 /area/mine/unexplored)
 "i" = (
-/obj/structure/window/phoronreinforced{
-	icon_state = "phoronrwindow";
+/obj/structure/window/borosilicate/reinforced{
 	dir = 8
 	},
 /turf/simulated/floor/phoron,
 /area/mine/unexplored)
 "j" = (
-/obj/structure/window/phoronreinforced{
-	icon_state = "phoronrwindow";
+/obj/structure/window/borosilicate/reinforced{
 	dir = 1
 	},
 /turf/simulated/floor/phoron,
@@ -48,7 +45,7 @@
 /turf/simulated/floor/airless/ceiling,
 /area/mine/unexplored)
 "l" = (
-/turf/simulated/floor/asteroid/ash,
+/turf/simulated/floor/exoplanet/asteroid/ash,
 /area/mine/unexplored)
 "m" = (
 /turf/simulated/open/airless,

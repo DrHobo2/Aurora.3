@@ -1,111 +1,169 @@
 /obj/item/clothing/suit/storage/toggle/labcoat
 	name = "labcoat"
 	desc = "A suit that protects against minor chemical spills."
-	icon_state = "labcoat_open"
-	item_state = "labcoat" //Is this even used for anything?
-	icon_open = "labcoat_open"
-	icon_closed = "labcoat"
+	icon = 'icons/obj/item/clothing/suit/storage/toggle/labcoat.dmi'
+	contained_sprite = TRUE
+	icon_state = "labcoat"
+	item_state = "labcoat" // used for inhands and onmobs. ESPECIALLY FOR CONTAINED SPRITES
 	blood_overlay_type = "coat"
 	body_parts_covered = UPPER_TORSO|ARMS
-	allowed = list(/obj/item/device/analyzer,/obj/item/stack/medical,/obj/item/weapon/dnainjector,/obj/item/weapon/reagent_containers/dropper,/obj/item/weapon/reagent_containers/syringe,/obj/item/weapon/reagent_containers/hypospray,/obj/item/device/healthanalyzer,/obj/item/device/flashlight/pen,/obj/item/weapon/reagent_containers/glass/bottle,/obj/item/weapon/reagent_containers/glass/beaker,/obj/item/weapon/reagent_containers/pill,/obj/item/weapon/storage/pill_bottle,/obj/item/weapon/paper, /obj/item/device/breath_analyzer)
-	armor = list(melee = 0, bullet = 0, laser = 0,energy = 0, bomb = 0, bio = 50, rad = 0)
+	allowed = list(/obj/item/analyzer,/obj/item/stack/medical,/obj/item/dnainjector,/obj/item/reagent_containers/dropper,/obj/item/reagent_containers/syringe,/obj/item/reagent_containers/hypospray,/obj/item/healthanalyzer,/obj/item/flashlight/pen,/obj/item/reagent_containers/glass/bottle,/obj/item/reagent_containers/glass/beaker,/obj/item/reagent_containers/pill,/obj/item/storage/pill_bottle,/obj/item/paper, /obj/item/breath_analyzer)
+	armor = list(
+		BIO = ARMOR_BIO_RESISTANT
+	)
+	opened = TRUE // spawns opened
 
-/obj/item/clothing/suit/storage/toggle/labcoat/red
-	name = "red labcoat"
-	desc = "A suit that protects against minor chemical spills. This one is red."
-	icon_state = "red_labcoat_open"
-	item_state = "red_labcoat"
-	icon_open = "red_labcoat_open"
-	icon_closed = "red_labcoat"
-
-/obj/item/clothing/suit/storage/toggle/labcoat/blue
-	name = "blue labcoat"
-	desc = "A suit that protects against minor chemical spills. This one is blue."
-	icon_state = "blue_labcoat_open"
-	item_state = "blue_labcoat"
-	icon_open = "blue_labcoat_open"
-	icon_closed = "blue_labcoat"
-
-/obj/item/clothing/suit/storage/toggle/labcoat/purple
-	name = "purple labcoat"
-	desc = "A suit that protects against minor chemical spills. This one is purple."
-	icon_state = "purple_labcoat_open"
-	item_state = "purple_labcoat"
-	icon_open = "purple_labcoat_open"
-	icon_closed = "purple_labcoat"
-
-/obj/item/clothing/suit/storage/toggle/labcoat/orange
-	name = "orange labcoat"
-	desc = "A suit that protects against minor chemical spills. This one is orange."
-	icon_state = "orange_labcoat_open"
-	item_state = "orange_labcoat"
-	icon_open = "orange_labcoat_open"
-	icon_closed = "orange_labcoat"
-
-/obj/item/clothing/suit/storage/toggle/labcoat/green
-	name = "green labcoat"
-	desc = "A suit that protects against minor chemical spills. This one is green."
-	icon_state = "green_labcoat_open"
-	item_state = "green_labcoat"
-	icon_open = "green_labcoat_open"
-	icon_closed = "green_labcoat"
+/obj/item/clothing/suit/storage/toggle/longcoat
+	name = "long labcoat"
+	desc = "A long, victorian styled labcoat that protects against minor chemical spills."
+	icon = 'icons/obj/item/clothing/suit/storage/toggle/labcoat.dmi'
+	contained_sprite = TRUE
+	icon_state = "labcoat_long"
+	item_state = "labcoat_long" // used for inhands and onmobs. ESPECIALLY FOR CONTAINED SPRITES
+	blood_overlay_type = "coat"
+	body_parts_covered = UPPER_TORSO|ARMS|LOWER_TORSO|LEGS
+	allowed = list(/obj/item/analyzer,/obj/item/stack/medical,/obj/item/dnainjector,/obj/item/reagent_containers/dropper,/obj/item/reagent_containers/syringe,/obj/item/reagent_containers/hypospray,/obj/item/healthanalyzer,/obj/item/flashlight/pen,/obj/item/reagent_containers/glass/bottle,/obj/item/reagent_containers/glass/beaker,/obj/item/reagent_containers/pill,/obj/item/storage/pill_bottle,/obj/item/paper, /obj/item/breath_analyzer)
+	armor = list(
+		BIO = ARMOR_BIO_RESISTANT
+	)
 
 /obj/item/clothing/suit/storage/toggle/labcoat/cmo
 	name = "chief medical officer's labcoat"
 	desc = "Bluer than the standard model."
-	icon_state = "labcoat_cmo_open"
-	item_state = "labcoat_cmo"
-	icon_open = "labcoat_cmo_open"
-	icon_closed = "labcoat_cmo"
+	icon_state = "labcoat_cmo"
 
 /obj/item/clothing/suit/storage/toggle/labcoat/cmoalt
 	name = "chief medical officer labcoat"
 	desc = "A labcoat with command blue highlights."
-	icon_state = "labcoat_cmoalt_open"
-	icon_open = "labcoat_cmoalt_open"
-	icon_closed = "labcoat_cmoalt"
+	icon_state = "labcoat_cmoalt"
 
-/obj/item/clothing/suit/storage/toggle/labcoat/mad
-	name = "the mad's labcoat"
-	desc = "It makes you look capable of konking someone on the noggin and shooting them into space."
-	icon_state = "labgreen_open"
-	item_state = "labgreen"
-	icon_open = "labgreen_open"
-	icon_closed = "labgreen"
+/obj/item/clothing/suit/storage/toggle/labcoat/cmoalt2
+	name = "chief medical officer labcoat"
+	desc = "A labcoat with command gold highlights."
+	icon_state = "labcoat_cmoalt2"
 
-/obj/item/clothing/suit/storage/toggle/labcoat/genetics
-	name = "geneticist labcoat"
-	desc = "A suit that protects against minor chemical spills. Has a blue stripe on the shoulder."
-	icon_state = "labcoat_gen_open"
-	icon_open = "labcoat_gen_open"
-	icon_closed = "labcoat_gen"
+//NanoTrasen
+/obj/item/clothing/suit/storage/toggle/labcoat/nt
+	name = "nanotrasen labcoat"
+	icon_state = "labcoat_nt"
 
-/obj/item/clothing/suit/storage/toggle/labcoat/chemist
-	name = "chemist labcoat"
-	desc = "A suit that protects against minor chemical spills. Has an orange stripe on the shoulder."
-	icon_state = "labcoat_chem_open"
-	icon_open = "labcoat_chem_open"
-	icon_closed = "labcoat_chem"
+/obj/item/clothing/suit/storage/toggle/longcoat/nt
+	name = "nanotrasen long labcoat"
+	icon_state = "labcoat_long_nt"
+	item_state = "labcoat_long_nt"
 
-/obj/item/clothing/suit/storage/toggle/labcoat/virologist
-	name = "virologist labcoat"
-	desc = "A suit that protects against minor chemical spills. Offers slightly more protection against biohazards than the standard model. Has a green stripe on the shoulder."
-	icon_state = "labcoat_vir_open"
-	icon_open = "labcoat_vir_open"
-	icon_closed = "labcoat_vir"
-	armor = list(melee = 0, bullet = 0, laser = 0,energy = 0, bomb = 0, bio = 60, rad = 0)
+//Zeng-Hu
+/obj/item/clothing/suit/storage/toggle/labcoat/zeng
+	name = "zeng-hu labcoat"
+	icon_state = "labcoat_zeng"
 
-/obj/item/clothing/suit/storage/toggle/labcoat/science
-	name = "scientist labcoat"
-	desc = "A suit that protects against minor chemical spills. Has a purple stripe on the shoulder."
-	icon_state = "labcoat_tox_open"
-	icon_open = "labcoat_tox_open"
-	icon_closed = "labcoat_tox"
+/obj/item/clothing/suit/storage/toggle/labcoat/zeng/alt
+	icon_state = "labcoat_zeng_alt"
 
-/obj/item/clothing/suit/iacvest
-	desc = "It's a lightweight vest. Made of a dark, navy mesh with highly-reflective white material, designed to be worn by the Interstellar Aid Corps as a high-visibility vest, over any other clothing. The I.A.C. logo is prominently  displayed on the back of the vest, between the shoulders."
-	name = "IAC vest"
-	icon_state = "iac_vest_s"
-	item_state = "iac_vest"
-	permeability_coefficient = 0.50
-	armor = list(melee = 0, bullet = 0, laser = 0,energy = 0, bomb = 0, bio = 5, rad = 0)
+/obj/item/clothing/suit/storage/toggle/labcoat/zeng/alt2
+	icon_state = "labcoat_zeng_alt2"
+
+/obj/item/clothing/suit/storage/toggle/longcoat/zeng
+	name = "zeng-hu long labcoat"
+	icon_state = "labcoat_long_zeng"
+	item_state = "labcoat_long_zeng"
+
+//Zavodskoi
+/obj/item/clothing/suit/storage/toggle/labcoat/zavodskoi
+	name = "zavodskoi interstellar labcoat"
+	icon_state = "labcoat_zav"
+
+/obj/item/clothing/suit/storage/toggle/labcoat/zavodskoi/alt
+	icon_state = "labcoat_zav_alt"
+
+/obj/item/clothing/suit/storage/toggle/longcoat/zavodskoi
+	name = "zavodskoi long labcoat"
+	icon_state = "labcoat_long_zav"
+	item_state = "labcoat_long_zav"
+
+//Hephaestus
+/obj/item/clothing/suit/storage/toggle/labcoat/heph
+	name = "hephaestus labcoat"
+	icon_state = "labcoat_heph"
+
+/obj/item/clothing/suit/storage/toggle/longcoat/heph
+	name = "hephaestus long labcoat"
+	icon_state = "labcoat_long_heph"
+	item_state = "labcoat_long_heph"
+
+// PMGC / EPMC
+/obj/item/clothing/suit/storage/toggle/labcoat/pmc
+	name = "PMCG labcoat"
+	icon_state = "labcoat_pmc"
+
+/obj/item/clothing/suit/storage/toggle/labcoat/pmc/alt
+	icon_state = "labcoat_pmc_alt"
+
+/obj/item/clothing/suit/storage/toggle/labcoat/epmc
+	name = "EPMC labcoat"
+	icon_state = "labcoat_epmc"
+
+/obj/item/clothing/suit/storage/toggle/longcoat/pmc
+	name = "PMCG long labcoat"
+	icon_state = "labcoat_long_pmc"
+	item_state = "labcoat_long_pmc"
+
+//Nexus
+/obj/item/clothing/suit/storage/toggle/labcoat/nexus
+	name = "nexus longcoat"
+	desc = "A hybridization between a traditional labcoat and an EMT jacket, designed to be worn in lab environments while still being comfortable in the field. The iconic Nexus whirlwind is emblazoned on the back."
+	icon_state = "labcoat_nexus"
+
+//Idris
+/obj/item/clothing/suit/storage/toggle/labcoat/idris
+	name = "idris labcoat"
+	icon_state = "labcoat_idris"
+
+/obj/item/clothing/suit/storage/toggle/labcoat/idris/alt
+	icon_state = "labcoat_idris_alt"
+
+/obj/item/clothing/suit/storage/toggle/longcoat/idris
+	name = "idris long labcoat"
+	icon_state = "labcoat_long_idris"
+	item_state = "labcoat_long_idris"
+
+//Orion
+/obj/item/clothing/suit/storage/toggle/labcoat/orion
+	name = "orion labcoat"
+	icon_state = "labcoat_orion"
+
+/obj/item/clothing/suit/storage/toggle/longcoat/orion
+	name = "orion long labcoat"
+	icon_state = "labcoat_long_orion"
+	item_state = "labcoat_long_orion"
+
+//IAC
+/obj/item/clothing/suit/storage/toggle/labcoat/iac
+	name = "iac labcoat"
+	icon_state = "labcoat_iac"
+
+/obj/item/clothing/suit/storage/toggle/labcoat/accent
+	has_accents = TRUE
+	icon_state = "labcoat_accent"
+	item_state = "labcoat_accent"
+
+/obj/item/clothing/suit/storage/toggle/labcoat/accent/alt
+	icon_state = "labcoat_accent_alt"
+	item_state = "labcoat_accent_alt"
+
+/obj/item/clothing/suit/storage/galatea_labcoat
+	name = "\improper Galatean labcoat"
+	desc = "A style of labcoat commonly worn by Galatean researchers which is intended to resemble labcoats commonly used throughout the Alliance prior to the Interstellar War’s outbreak in the late 2200s."
+	icon = 'icons/obj/item/clothing/suit/storage/toggle/labcoat.dmi'
+	icon_state = "labcoat_galatea"
+	item_state = "labcoat_galatea"
+	contained_sprite = TRUE
+	body_parts_covered = UPPER_TORSO|ARMS
+	allowed = list(/obj/item/analyzer,/obj/item/stack/medical,/obj/item/dnainjector,/obj/item/reagent_containers/dropper,/obj/item/reagent_containers/syringe,/obj/item/reagent_containers/hypospray,/obj/item/healthanalyzer,/obj/item/flashlight/pen,/obj/item/reagent_containers/glass/bottle,/obj/item/reagent_containers/glass/beaker,/obj/item/reagent_containers/pill,/obj/item/storage/pill_bottle,/obj/item/paper, /obj/item/breath_analyzer)
+	armor = list(
+		BIO = ARMOR_BIO_RESISTANT
+	)
+
+/obj/item/clothing/suit/storage/galatea_labcoat/alt
+	icon_state = "labcoat_galatea_alt"
+	item_state = "labcoat_galatea_alt"

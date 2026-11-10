@@ -1,55 +1,79 @@
 // Returns which access is relevant to passed network. Used by the program.
 /proc/get_camera_access(var/network)
 	if(!network)
-		return 0
+		return FALSE
 
-	. = current_map.get_network_access(network)
+	. = SSatlas.current_map.get_network_access(network)
 	if (.)
 		return
 
 	switch(network)
-		if(NETWORK_THUNDER)
-			return 0
-		if(NETWORK_ENGINE,NETWORK_ENGINEERING,NETWORK_ENGINEERING_OUTPOST,NETWORK_ALARM_ATMOS,NETWORK_ALARM_FIRE,NETWORK_ALARM_POWER)
-			return access_engine
+		if(NETWORK_THUNDER, NETWORK_NEWS, NETWORK_EXPEDITION)
+			return FALSE
+		if(NETWORK_REACTOR,NETWORK_ENGINEERING,NETWORK_ENGINEERING_OUTPOST,NETWORK_ALARM_ATMOS,NETWORK_ALARM_FIRE,NETWORK_ALARM_POWER)
+			return /datum/access/engine::id
 		if(NETWORK_MEDICAL)
-			return access_medical
+			return /datum/access/medical::id
+		if(NETWORK_SECURITY)
+			return /datum/access/security::id
 		if(NETWORK_RESEARCH,NETWORK_RESEARCH_OUTPOST)
-			return access_research
+			return /datum/access/research::id
 		if(NETWORK_MINE,NETWORK_SUPPLY,NETWORK_CIVILIAN_WEST,NETWORK_EXPEDITION,NETWORK_CALYPSO,NETWORK_POD)
-			return access_mailsorting // Cargo office - all cargo staff should have access here.
-		if(NETWORK_COMMAND,NETWORK_TELECOM,NETWORK_CIVILIAN_EAST,NETWORK_CIVILIAN_MAIN,NETWORK_CIVILIAN_SURFACE,NETWORK_SERVICE)
-			return access_heads
+			return /datum/access/mailsorting::id // Cargo office - all cargo staff should have access here.
+		if(NETWORK_COMMAND,NETWORK_TELECOM,NETWORK_CIVILIAN_EAST,NETWORK_CIVILIAN_MAIN,NETWORK_CIVILIAN_SURFACE, NETWORK_SERVICE, NETWORK_FIRST_DECK, NETWORK_SECOND_DECK, NETWORK_THIRD_DECK, NETWORK_INTREPID)
+			return /datum/access/heads::id
 		if(NETWORK_CRESCENT,NETWORK_ERT)
-			return access_cent_specops
+			return /datum/access/cent_specops::id
+		if(NETWORK_CRYO_OUTPOST)
+			return /datum/access/cryo_outpost_access::id
 
-	return access_security // Default for all other networks
+	return /datum/access/security::id // Default for all other networks
 
 /datum/computer_file/program/camera_monitor
 	filename = "cammon"
 	filedesc = "Camera Monitoring"
-	nanomodule_path = /datum/nano_module/camera_monitor
 	program_icon_state = "cameras"
+	program_key_icon_state = "yellow_key"
 	extended_desc = "This program allows remote access to station's camera system. Some camera networks may have additional access requirements."
 	size = 12
-	available_on_ntnet = 1
-	requires_ntnet = 1
-	required_access_download = access_heads
+	available_on_ntnet = TRUE
+	requires_ntnet = TRUE
+	required_access_download = /datum/access/heads::id
 	color = LIGHT_COLOR_ORANGE
+	usage_flags = PROGRAM_CONSOLE | PROGRAM_LAPTOP
+	tgui_id = "CameraMonitoring"
+	var/obj/structure/machinery/camera/current_camera
+	var/current_network
+	/// Used for camera monitor consoles from which this interface can be launched. If it exists, only provide that console's "console_networks" networks.
+	var/list/monitored_networks = list()
+	/// Used by non-modular camera consoles that run this program - abstracts as modular comp w/ network card.
+	var/atom/ntnet_endpoint
+	var/ntnet_endpoint_ethernet = FALSE
+	var/ntnet_endpoint_long_range = FALSE
 
-/datum/nano_module/camera_monitor
-	name = "Camera Monitoring program"
-	var/obj/machinery/camera/current_camera = null
-	var/current_network = null
+/datum/computer_file/program/camera_monitor/ui_host()
+	if(ntnet_endpoint)
+		return ntnet_endpoint
+	return ..()
 
-/datum/nano_module/camera_monitor/ui_interact(mob/user, ui_key = "main", datum/nanoui/ui = null, force_open = 1, state = default_state)
-	var/list/data = host.initial_data()
+/datum/computer_file/program/camera_monitor/ui_data(mob/user)
+	var/list/data = initial_data()
 
 	data["current_camera"] = current_camera ? current_camera.nano_structure() : null
 	data["current_network"] = current_network
 
-	var/list/all_networks[0]
-	for(var/network in current_map.station_networks)
+	var/list/all_networks = list()
+	var/list/available_networks = list()
+
+	// If this UI was generated from a camera monitoring console, then only that console's networks will be available...
+	if(monitored_networks && (length(monitored_networks) >= 1))
+		available_networks = monitored_networks
+
+	// ...otherwise (if it was launched from a standard modular computer), get all networks to which the user has access.
+	else
+		available_networks = SSatlas.current_map.station_networks
+
+	for(var/network in available_networks)
 		all_networks += list(
 			list(
 				"tag" = network,
@@ -62,75 +86,150 @@
 	data["networks"] = all_networks
 
 	if(current_network)
-		data["cameras"] = camera_repository.cameras_in_network(current_network)
+		data["cameras"] = GLOB.camera_repository.cameras_in_network(current_network)
 
-	ui = SSnanoui.try_update_ui(user, src, ui_key, ui, data, force_open)
-	if (!ui)
-		ui = new(user, src, ui_key, "sec_camera.tmpl", "Camera Monitoring", 900, 800, state = state)
-		// ui.auto_update_layout = 1 // Disabled as with suit sensors monitor - breaks the UI map. Re-enable once it's fixed somehow.
-
-		ui.add_template("mapContent", "sec_camera_map_content.tmpl")
-		ui.add_template("mapHeader", "sec_camera_map_header.tmpl")
-		ui.set_initial_data(data)
-		ui.open()
+	return data
 
 // Intended to be overriden by subtypes to manually add non-station networks to the list.
-/datum/nano_module/camera_monitor/proc/modify_networks_list(var/list/networks)
+/datum/computer_file/program/camera_monitor/proc/modify_networks_list(var/list/networks)
 	return networks
 
-/datum/nano_module/camera_monitor/proc/can_access_network(var/mob/user, var/network_access)
+/datum/computer_file/program/camera_monitor/proc/check_network_access(var/mob/user, var/access)
+	if(!access)
+		return 1
+
+	if(!istype(user))
+		return 0
+
+	var/I = user.GetIdCard()
+	if(!I)
+		return 0
+
+	var/list/access_list
+	if(islist(I))
+		access_list = I
+	else if(istype(I, /obj/item))
+		var/obj/item/item = I
+		access_list = item.GetAccess()
+
+	if(access in access_list)
+		return 1
+
+	return 0
+
+/// If no network_access is passed, or if 0 is returned, we treat this as no camera access required. Allowed it.
+/datum/computer_file/program/camera_monitor/proc/can_access_network(var/mob/user, var/network_access)
 	// No access passed, or 0 which is considered no access requirement. Allow it.
 	if(!network_access)
-		return 1
+		return TRUE
 
-	return check_access(user, access_security) || check_access(user, network_access)
+	return (check_network_access(user, /datum/access/security::id) && GLOB.security_level >= SEC_LEVEL_BLUE) || check_network_access(user, network_access)
 
-/datum/nano_module/camera_monitor/Topic(href, href_list)
-	if(..())
-		return 1
+/datum/computer_file/program/camera_monitor/proc/can_reach_camera(var/obj/structure/machinery/camera/C)
+	if(!C?.can_use())
+		return FALSE
 
-	if(href_list["switch_camera"])
-		var/obj/machinery/camera/C = locate(href_list["switch_camera"]) in cameranet.cameras
-		if(!C)
-			return
-		if(!(current_network in C.network))
-			return
+	var/turf/camera_turf = get_turf(C)
+	if(!camera_turf || !GLOB.ntnet_global)
+		return FALSE
 
-		switch_to_camera(usr, C)
-		return 1
+	if(computer?.network_card)
+		return (camera_turf.z in GLOB.ntnet_global.get_reachable_z_levels(computer.network_card, requires_ntnet_feature))
 
-	else if(href_list["switch_network"])
-		// Either security access, or access to the specific camera network's department is required in order to access the network.
-		if(can_access_network(usr, get_camera_access(href_list["switch_network"])))
-			current_network = href_list["switch_network"]
-		else
-			to_chat(usr, "\The [ui_host()] shows an \"Network Access Denied\" error message.")
-		return 1
+	return (camera_turf.z in GLOB.ntnet_global.get_reachable_z_levels_for_endpoint(ntnet_endpoint, requires_ntnet_feature, ntnet_endpoint_ethernet, ntnet_endpoint_long_range))
 
-	else if(href_list["reset"])
-		reset_current()
-		usr.reset_view(current_camera)
-		return 1
+/datum/computer_file/program/camera_monitor/ui_act(action, list/params, datum/tgui/ui, datum/ui_state/state)
+	. = ..()
+	if(.)
+		return TRUE
 
-/datum/nano_module/camera_monitor/proc/switch_to_camera(var/mob/user, var/obj/machinery/camera/C)
+	switch(action)
+		if("switch_camera")
+			var/obj/structure/machinery/camera/C = locate(params["switch_camera"]) in GLOB.cameranet.cameras
+			if(!C)
+				return
+			if(!(current_network in C.network))
+				return
+
+			var/access_granted = FALSE
+			for(var/network in C.network)
+				if(can_access_network(usr, get_camera_access(network)))
+					access_granted = TRUE //We only need access to one of the networks.
+			if(!access_granted)
+				to_chat(usr, SPAN_WARNING("Access unauthorized."))
+				return
+
+			switch_to_camera(usr, C)
+			return TRUE
+
+		if("switch_network")
+			// Either security access, or access to the specific camera network's department is required in order to access the network.
+			if(can_access_network(usr, get_camera_access(params["switch_network"])))
+				current_network = params["switch_network"]
+			else
+				to_chat(usr, SPAN_WARNING("\The [ui_host()] shows an \"Network access denied\" error message."))
+			return TRUE
+
+		if("reset")
+			reset_current()
+			usr.reset_view(current_camera)
+			return TRUE
+
+/datum/computer_file/program/camera_monitor/kill_program(forced)
+	reset_current()
+	return ..()
+
+/datum/computer_file/program/camera_monitor/proc/switch_to_camera(var/mob/user, var/obj/structure/machinery/camera/C)
 	//don't need to check if the camera works for AI because the AI jumps to the camera location and doesn't actually look through cameras.
 	if(isAI(user))
 		var/mob/living/silicon/ai/A = user
 		// Only allow non-carded AIs to view because the interaction with the eye gets all wonky otherwise.
 		if(!A.is_in_chassis())
-			return 0
+			return FALSE
 
 		A.eyeobj.setLoc(get_turf(C))
 		A.client.eye = A.eyeobj
-		return 1
+		return TRUE
+
+	if(!can_reach_camera(C))
+		to_chat(user, SPAN_NOTICE("This camera is too far away to connect to!"))
+		return FALSE
 
 	set_current(C)
-	user.machine = ui_host()
+	var/obj/host = ui_host()
+	if(host)
+		user.set_machine(host)
 	user.reset_view(current_camera)
-	check_eye(user)
-	return 1
 
-/datum/nano_module/camera_monitor/proc/set_current(var/obj/machinery/camera/C)
+	if(ishuman(user))
+		var/mob/living/carbon/human/H = user
+		H.handle_vision()
+
+	return TRUE
+
+/datum/computer_file/program/camera_monitor/check_eye(mob/user)
+	if(user.stat || user.blinded)
+		return -1
+	if(!current_camera)
+		return 0
+
+	if(!can_reach_camera(current_camera))
+		reset_current()
+		return -1
+
+	var/viewflag = current_camera.check_eye(user)
+	if(viewflag < 0)
+		reset_current()
+	return viewflag
+
+/datum/computer_file/program/camera_monitor/grants_equipment_vision(mob/user)
+	if(user.stat || user.blinded || !current_camera)
+		return FALSE
+	if(!can_reach_camera(current_camera))
+		return FALSE
+	return current_camera.grants_equipment_vision(user)
+
+/datum/computer_file/program/camera_monitor/proc/set_current(var/obj/structure/machinery/camera/C)
 	if(current_camera == C)
 		return
 
@@ -143,21 +242,12 @@
 		if(istype(L))
 			L.tracking_initiated()
 
-/datum/nano_module/camera_monitor/proc/reset_current()
+/datum/computer_file/program/camera_monitor/proc/reset_current()
 	if(current_camera)
 		var/mob/living/L = current_camera.loc
 		if(istype(L))
 			L.tracking_cancelled()
 	current_camera = null
-
-/datum/nano_module/camera_monitor/check_eye(var/mob/user as mob)
-	if(!current_camera)
-		return 0
-	var/viewflag = current_camera.check_eye(user)
-	if ( viewflag < 0 ) //camera doesn't work
-		reset_current()
-	return viewflag
-
 
 // ERT Variant of the program
 /datum/computer_file/program/camera_monitor/ert
@@ -165,16 +255,25 @@
 	filedesc = "Advanced Camera Monitoring"
 	extended_desc = "This program allows remote access to station's camera system. Some camera networks may have additional access requirements. This version has an integrated database with additional encrypted keys."
 	size = 14
-	nanomodule_path = /datum/nano_module/camera_monitor/ert
-	available_on_ntnet = 0
-
-/datum/nano_module/camera_monitor/ert
-	name = "Advanced Camera Monitoring Program"
-	available_to_ai = FALSE
+	available_on_ntnet = FALSE
 
 // The ERT variant has access to ERT and crescent cams, but still checks for accesses. ERT members should be able to use it.
-/datum/nano_module/camera_monitor/ert/modify_networks_list(var/list/networks)
+/datum/computer_file/program/camera_monitor/ert/modify_networks_list(var/list/networks)
 	..()
 	networks.Add(list(list("tag" = NETWORK_ERT, "has_access" = 1)))
 	networks.Add(list(list("tag" = NETWORK_CRESCENT, "has_access" = 1)))
+	return networks
+
+/datum/computer_file/program/camera_monitor/news
+	filename = "idcammon"
+	filedesc = "Public Camera Monitoring"
+	extended_desc = "This program allows remote access to station's camera system. Some camera networks may have additional access requirements. This version has has a connection to news and expeditionary networks."
+	size = 2
+	required_access_download = null
+	usage_flags = PROGRAM_ALL
+
+/datum/computer_file/program/camera_monitor/news/modify_networks_list(var/list/networks)
+	networks = list()
+	networks.Add(list(list("tag" = NETWORK_NEWS, "has_access" = 1)))
+	networks.Add(list(list("tag" = NETWORK_EXPEDITION, "has_access" = 1)))
 	return networks

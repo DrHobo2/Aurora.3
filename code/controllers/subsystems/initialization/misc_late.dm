@@ -1,46 +1,47 @@
 // This subsystem loads later in the init process. Not last, but after most major things are done.
 
-/datum/controller/subsystem/misc_late
+SUBSYSTEM_DEF(misc_late)
 	name = "Late Miscellaneous Init"
-	init_order = SS_INIT_MISC
+	init_order = INIT_ORDER_MISC
 	flags = SS_NO_FIRE | SS_NO_DISPLAY
 
+	/// this is a list of things that fire when late misc init is called
+	var/list/late_misc_firers
+
 /datum/controller/subsystem/misc_late/Initialize(timeofday)
-	var/turf/picked
 	// Setup the teleport locs.
-	for (var/thing in all_areas)
-		var/area/AR = thing
-		picked = null
-		if(!(istype(AR, /area/shuttle) || istype(AR, /area/syndicate_station) || istype(AR, /area/wizard_station)))
-			picked = pick_area_turf(AR.type, list(/proc/is_station_turf))
-			if (picked)
-				teleportlocs += AR.name
-				teleportlocs[AR.name] = AR
+	for(var/area/AR as anything in GLOB.the_station_areas)
+		if(AR.area_flags & AREA_FLAG_NO_GHOST_TELEPORT_ACCESS)
+			continue
+		var/list/area_turfs = AR.contents
+		if (area_turfs.len) // Check the area is mapped
+			GLOB.ghostteleportlocs += AR.name
+			GLOB.ghostteleportlocs[AR.name] = AR
+	if(SSatlas.current_map.use_overmap && GLOB.map_overmap)
+		GLOB.ghostteleportlocs[GLOB.map_overmap.name] = GLOB.map_overmap
 
-		if(istype(AR, /area/turret_protected/aisat) || istype(AR, /area/derelict) || istype(AR, /area/tdome) || istype(AR, /area/shuttle/specops/centcom))
-			ghostteleportlocs += AR.name
-			ghostteleportlocs[AR.name] = AR
-
-		picked = pick_area_turf(AR.type, list(/proc/is_station_turf))
-		if (picked)
-			ghostteleportlocs += AR.name
-			ghostteleportlocs[AR.name] = AR
-
-	sortTim(teleportlocs, /proc/cmp_text_asc)
-	sortTim(ghostteleportlocs, /proc/cmp_text_asc)
+	sortTim(GLOB.ghostteleportlocs, GLOBAL_PROC_REF(cmp_text_asc))
 
 	setupgenetics()
 
-	shuttle_controller.setup_shuttle_docks()
-
-	if (config.fastboot)
-		admin_notice("<span class='notice'><b>Fastboot is enabled; some features may not be available.</b></span>", R_DEBUG)
+	if (GLOB.config.fastboot)
+		admin_notice(SPAN_NOTICE("<b>Fastboot is enabled; some features may not be available.</b>"), R_DEBUG)
 
 	populate_code_phrases()
 
-	..(timeofday)
+	// this covers mapped in drone fabs
+	for(var/atom/thing as anything in late_misc_firers)
+		thing.do_late_fire()
+		LAZYREMOVE(late_misc_firers, thing)
 
-/proc/sorted_add_area(area/A)
-	all_areas += A
+	// Load outfits here so that the verb isn't laggy as balls.
+	for(var/outfit_type in subtypesof(/obj/outfit))
+		var/obj/outfit/new_outfit = new outfit_type()
+		GLOB.outfit_cache[new_outfit.name] = new_outfit
 
-	sortTim(all_areas, /proc/cmp_name_asc)
+	// Load AI Icons here
+	for(var/ai_icon in subtypesof(/datum/ai_icon))
+		var/datum/ai_icon/new_icon = new ai_icon()
+		GLOB.ai_icons[new_icon.name] = ai_icon
+
+	return SS_INIT_SUCCESS

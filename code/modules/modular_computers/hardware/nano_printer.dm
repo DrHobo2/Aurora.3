@@ -1,46 +1,61 @@
-/obj/item/weapon/computer_hardware/nano_printer
+/obj/item/computer_hardware/nano_printer
 	name = "nano printer"
 	desc = "Small integrated printer with paper recycling module."
 	power_usage = 50
 	origin_tech = list(TECH_DATA = 2, TECH_ENGINEERING = 2)
-	critical = 0
+	critical = FALSE
 	icon_state = "printer"
 	hardware_size = 1
 	var/stored_paper = 5
 	var/max_paper = 10
 
-/obj/item/weapon/computer_hardware/nano_printer/diagnostics(var/mob/user)
+/obj/item/computer_hardware/nano_printer/diagnostics(var/mob/user)
 	..()
-	user << "Paper buffer level: [stored_paper]/[max_paper]"
+	to_chat(user, SPAN_NOTICE("Paper Buffer Level: [stored_paper]/[max_paper]"))
 
-/obj/item/weapon/computer_hardware/nano_printer/proc/print_text(var/text_to_print, var/paper_title = null)
+/obj/item/computer_hardware/nano_printer/proc/print_text(var/text_to_print, var/paper_title = null, var/paper_color = null)
 	if(!stored_paper)
-		return 0
+		return FALSE
 	if(!enabled)
-		return 0
+		return FALSE
 	if(!check_functionality())
-		return 0
+		return FALSE
 
 	// Damaged printer causes the resulting paper to be somewhat harder to read.
 	if(damage > damage_malfunction)
 		text_to_print = stars(text_to_print, 100-malfunction_probability)
-	new/obj/item/weapon/paper(get_turf(holder2),text_to_print, paper_title)
+	var/obj/item/paper/P = new /obj/item/paper(get_turf(parent_computer), text_to_print, paper_title)
+	if(paper_color)
+		P.color = paper_color
 
 	stored_paper--
-	return 1
 
-/obj/item/weapon/computer_hardware/nano_printer/attackby(obj/item/W as obj, mob/user as mob)
-	if(istype(W, /obj/item/weapon/paper))
-		if(stored_paper >= max_paper)
-			user << "You try to add \the [W] into [src], but it's paper bin is full"
-			return
+	if(ismob(usr))
+		usr.put_in_hands(P, TRUE)
+	return P
 
-		user << "You insert \the [W] into [src]."
-		qdel(W)
-		stored_paper++
+/obj/item/computer_hardware/nano_printer/attackby(obj/item/attacking_item, mob/user)
+	//We only care about papers here
+	if(!istype(attacking_item, /obj/item/paper))
+		return ..()
 
-/obj/item/weapon/computer_hardware/nano_printer/Destroy()
-	if(holder2 && (holder2.nano_printer == src))
-		holder2.nano_printer = null
-	holder2 = null
+	var/obj/item/paper/attacking_paper = attacking_item
+
+	//If the paper is already written onto, we can't add it to the printer
+	if(attacking_paper.free_space != initial(attacking_paper.free_space))
+		to_chat(user, SPAN_WARNING("You try to add \the [attacking_paper] to the [src], but the paper is written onto already."))
+		return
+
+	if(stored_paper >= max_paper)
+		to_chat(user, SPAN_WARNING("You try to add \the [attacking_paper] to the [src], but its paper bin is full."))
+		return
+
+	to_chat(user, SPAN_NOTICE("You insert \the [attacking_paper] into [src]."))
+	qdel(attacking_paper)
+	stored_paper++
+
+/obj/item/computer_hardware/nano_printer/Destroy()
+	if(parent_computer?.nano_printer == src)
+		parent_computer.nano_printer = null
+	parent_computer = null
 	return ..()

@@ -1,40 +1,41 @@
-/obj/machinery/door/airlock/lift
-	name = "Elevator Door"
+/obj/structure/machinery/door/airlock/lift
+	name = "elevator door"
 	desc = "Ding."
-	req_access = list(access_maint_tunnels)
-	opacity = 0
-	autoclose = 0
-	glass = 1
-	icon = 'icons/obj/doors/doorlift.dmi'
-	assembly_type = /obj/structure/door_assembly/door_assembly_lift
-	hashatch = 0
+	airlock_type = "Lift"
+	door_color = COLOR_GRAY20
+	door_frame_color = COLOR_GRAY20
+	req_access = list(/datum/access/maint_tunnels::id)
+	glass = TRUE
+	opacity = FALSE
+	autoclose = FALSE
+	hashatch = FALSE
 	panel_visible_while_open = TRUE
-	insecure = 0
+	features_powerloss_manual_override = FALSE
 
 	var/datum/turbolift/lift
 	var/datum/turbolift_floor/floor
 
-/obj/machinery/door/airlock/lift/Destroy()
+/obj/structure/machinery/door/airlock/lift/Destroy()
 	if(lift)
 		lift.doors -= src
 	if(floor)
 		floor.doors -= src
 	return ..()
 
-/obj/machinery/door/airlock/lift/bumpopen(var/mob/user)
+/obj/structure/machinery/door/airlock/lift/bumpopen(var/mob/user)
 	return // No accidental sprinting into open elevator shafts.
 
-/obj/machinery/door/airlock/lift/allowed(mob/M)
+/obj/structure/machinery/door/airlock/lift/allowed(mob/M)
 	return FALSE //only the lift machinery is allowed to operate this door
 
-/obj/machinery/door/airlock/lift/close(var/forced=0)
+/obj/structure/machinery/door/airlock/lift/close(var/forced=0)
 	for(var/turf/turf in locs)
 		for(var/mob/living/LM in turf)
 			if(LM.mob_size <= MOB_TINY)
 				var/moved = 0
-				for(dir in shuffle(cardinal.Copy()))
+				for(dir in shuffle(GLOB.cardinals.Copy()))
 					var/dest = get_step(LM,dir)
-					if(!(locate(/obj/machinery/door/airlock/lift) in dest))
+					if(!(locate(/obj/structure/machinery/door/airlock/lift) in dest))
 						if(LM.Move(dest))
 							moved = 1
 							LM.visible_message("\The [LM] scurries away from the closing doors.")

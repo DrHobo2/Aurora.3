@@ -3,21 +3,21 @@
 	set name = "Show Air Report"
 
 	if(!Master || !SSair)
-		alert(usr,"Master_controller or SSair not found.","Air Report")
+		tgui_alert(usr, "Master_controller or SSair not found.", "Air Report")
 		return
 
 	var/active_groups = SSair.active_zones
 	var/inactive_groups = SSair.zones.len - active_groups
 
 	var/hotspots = 0
-	for(var/obj/fire/hotspot in world)
+	for(var/obj/hotspot/hotspot in world)
 		hotspots++
 
 	var/active_on_main_station = 0
 	var/inactive_on_main_station = 0
 	for(var/zone/zone in SSair.zones)
 		var/turf/simulated/turf = locate() in zone.contents
-		if(turf && turf.z in current_map.station_levels)
+		if(turf && is_station_level(turf.z))
 			if(zone.needs_update)
 				active_on_main_station++
 			else
@@ -39,7 +39,25 @@
 	Tile Update: [SSair.tiles_to_update.len]<BR>
 "}
 
-	usr << browse(output,"window=airreport")
+	usr << browse(HTML_SKELETON(output), "window=airreport")
+
+/client/proc/toggle_nonhorizon_temperature_graphics()
+	set category = "Debug"
+	set name = "Toggle Non-Horizon Temperature Graphics"
+	set desc = "Toggle gas temperature graphics on all non-Horizon z-levels."
+
+	if(!check_rights(R_DEBUG))
+		return
+	if(!SSair)
+		to_chat(src, SPAN_WARNING("The air subsystem is unavailable."))
+		return
+
+	var/suppress = !SSair.suppress_nonhorizon_temperature_graphics
+	to_chat(src, SPAN_NOTICE("[suppress ? "Disabling" : "Re-enabling"] non-Horizon temperature graphics. This may take several ticks."))
+
+	var/updated_graphics = SSair.set_nonhorizon_temperature_graphics_suppressed(suppress)
+	log_and_message_admins("has [suppress ? "disabled" : "enabled"] GAS_HEAT and GAS_COLD graphics on non-Horizon z-levels ([updated_graphics] graphic reference\s updated).")
+	feedback_add_details("admin_verb", "TNTG")
 
 /client/proc/fix_next_move()
 	set category = "Debug"
@@ -48,7 +66,7 @@
 	var/largest_click_time = 0
 	var/mob/largest_move_mob = null
 	var/mob/largest_click_mob = null
-	for(var/mob/M in mob_list)
+	for(var/mob/M in GLOB.mob_list)
 		if(!M.client)
 			continue
 		if(M.next_move >= largest_move_time)
@@ -79,7 +97,7 @@
 	var/output = "<b>Radio Report</b><hr>"
 	for (var/fq in SSradio.frequencies)
 		output += "<b>Freq: [fq]</b><br>"
-		var/list/datum/radio_frequency/fqs = SSradio.frequencies[fq]
+		var/datum/radio_frequency/fqs = SSradio.frequencies[fq]
 		if (!fqs)
 			output += "&nbsp;&nbsp;<b>ERROR</b><br>"
 			continue
@@ -89,34 +107,28 @@
 				output += "&nbsp;&nbsp;[filter]: ERROR<br>"
 				continue
 			output += "&nbsp;&nbsp;[filter]: [f.len]<br>"
-			for (var/device in f)
+			for (var/obj/device as anything in f)
 				if (isobj(device))
-					output += "&nbsp;&nbsp;&nbsp;&nbsp;[device] ([device:x],[device:y],[device:z] in area [get_area(device:loc)])<br>"
+					output += "&nbsp;&nbsp;&nbsp;&nbsp;[device] ([device.x],[device.y],[device.z] in area [get_area(device.loc)])<br>"
 				else
 					output += "&nbsp;&nbsp;&nbsp;&nbsp;[device]<br>"
 
-	usr << browse(output,"window=radioreport")
+	usr << browse(HTML_SKELETON(output), "window=radioreport")
 	feedback_add_details("admin_verb","RR") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 /client/proc/reload_admins()
 	set name = "Reload Admins"
 	set category = "Debug"
 
-	if(!check_rights(R_SERVER|R_DEV))	return
+	if(!check_rights(R_SERVER|R_DEV))
+		return
 
-	message_admins("[usr] manually reloaded admins")
-	load_admins()
+	if (GLOB.config.use_authentik_api)
+		SSauth.update_admins_from_authentik(FALSE)
+
+	log_and_message_admins("manually reloaded admins.")
+	SSauth.load_admins()
 	feedback_add_details("admin_verb","RLDA") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
-
-/client/proc/reload_mentors()
-	set name = "Reload Mentors"
-	set category = "Debug"
-
-	if(!check_rights(R_SERVER)) return
-
-	message_admins("[usr] manually reloaded Mentors")
-	world.load_mods()
-
 
 //todo:
 /client/proc/jump_to_dead_group()
@@ -124,11 +136,11 @@
 	set category = "Debug"
 		/*
 	if(!holder)
-		src << "Only administrators may use this command."
+		to_chat(src, "Only administrators may use this command.")
 		return
 
 	if(!SSair)
-		usr << "Cannot find air_system"
+		to_chat(usr, "Cannot find air_system")
 		return
 	var/datum/air_group/dead_groups = list()
 	for(var/datum/air_group/group in SSair.air_groups)
@@ -146,11 +158,11 @@
 	set category = "Debug"
 	/*
 	if(!holder)
-		src << "Only administrators may use this command."
+		to_chat(src, "Only administrators may use this command.")
 		return
 
 	if(!SSair)
-		usr << "Cannot find air_system"
+		to_chat(usr, "Cannot find air_system")
 		return
 
 	var/turf/T = get_turf(usr)
@@ -159,7 +171,7 @@
 		AG.next_check = 30
 		AG.group_processing = 0
 	else
-		usr << "Local airgroup is unsimulated!"
+		to_chat(usr, "Local airgroup is unsimulated!")
 	feedback_add_details("admin_verb","KLAG") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 	*/
 
@@ -168,9 +180,9 @@
 	set desc = "This spams all the active jobban entries for the current round to standard output."
 	set category = "Debug"
 
-	usr << "<b>Jobbans active in this round.</b>"
-	for(var/t in jobban_keylist)
-		usr << "[t]"
+	to_chat(usr, "<b>Jobbans active in this round.</b>")
+	for(var/t in GLOB.jobban_keylist)
+		to_chat(usr, "[t]")
 
 /client/proc/print_jobban_old_filter()
 	set name = "Search Jobban Log"
@@ -181,7 +193,7 @@
 	if(!filter)
 		return
 
-	usr << "<b>Jobbans active in this round.</b>"
-	for(var/t in jobban_keylist)
+	to_chat(usr, "<b>Jobbans active in this round.</b>")
+	for(var/t in GLOB.jobban_keylist)
 		if(findtext(t, filter))
-			usr << "[t]"
+			to_chat(usr, "[t]")

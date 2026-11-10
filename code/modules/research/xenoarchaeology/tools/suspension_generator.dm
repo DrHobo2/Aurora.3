@@ -1,348 +1,223 @@
-/obj/machinery/suspension_gen
+/obj/structure/machinery/suspension_gen
 	name = "suspension field generator"
-	desc = "It has stubby legs bolted up against it's body for stabilising."
+	desc = "Multi-phase mobile suspension field generator MK III \"Stalwart\". It has stubby bolts up against its treads for stabilising."
 	icon = 'icons/obj/xenoarchaeology.dmi'
-	icon_state = "suspension2"
-	density = 1
-	req_access = list(access_research)
-	var/obj/item/weapon/cell/cell
-	var/obj/item/weapon/card/id/auth_card
-	var/locked = 1
-	var/open = 0
-	var/screwed = 1
-	var/field_type = ""
-	var/power_use = 25
+	icon_state = "suspension_loose"
+	density = TRUE
+	obj_flags = OBJ_FLAG_ROTATABLE
+	active_power_usage = 25
+
+	var/open = FALSE
+	var/screwed = TRUE
+	var/field_type = "carbon"
+
+	var/obj/item/cell/cell
 	var/obj/effect/suspension_field/suspension_field
-	var/list/secured_mobs = list()
 
-/obj/machinery/suspension_gen/Initialize()
+/obj/effect/suspension_field/feedback_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	. += SPAN_NOTICE("You can see something floating inside it:")
+	. += SPAN_NOTICE(english_list(contents))
+
+/obj/structure/machinery/suspension_gen/Initialize()
 	. = ..()
-	cell = new/obj/item/weapon/cell/high(src)
+	cell = new /obj/item/cell/high(src)
 
-/obj/machinery/suspension_gen/machinery_process()
-	set background = 1
-
-	if (suspension_field)
-		cell.charge -= power_use
-
-		var/turf/T = get_turf(suspension_field)
-		if(field_type == "carbon")
-			for(var/mob/living/carbon/M in T)
-				M.weakened = max(M.weakened, 3)
-				cell.charge -= power_use
-				if(prob(5))
-					M << "<span class='notice'>[pick("You feel tingly.","You feel like floating.","It is hard to speak.","You can barely move.")]</span>"
-
-		if(field_type == "iron")
-			for(var/mob/living/silicon/M in T)
-				M.weakened = max(M.weakened, 3)
-				cell.charge -= power_use
-				if(prob(5))
-					M << "<span class='notice'>[pick("You feel tingly.","You feel like floating.","It is hard to speak.","You can barely move.")]</span>"
-
-		for(var/obj/item/I in T)
-			if(!suspension_field.contents.len)
-				suspension_field.icon_state = "energynet"
-				suspension_field.add_overlay("shield2")
-			I.forceMove(suspension_field)
-
-		for(var/mob/living/simple_animal/M in T)
-			M.weakened = max(M.weakened, 3)
-			cell.charge -= power_use
-			if(prob(5))
-				M << "<span class='notice'>[pick("You feel tingly.","You feel like floating.","It is hard to speak.","You can barely move.")]</span>"
-
-		if(cell.charge <= 0)
-			deactivate()
-
-/obj/machinery/suspension_gen/interact(mob/user as mob)
-	var/dat = "<b>Multi-phase mobile suspension field generator MK II \"Steadfast\"</b><br>"
-	if(cell)
-		var/colour = "red"
-		if(cell.charge / cell.maxcharge > 0.66)
-			colour = "green"
-		else if(cell.charge / cell.maxcharge > 0.33)
-			colour = "orange"
-		dat += "<b>Energy cell</b>: <font color='[colour]'>[100 * cell.charge / cell.maxcharge]%</font><br>"
-	else
-		dat += "<b>Energy cell</b>: None<br>"
-	if(auth_card)
-		dat += "<A href='?src=\ref[src];ejectcard=1'>\[[auth_card]\]<a><br>"
-		if(!locked)
-			dat += "<b><A href='?src=\ref[src];toggle_field=1'>[suspension_field ? "Disable" : "Enable"] field</a></b><br>"
-		else
-			dat += "<br>"
-	else
-		dat += "<A href='?src=\ref[src];insertcard=1'>\[------\]<a><br>"
-		if(!locked)
-			dat += "<b><A href='?src=\ref[src];toggle_field=1'>[suspension_field ? "Disable" : "Enable"] field</a></b><br>"
-		else
-			dat += "Enter your ID to begin.<br>"
-
-	dat += "<hr>"
-	if(!locked)
-		dat += "<b>Select field mode</b><br>"
-		dat += "[field_type=="carbon"?"<b>":""			]<A href='?src=\ref[src];select_field=carbon'>Diffracted carbon dioxide laser</A></b><br>"
-		dat += "[field_type=="nitrogen"?"<b>":""		]<A href='?src=\ref[src];select_field=nitrogen'>Nitrogen tracer field</A></b><br>"
-		dat += "[field_type=="potassium"?"<b>":""		]<A href='?src=\ref[src];select_field=potassium'>Potassium refrigerant cloud</A></b><br>"
-		dat += "[field_type=="mercury"?"<b>":""	]<A href='?src=\ref[src];select_field=mercury'>Mercury dispersion wave</A></b><br>"
-		dat += "[field_type=="iron"?"<b>":""		]<A href='?src=\ref[src];select_field=iron'>Iron wafer conduction field</A></b><br>"
-		dat += "[field_type=="calcium"?"<b>":""	]<A href='?src=\ref[src];select_field=calcium'>Calcium binary deoxidiser</A></b><br>"
-		dat += "[field_type=="phoron"?"<b>":""	]<A href='?src=\ref[src];select_field=chlorine'>Chlorine diffusion emissions</A></b><br>"
-		dat += "[field_type=="phoron"?"<b>":""	]<A href='?src=\ref[src];select_field=phoron'>Phoron saturated field</A></b><br>"
-	else
-		dat += "<br>"
-		dat += "<br>"
-		dat += "<br>"
-		dat += "<br>"
-		dat += "<br>"
-		dat += "<br>"
-		dat += "<br>"
-		dat += "<br>"
-	dat += "<hr>"
-	dat += "<font color='blue'><b>Always wear safety gear and consult a field manual before operation.</b></font><br>"
-	if(!locked)
-		dat += "<A href='?src=\ref[src];lock=1'>Lock console</A><br>"
-	else
-		dat += "<br>"
-	dat += "<A href='?src=\ref[src];refresh=1'>Refresh console</A><br>"
-	dat += "<A href='?src=\ref[src];close=1'>Close console</A>"
-	user << browse(dat, "window=suspension;size=500x400")
-	onclose(user, "suspension")
-
-/obj/machinery/suspension_gen/Topic(href, href_list)
-	..()
-	usr.set_machine(src)
-
-	if(href_list["toggle_field"])
-		if(!suspension_field)
-			if(cell.charge > 0)
-				if(anchored)
-					activate()
-				else
-					usr << "<span class='warning'>You are unable to activate [src] until it is properly secured on the ground.</span>"
-		else
-			deactivate()
-	if(href_list["select_field"])
-		field_type = href_list["select_field"]
-	else if(href_list["insertcard"])
-		var/obj/item/I = usr.get_active_hand()
-		if (istype(I, /obj/item/weapon/card))
-			usr.drop_from_inventory(I,src)
-			auth_card = I
-			if(attempt_unlock(I, usr))
-				usr << "<span class='info'>You insert [I], the console flashes \'<i>Access granted.</i>\'</span>"
-			else
-				usr << "<span class='warning'>You insert [I], the console flashes \'<i>Access denied.</i>\'</span>"
-	else if(href_list["ejectcard"])
-		if(auth_card)
-			if(ishuman(usr))
-				auth_card.forceMove(usr.loc)
-				if(!usr.get_active_hand())
-					usr.put_in_hands(auth_card)
-				auth_card = null
-			else
-				auth_card.forceMove(loc)
-				auth_card = null
-	else if(href_list["lock"])
-		locked = 1
-	else if(href_list["close"])
-		usr.unset_machine()
-		usr << browse(null, "window=suspension")
-
-	updateUsrDialog()
-
-/obj/machinery/suspension_gen/attack_hand(mob/user as mob)
-	if(!open)
-		interact(user)
-	else if(cell)
-		cell.forceMove(loc)
-		cell.add_fingerprint(user)
-		cell.update_icon()
-
-		icon_state = "suspension0"
-		cell = null
-		user << "<span class='info'>You remove the power cell</span>"
-
-/obj/machinery/suspension_gen/attackby(obj/item/weapon/W as obj, mob/user as mob)
-	if (W.isscrewdriver())
-		if(!open)
-			if(screwed)
-				screwed = 0
-			else
-				screwed = 1
-			user << "<span class='info'>You [screwed ? "screw" : "unscrew"] the battery panel.</span>"
-	else if (W.iscrowbar())
-		if(!locked)
-			if(!screwed)
-				if(!suspension_field)
-					if(open)
-						open = 0
-					else
-						open = 1
-					user << "<span class='info'>You crowbar the battery panel [open ? "open" : "in place"].</span>"
-					icon_state = "suspension[open ? (cell ? "1" : "0") : "2"]"
-				else
-					user << "<span class='warning'>[src]'s safety locks are engaged, shut it down first.</span>"
-			else
-				user << "<span class='warning'>Unscrew [src]'s battery panel first.</span>"
-		else
-			user << "<span class='warning'>[src]'s security locks are engaged.</span>"
-	else if (W.iswrench())
-		if(!suspension_field)
-			if(anchored)
-				anchored = 0
-			else
-				anchored = 1
-			user << "<span class='info'>You wrench the stabilising legs [anchored ? "into place" : "up against the body"].</span>"
-			if(anchored)
-				desc = "It is resting securely on four stubby legs."
-			else
-				desc = "It has stubby legs bolted up against it's body for stabilising."
-		else
-			user << "<span class='warning'>You are unable to secure [src] while it is active!</span>"
-	else if (istype(W, /obj/item/weapon/cell))
-		if(open)
-			if(cell)
-				user << "<span class='warning'>There is a power cell already installed.</span>"
-			else
-				user.drop_from_inventory(W,src)
-				cell = W
-				user << "<span class='info'>You insert the power cell.</span>"
-				icon_state = "suspension1"
-	else if(istype(W, /obj/item/weapon/card))
-		var/obj/item/weapon/card/I = W
-		if(!auth_card)
-			if(attempt_unlock(I, user))
-				user << "<span class='info'>You swipe [I], the console flashes \'<i>Access granted.</i>\'</span>"
-			else
-				user << "<span class='warning'>You swipe [I], console flashes \'<i>Access denied.</i>\'</span>"
-		else
-			user << "<span class='warning'>Remove [auth_card] first.</span>"
-
-/obj/machinery/suspension_gen/proc/attempt_unlock(var/obj/item/weapon/card/C, var/mob/user)
-	if(!open)
-		if(istype(C, /obj/item/weapon/card/emag))
-			C.resolve_attackby(src, user)
-		else if(istype(C, /obj/item/weapon/card/id) && check_access(C))
-			locked = 0
-		if(!locked)
-			return 1
-
-/obj/machinery/suspension_gen/emag_act(var/remaining_charges, var/mob/user)
-	if(cell.charge > 0 && locked)
-		locked = 0
-		return 1
-
-//checks for whether the machine can be activated or not should already have occurred by this point
-/obj/machinery/suspension_gen/proc/activate()
-	//depending on the field type, we might pickup certain items
-	var/turf/T = get_turf(get_step(src,dir))
-	var/success = 0
-	var/collected = 0
-	switch(field_type)
-		if("carbon")
-			success = 1
-			for(var/mob/living/carbon/C in T)
-				C.weakened += 5
-				C.visible_message("<span class='notice'>\icon[C] [C] begins to float in the air!","You feel tingly and light, but it is difficult to move.</span>")
-		if("nitrogen")
-			success = 1
-			//
-		if("mercury")
-			success = 1
-			//
-		if("chlorine")
-			success = 1
-			//
-		if("potassium")
-			success = 1
-			//
-		if("phoron")
-			success = 1
-			//
-		if("calcium")
-			success = 1
-			//
-		if("iron")
-			success = 1
-			for(var/mob/living/silicon/R in T)
-				R.weakened += 5
-				R.visible_message("<span class='notice'>\icon[R] [R] begins to float in the air!","You feel tingly and light, but it is difficult to move.</span>")
-			//
-	//in case we have a bad field type
-	if(!success)
-		return
-
-	for(var/mob/living/simple_animal/C in T)
-		C.visible_message("<span class='notice'>\icon[C] [C] begins to float in the air!","You feel tingly and light, but it is difficult to move.</span>")
-		C.weakened += 5
-
-	suspension_field = new(T)
-	suspension_field.field_type = field_type
-	src.visible_message("<span class='notice'>\icon[src] [src] activates with a low hum.</span>")
-	icon_state = "suspension3"
-
-	for(var/obj/item/I in T)
-		I.forceMove(suspension_field)
-		collected++
-
-	if(collected)
-		suspension_field.icon_state = "energynet"
-		suspension_field.add_overlay("shield2")
-		src.visible_message("<span class='notice'>\icon[suspension_field] [suspension_field] gently absconds [collected > 1 ? "something" : "several things"].</span>")
-	else
-		if(istype(T,/turf/simulated/mineral) || istype(T,/turf/simulated/wall))
-			suspension_field.icon_state = "shieldsparkles"
-		else
-			suspension_field.icon_state = "shield2"
-
-/obj/machinery/suspension_gen/proc/deactivate()
-	//drop anything we picked up
-	var/turf/T = get_turf(suspension_field)
-
-	for(var/mob/M in T)
-		M << "<span class='info'>You no longer feel like floating.</span>"
-		M.weakened = min(M.weakened, 3)
-
-	src.visible_message("<span class='notice'>\icon[src] [src] deactivates with a gentle shudder.</span>")
-	qdel(suspension_field)
-	suspension_field = null
-	icon_state = "suspension2"
-
-/obj/machinery/suspension_gen/Destroy()
-	//safety checks: clear the field and drop anything it's holding
+/obj/structure/machinery/suspension_gen/Destroy()
 	deactivate()
 	return ..()
 
-/obj/machinery/suspension_gen/verb/rotate_ccw()
-	set src in view(1)
-	set name = "Rotate suspension gen (counter-clockwise)"
-	set category = "Object"
+/obj/structure/machinery/suspension_gen/process()
+	if(suspension_field)
+		if(!cell.charge)
+			deactivate()
+			return
+		if(suspension_field.victim_number)
+			cell.use(active_power_usage * suspension_field.victim_number)
 
-	if(anchored)
-		usr << "<span class='warning'>You cannot rotate [src], it has been firmly fixed to the floor.</span>"
+/obj/structure/machinery/suspension_gen/attack_hand(mob/user)
+	. = ..()
+	if(.)
+		return
+
+	ui_interact(user)
+
+/obj/structure/machinery/suspension_gen/operable(additional_flags)
+	if(stat & (BROKEN|additional_flags))
+		return FALSE
+	if(!cell.charge)
+		return FALSE
+
+	return TRUE
+
+/obj/structure/machinery/suspension_gen/attackby(obj/item/attacking_item, mob/user)
+	if(attacking_item.tool_behaviour == TOOL_SCREWDRIVER)
+		if(!open)
+			screwed = !screwed
+			to_chat(user, SPAN_NOTICE("You [screwed ? "screw" : "unscrew"] the battery panel."))
+			update_icon()
+		else
+			to_chat(user, SPAN_WARNING("\The [src]'s battery panel is open!"))
+		return
+	else if (attacking_item.tool_behaviour == TOOL_CROWBAR)
+		if(!screwed)
+			if(!suspension_field)
+				open = !open
+				to_chat(user, SPAN_NOTICE("You crowbar the battery panel [open ? "open" : "in place"]."))
+				update_icon()
+			else
+				to_chat(user, SPAN_WARNING("[src]'s safety locks are engaged, shut it down first."))
+		else
+			to_chat(user, SPAN_WARNING("Unscrew [src]'s battery panel first."))
+	else if (attacking_item.tool_behaviour == TOOL_WRENCH)
+		if(!suspension_field)
+			anchored = !anchored
+			to_chat(user, SPAN_NOTICE("You wrench the stabilising bolts [anchored ? "into place" : "loose"]."))
+			playsound(loc, 'sound/items/wrench.ogg', 40)
+			if(anchored)
+				desc = "Multi-phase mobile suspension field generator MK III \"Stalwart\". It is firmly held in place by securing bolts."
+			else
+				desc = "Multi-phase mobile suspension field generator MK III \"Stalwart\". It has stubby bolts aligned along its track for stabilising."
+			update_icon()
+		else
+			to_chat(user, SPAN_WARNING("You are unable to secure [src] while it is active!"))
+	else if (istype(attacking_item, /obj/item/cell))
+		if(open)
+			if(cell)
+				to_chat(user, SPAN_WARNING("There is a power cell already installed."))
+			else
+				user.drop_from_inventory(attacking_item, src)
+				cell = attacking_item
+				to_chat(user, SPAN_NOTICE("You insert the power cell."))
+				update_icon()
+
+/obj/structure/machinery/suspension_gen/ui_interact(mob/user, var/datum/tgui/ui)
+	ui = SStgui.try_update_ui(user, src, ui)
+	if(!ui)
+		ui = new(user, src, "SuspensionGenerator", "Suspension Field Generator", 400, 500)
+		ui.open()
+
+/obj/structure/machinery/suspension_gen/ui_data(mob/user)
+	var/list/data = list()
+
+	data["charge"] = 0
+	if(cell)
+		data["charge"] = round(cell.percent())
+
+	data["fieldtype"] = field_type
+
+	data["fieldtypes"] = list(
+		list("name" = "Diffracted Carbon Dioxide Laser", "type" = "carbon"),
+		list("name" = "Potassium Refrigerant Cloud", "type" = "potassium"),
+		list("name" = "Nitrogen Tracer Field", "type" = "nitrogen"),
+		list("name" = "Mercury Dispersion Wave", "type" = "mercury"),
+		list("name" = "Iron Wafer Conduction Field", "type" = "iron")
+	)
+
+	data["active"] = !!suspension_field
+	data["anchored"] = anchored
+
+	return data
+
+/obj/structure/machinery/suspension_gen/ui_act(action, list/params, datum/tgui/ui, datum/ui_state/state)
+	. = ..()
+	if(.)
+		return
+
+	if(action == "togglefield")
+		if(!anchored)
+			return
+
+		if(!suspension_field)
+			var/obj/item/cell/cell = get_cell()
+			if(cell?.charge > 0)
+				if(anchored)
+					activate()
+		else
+			deactivate()
+		. = TRUE
+
+	if(action == "fieldtype")
+		field_type = params["fieldtype"]
+		if(suspension_field)
+			suspension_field.field_type = field_type
+			. = TRUE
+
+//checks for whether the machine can be activated or not should already have occurred by this point
+/obj/structure/machinery/suspension_gen/proc/activate()
+	var/turf/T = get_turf(get_step(src,dir))
+	suspension_field = new(T)
+	suspension_field.field_type = field_type
+	visible_message(SPAN_NOTICE("\The [src] activates with a soft beep."))
+	playsound(loc, 'sound/machines/softbeep.ogg', 40)
+	update_icon()
+	START_PROCESSING(SSprocessing, src)
+
+/obj/structure/machinery/suspension_gen/proc/deactivate()
+	STOP_PROCESSING(SSprocessing, src)
+	visible_message(SPAN_NOTICE("\The [src] deactivates with a gentle shudder and a soft tone."))
+	playsound(loc, 'sound/machines/softbeep.ogg', 40)
+	QDEL_NULL(suspension_field)
+	update_icon()
+
+/obj/structure/machinery/suspension_gen/update_icon()
+	icon_state = "suspension_[anchored ? (suspension_field ? "on" : "wrenched") : "loose"]"
+	if(!screwed)
+		AddOverlays("suspension_panel")
 	else
-		set_dir(turn(dir, 90))
+		CutOverlays("suspension_panel")
 
-/obj/machinery/suspension_gen/verb/rotate_cw()
-	set src in view(1)
-	set name = "Rotate suspension gen (clockwise)"
-	set category = "Object"
-
-	if(anchored)
-		usr << "<span class='warning'>You cannot rotate [src], it has been firmly fixed to the floor.</span>"
-	else
-		set_dir(turn(dir, -90))
+/obj/structure/machinery/suspension_gen/get_cell()
+	return cell
 
 /obj/effect/suspension_field
 	name = "energy field"
 	icon = 'icons/effects/effects.dmi'
-	anchored = 1
-	density = 1
+	anchored = TRUE
+	density = TRUE
+
 	var/field_type = "chlorine"
+	var/victim_number  //number of mobs it affected, needed for generator powerdraw calc
+
+/obj/effect/suspension_field/Initialize()
+	. = ..()
+	suspend_things()
+	START_PROCESSING(SSprocessing, src)
 
 /obj/effect/suspension_field/Destroy()
-	for(var/obj/I in src)
-		I.forceMove(src.loc)
+	for(var/mob/living/M in loc)
+		to_chat(M, SPAN_NOTICE("You no longer feel like floating."))
+	for(var/atom/movable/A in src)
+		A.dropInto(loc)
+	STOP_PROCESSING(SSprocessing, src)
 	return ..()
+
+/obj/effect/suspension_field/process()
+	suspend_things()
+
+/obj/effect/suspension_field/proc/suspend_things()
+	victim_number = 0
+	var/turf/T = get_turf(src)
+	for(var/mob/living/M in T)
+		if((isanimal(M) || iscarbon(M)) && field_type != "carbon")
+			continue
+		if(isrobot(M) && field_type != "iron")
+			continue
+		M.weakened = max(M.weakened, 3)
+		victim_number++
+		if(prob(5))
+			to_chat(M, SPAN_WARNING("[pick("You feel tingly","You feel like floating","It is hard to speak","You can barely move")]."))
+	for(var/obj/item/I in T)
+		if(!I.anchored && I.simulated)
+			I.forceMove(src)
+	update_icon()
+
+/obj/effect/suspension_field/update_icon()
+	underlays.Cut()
+	var/turf/T = get_turf(src)
+	if(T.density)
+		icon_state = "shield_normal"
+	else
+		icon_state = "shield2"
+	if(length(contents))
+		underlays += "energynet"

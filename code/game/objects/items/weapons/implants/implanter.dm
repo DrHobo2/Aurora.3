@@ -1,201 +1,132 @@
-/obj/item/weapon/implanter
+/obj/item/implanter
 	name = "implanter"
-	icon = 'icons/obj/items.dmi'
-	icon_state = "implanter0"
-	item_state = "syringe_0"
+	icon = 'icons/obj/item/implants.dmi'
+	contained_sprite = TRUE
+	icon_state = "implanter-0"
 	throw_speed = 1
 	throw_range = 5
-	w_class = 2.0
-	var/obj/item/weapon/implant/imp = null
+	w_class = WEIGHT_CLASS_SMALL
+	matter = list(MATERIAL_STEEL = 320, MATERIAL_GLASS = 800)
+	var/obj/item/implant/imp = null
 
-/obj/item/weapon/implanter/attack_self(var/mob/user)
-	if(!imp)
-		return ..()
-	imp.forceMove(get_turf(src))
-	user.put_in_hands(imp)
-	user << "<span class='notice'>You remove \the [imp] from \the [src].</span>"
-	name = "implanter"
-	imp = null
-	update()
-	return
+/obj/item/implanter/New()
+	if(ispath(imp))
+		imp = new imp(src)
+	..()
+	update_icon()
 
-/obj/item/weapon/implanter/proc/update()
-	if (src.imp)
-		src.icon_state = "implanter1"
+/obj/item/implanter/update_icon()
+	ClearOverlays()
+	icon_state = "implanter-[imp ? "1" : "0"]"
+	if (imp)
+		var/mutable_appearance/overlay_implant_icon = mutable_appearance(icon, "implanter-overlay")
+		overlay_implant_icon.color = imp.implant_color
+		AddOverlays(overlay_implant_icon)
+
+/obj/item/implanter/attackby(obj/item/attacking_item, mob/user)
+	if(!imp && istype(attacking_item, /obj/item/implant) && user.unEquip(attacking_item, src))
+		to_chat(usr, SPAN_NOTICE("You slide \the [attacking_item] into \the [src]."))
+		imp = attacking_item
+		attacking_item.forceMove(src)
+		update_icon()
 	else
-		src.icon_state = "implanter0"
-	return
+		..()
 
-/obj/item/weapon/implanter/attack(mob/M as mob, mob/user as mob, var/target_zone)
-	if (!istype(M, /mob/living/carbon))
+/obj/item/implanter/attack(mob/living/target_mob, mob/living/user, target_zone)
+	var/mob/living/carbon/human/M = target_mob
+	if(!istype(M))
 		return
-	if (user && src.imp)
-		M.visible_message("<span class='warning'>[user] is attemping to implant [M].</span>")
+
+	var/obj/item/organ/external/affected = M.get_organ(target_zone)
+
+	if(user && imp && affected)
+		M.visible_message(SPAN_WARNING("[user] is attempting to implant [M] in \the [affected.name]."))
 
 		user.setClickCooldown(DEFAULT_QUICK_COOLDOWN)
 		user.do_attack_animation(M)
 
 		var/turf/T1 = get_turf(M)
-		if (T1 && ((M == user) || do_after(user, 50)))
-			if(user && M && (get_turf(M) == T1) && src && src.imp)
-				M.visible_message("<span class='warning'>[M] has been implanted by [user].</span>")
+		if (T1 && ((M == user) || do_after(user, 5 SECONDS)))
+			if(user && M && (get_turf(M) == T1) && src && imp)
+				M.visible_message(SPAN_WARNING("[M] has been implanted by [user] in the [affected.name]."))
 
-				admin_attack_log(user, M, "Implanted using \the [src.name] ([src.imp.name])", "Implanted with \the [src.name] ([src.imp.name])", "used an implanter, [src.name] ([src.imp.name]), on")
+				admin_attack_log(user, M, "Implanted using \the [name] ([imp.name])", "Implanted with \the [name] ([imp.name])", "used an implanter, [name] ([imp.name]), on")
 
-				if(src.imp.implanted(M))
-					src.imp.forceMove(M)
-					src.imp.imp_in = M
-					src.imp.implanted = 1
-					if (ishuman(M))
-						var/mob/living/carbon/human/H = M
-						var/obj/item/organ/external/affected = H.get_organ(target_zone)
-						affected.implants += src.imp
-						imp.part = affected
+				if(imp.implanted(M, user))
+					imp.forceMove(M)
+					imp.imp_in = M
+					imp.implanted = TRUE
+					affected.implants += imp
+					imp.part = affected
+					BITSET(M.hud_updateflag, IMPLOYAL_HUD)
 
-						BITSET(H.hud_updateflag, IMPLOYAL_HUD)
-					if(istype(src.imp, /obj/item/weapon/implanter/loyalty))
-						M << "<span class ='notice'You feel a sudden surge of loyalty to [current_map.company_name]!</span>"
-
-				src.imp = null
-				update()
+				imp = null
+				update_icon()
 
 	return
 
-/obj/item/weapon/implanter/loyalty
-	name = "implanter-loyalty"
-
-/obj/item/weapon/implanter/loyalty/New()
-	src.imp = new /obj/item/weapon/implant/loyalty( src )
-	..()
-	update()
-	return
-
-/obj/item/weapon/implanter/explosive
-	name = "implanter (E)"
-
-/obj/item/weapon/implanter/explosive/New()
-	src.imp = new /obj/item/weapon/implant/explosive( src )
-	..()
-	update()
-	return
-
-/obj/item/weapon/implanter/adrenalin
-	name = "implanter-adrenalin"
-
-/obj/item/weapon/implanter/adrenalin/New()
-	src.imp = new /obj/item/weapon/implant/adrenalin(src)
-	..()
-	update()
-	return
-
-/obj/item/weapon/implanter/compressed
-	name = "implanter (C)"
-	icon_state = "cimplanter1"
-
-/obj/item/weapon/implanter/compressed/New()
-	imp = new /obj/item/weapon/implant/compressed( src )
-	..()
-	update()
-	return
-
-/obj/item/weapon/implanter/compressed/update()
-	if (imp)
-		var/obj/item/weapon/implant/compressed/c = imp
-		if(!c.scanned)
-			icon_state = "cimplanter1"
-		else
-			icon_state = "cimplanter2"
-	else
-		icon_state = "cimplanter0"
-	return
-
-/obj/item/weapon/implanter/compressed/attack(mob/M as mob, mob/user as mob)
-	var/obj/item/weapon/implant/compressed/c = imp
-	if (!c)	return
-	if (c.scanned == null)
-		user << "Please scan an object with the implanter first."
-		return
-	..()
-
-/obj/item/weapon/implanter/compressed/afterattack(atom/A, mob/user as mob, proximity)
-	if(!proximity)
-		return
-	if(istype(A,/obj/item) && imp)
-		var/obj/item/weapon/implant/compressed/c = imp
-		if (c.scanned)
-			user << "<span class='warning'>Something is already scanned inside the implant!</span>"
-			return
-		c.scanned = A
-		if(istype(A.loc,/mob/living/carbon/human))
-			var/mob/living/carbon/human/H = A.loc
-			H.remove_from_mob(A)
-		else if(istype(A.loc,/obj/item/weapon/storage))
-			var/obj/item/weapon/storage/S = A.loc
-			S.remove_from_storage(A)
-		A.loc.contents.Remove(A)
-		update()
-
-/obj/item/weapon/implanter/ipc_tag
-	name = "IPC/Shell tag implanter"
+/obj/item/implanter/ipc_tag
+	name = "IPC tag implanter"
 	desc = "A special implanter used for implanting synthetics with a special tag."
-	var/obj/item/organ/ipc_tag/ipc_tag = null
+	var/obj/item/organ/internal/machine/ipc_tag/ipc_tag
 
-/obj/item/weapon/implanter/ipc_tag/New()
-	ipc_tag = new(src)
-	..()
-	update()
+/obj/item/implanter/ipc_tag/Initialize()
+	. = ..()
+	ipc_tag = new /obj/item/organ/internal/machine/ipc_tag(src)
+	update_icon()
 
-/obj/item/weapon/implanter/ipc_tag/update()
-	if (ipc_tag)
-		icon_state = "cimplanter1"
-	else
-		icon_state = "cimplanter0"
+/obj/item/implanter/ipc_tag/update_icon()
+	icon_state = "implanter-[ipc_tag ? "1" : "0"]"
 	return
 
-/obj/item/weapon/implanter/ipc_tag/attack(mob/M as mob, mob/user as mob)
-	if (!ishuman(M))
+/obj/item/implanter/ipc_tag/attack(mob/living/target_mob, mob/living/user, target_zone)
+	if(!ishuman(target_mob))
 		return
 
-	if (!ipc_tag)
-		user << "<span class ='warning'>[src] is empty!</span>"
+	if(!ipc_tag)
+		to_chat(user, SPAN_WARNING("\The [src] doesn't have an IPC tag loaded!"))
 		return
 
-	var/mob/living/carbon/human/H = M
-	if (!H.species || !isipc(H) || !H.organs_by_name["head"])
-		user << "<span class = 'warning'>You cannot use this on a non-synthetic organism!</span>"
+	var/mob/living/carbon/human/H = target_mob
+	if(!H.species || !isipc(H) || !H.organs_by_name[BP_HEAD])
+		to_chat(user, SPAN_WARNING("You cannot use \the [src] on a non-IPC!"))
 		return
 
-	if (H.internal_organs_by_name["ipc tag"])
-		user << "<span class = 'warning'>[H] is already tagged!</span>"
+	if(H.internal_organs_by_name[BP_IPCTAG])
+		to_chat(user, SPAN_WARNING("\The [H] is already tagged!"))
 		return
 
-	for (var/mob/O in viewers(M, null))
-		O.show_message("<span class = 'warning'>[M] has been implanted by [user].</span>", 1)
+	user.visible_message(SPAN_WARNING("\The [user] tags \the [target_mob] with \the [src]!"), SPAN_NOTICE("You tag \the [target_mob] with \the [src]."), range = 3)
 
-	M.attack_log += text("\[[time_stamp()]\] <font color='orange'> Implanted with [src.name] ([src.ipc_tag.name])  by [user.name] ([user.ckey])</font>")
-	user.attack_log += text("\[[time_stamp()]\] <font color='red'>Used the [src.name] ([src.ipc_tag.name]) to implant [M.name] ([M.ckey])</font>")
-	msg_admin_attack("[key_name_admin(user)] implanted [key_name_admin(M)] with [src.name] (INTENT: [uppertext(user.a_intent)]) (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[user.x];Y=[user.y];Z=[user.z]'>JMP</a>)",ckey=key_name(user),ckey_target=key_name(M))
+	target_mob.attack_log += "\[[time_stamp()]\] <font color='orange'> Implanted with [name] ([ipc_tag.name])  by [user.name] ([user.ckey])</font>"
+	user.attack_log += "\[[time_stamp()]\] <span class='warning'>Used the [name] ([ipc_tag.name]) to implant [target_mob.name] ([target_mob.ckey])</span>"
+	msg_admin_attack("[key_name_admin(user)] implanted [key_name_admin(target_mob)] with [name] (INTENT: [uppertext(user.a_intent)]) (<A href='byond://?_src_=holder;adminplayerobservecoodjump=1;X=[user.x];Y=[user.y];Z=[user.z]'>JMP</a>)",ckey=key_name(user),ckey_target=key_name(target_mob))
 
-	user.show_message("<span class = 'warning'>You implanted the implant into [M].</span>")
-
-	ipc_tag.replaced(H, H.organs_by_name["head"])
-	
+	ipc_tag.replaced(H, H.organs_by_name[BP_HEAD])
+	ipc_tag.forceMove(target_mob)
+	if(ipc_tag.auto_generate)
+		ipc_tag.serial_number = uppertext(dd_limittext(md5(target_mob.real_name), 12))
 	ipc_tag = null
 
-	update()
+	update_icon()
 
-	var/datum/species/machine/machine = H.species
-	machine.update_tag(H, H.client)
-
-/obj/item/weapon/implanter/ipc_tag/attackby(var/obj/item/organ/ipc_tag/new_tag, mob/user as mob)
+/obj/item/implanter/ipc_tag/attackby(obj/item/attacking_item, mob/user)
+	if(attacking_item.tool_behaviour == TOOL_SCREWDRIVER)
+		if(!ipc_tag)
+			to_chat(user, SPAN_WARNING("\The [src] doesn't have an IPC tag loaded."))
+			return
+		to_chat(user, SPAN_NOTICE("You remove \the [ipc_tag] from \the [src]."))
+		ipc_tag.forceMove(get_turf(user))
+		user.put_in_hands(ipc_tag)
+		ipc_tag = null
+		update_icon()
+		return
+	if(istype(attacking_item, /obj/item/organ/internal/machine/ipc_tag))
+		if(ipc_tag)
+			to_chat(user, SPAN_WARNING("\The [src] already has an IPC tag loaded."))
+			return
+		ipc_tag = attacking_item
+		user.drop_from_inventory(attacking_item, src)
+		update_icon()
+		return
 	..()
-
-	if (!istype(new_tag))
-		return
-
-	if (ipc_tag)
-		return
-
-	ipc_tag = new_tag
-	user.drop_from_inventory(new_tag,src)
-	update()

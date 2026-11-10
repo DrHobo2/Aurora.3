@@ -1,83 +1,133 @@
-/obj/item/device/mmi/digital/posibrain
+/obj/item/mmi/digital/posibrain
 	name = "positronic brain"
 	desc = "A cube of shining metal, four inches to a side and covered in shallow grooves."
 	icon = 'icons/obj/assemblies.dmi'
 	icon_state = "posibrain"
-	w_class = 3
+	w_class = WEIGHT_CLASS_NORMAL
 	origin_tech = list(TECH_ENGINEERING = 4, TECH_MATERIAL = 4, TECH_BLUESPACE = 2, TECH_DATA = 4)
+	req_access = list(/datum/access/robotics::id)
+	can_be_ipc = TRUE
 
-	var/searching = 0
-	var/askDelay = 10 * 60 * 1
-	req_access = list(access_robotics)
-	locked = 0
-	mecha = null//This does not appear to be used outside of reference in mecha.dm.
+	should_use_health = TRUE
+	maxhealth = OBJECT_HEALTH_MEDIUM
 
+	var/searching = FALSE
 
-/obj/item/device/mmi/digital/posibrain/attack_self(mob/user as mob)
-	if(brainmob && !brainmob.key && searching == 0)
-		//Start the process of searching for a new user.
-		user << "<span class='notice'>You carefully locate the manual activation switch and start the positronic brain's boot process.</span>"
-		icon_state = "posibrain-searching"
-		src.searching = 1
-		var/datum/ghosttrap/G = get_ghost_trap("positronic brain")
-		G.request_player(brainmob, "Someone is requesting a personality for a positronic brain.", 60 SECONDS)
-		spawn(600) reset_search()
+/obj/item/mmi/digital/posibrain/Initialize()
+	. = ..()
+	var/datum/language/L = GLOB.all_languages[LANGUAGE_EAL]
+	brainmob.name = L.get_random_name()
+	brainmob.real_name = brainmob.name
 
-/obj/item/device/mmi/digital/posibrain/proc/reset_search() //We give the players sixty seconds to decide, then reset the timer.
-	if(src.brainmob && src.brainmob.key) return
+/obj/item/mmi/digital/posibrain/on_death(damage, damage_flags, damage_type, armor_penetration, obj/weapon)
+	playsound(src, SFX_BREAK_GLASS, 100, 1)
+	visible_message(SPAN_DANGER("\The [src] shatters spectacularly into a million pieces!"))
+	to_chat(brainmob, SPAN_DANGER("Your vision goes dark as your posibrain is destroyed, and your consciousness ceases to be."))
+	new /obj/effect/decal/cleanable/blood/gibs/robot(get_turf(src))
+	. = ..()
 
-	src.searching = 0
-	icon_state = "posibrain"
+/obj/item/mmi/digital/posibrain/bullet_act(obj/projectile/hitting_projectile, def_zone, piercing_hit)
+	. = ..()
+	if(. != BULLET_ACT_HIT)
+		return .
 
-	var/turf/T = get_turf_or_move(src.loc)
-	for (var/mob/M in viewers(T))
-		M.show_message("<span class='notice'>The positronic brain buzzes quietly, and the golden lights fade away. Perhaps you could try again?</span>")
+	var/projectile_damage = hitting_projectile.get_structure_damage()
+	if(projectile_damage > 5)
+		bullet_ping(hitting_projectile)
 
-/obj/item/device/mmi/digital/posibrain/attack_ghost(var/mob/abstract/observer/user)
-	if(!searching || (src.brainmob && src.brainmob.key))
+	if(!hitting_projectile.do_not_log)
+		visible_message(SPAN_DANGER("\The [src] is hit by \a [hitting_projectile]!"))
+		to_chat(brainmob, SPAN_DANGER(FONT_LARGE("Your positronic is hit by \a [hitting_projectile]!")))
+
+	add_damage(projectile_damage, hitting_projectile.damage_flags(), hitting_projectile.damage_type, hitting_projectile.armor_penetration, hitting_projectile)
+
+/obj/item/mmi/digital/posibrain/update_icon()
+	if(brainmob.ckey)
+		icon_state = "[initial(icon_state)]-occupied"
+	else if(searching)
+		icon_state = "[initial(icon_state)]-searching"
+	else
+		icon_state = initial(icon_state)
+
+/obj/item/mmi/digital/posibrain/attack_self(mob/user)
+	if(brainmob.ckey)
+		to_chat(user, SPAN_WARNING("\The [src] already has an active occupant!"))
+		return
+	if(brainmob && !brainmob.key)
+		if(!searching)
+			to_chat(user, SPAN_NOTICE("You carefully locate the manual activation switch and start \the [src]'s boot process."))
+			searching = TRUE
+			SSghostroles.add_spawn_atom("posibrain", src)
+		else
+			to_chat(user, SPAN_NOTICE("You carefully locate the manual activation switch and disable \the [src]'s boot process."))
+			searching = FALSE
+			SSghostroles.remove_spawn_atom("posibrain", src)
+		update_icon()
+
+/obj/item/mmi/digital/posibrain/assign_player(var/mob/user)
+	if(brainmob.ckey)
 		return
 
-	var/datum/ghosttrap/G = get_ghost_trap("positronic brain")
-	if(!G.assess_candidate(user))
-		return
-	var/response = alert(user, "Are you sure you wish to possess this [src]?", "Possess [src]", "Yes", "No")
-	if(response == "Yes")
-		G.transfer_personality(user, brainmob)
-	return
+	brainmob.ckey = user.ckey
+	searching = FALSE
+	update_icon()
 
-/obj/item/device/mmi/digital/posibrain/examine(mob/user)
-	if(!..(user))
-		return
+	INVOKE_ASYNC(src, PROC_REF(update_name))
 
-	var/msg = "<span class='info'>*---------*</span>\nThis is \icon[src] \a <EM>[src]</EM>!\n[desc]\n"
-	msg += "<span class='warning'>"
+	to_chat(brainmob, "<b>You are a positronic brain, brought into existence on [station_name()].</b>")
+	to_chat(brainmob, "<b>As a synthetic intelligence, you answer to all crewmembers, as well as the AI.</b>")
+	to_chat(brainmob, "<b>Remember, the purpose of your existence is to serve the crew and the [station_name(TRUE)]. Above all else, do no harm.</b>")
 
-	if(src.brainmob && src.brainmob.key)
-		switch(src.brainmob.stat)
+	brainmob.client.init_verbs()
+
+	return brainmob
+
+/obj/item/mmi/digital/posibrain/update_name()
+	var/new_name = tgui_input_text(brainmob, "Choose your name.", "Name Selection", brainmob.real_name, MAX_NAME_LEN)
+	if(new_name)
+		brainmob.real_name = new_name
+		brainmob.name = new_name
+		brainmob.voice_name = new_name
+	visible_message(SPAN_NOTICE("\The [src] chimes quietly."))
+	return ..()
+
+/obj/item/mmi/digital/posibrain/get_examine_text(mob/user, distance, is_adjacent, infix, suffix)
+	. = ..()
+
+	. += "This is [icon2html(src, user)] \a <EM>[src]</EM>!\n[desc]\n"
+
+	if(brainmob?.key)
+		switch(brainmob.stat)
 			if(CONSCIOUS)
-				if(!src.brainmob.client)	msg += "It appears to be in stand-by mode.\n" //afk
-			if(UNCONSCIOUS)		msg += "<span class='warning'>It doesn't seem to be responsive.</span>\n"
-			if(DEAD)			msg += "<span class='deadsay'>It appears to be completely inactive.</span>\n"
+				if(!src.brainmob.client)
+					. += "It appears to be in stand-by mode.\n" //afk
+			if(UNCONSCIOUS)
+				. += SPAN_WARNING("It doesn't seem to be responsive.\n")
+			if(DEAD)
+				. += "<span class='deadsay'>It appears to be completely inactive.</span>\n"
 	else
-		msg += "<span class='deadsay'>It appears to be completely inactive.</span>\n"
-	msg += "</span><span class='info'>*---------*</span>"
-	user << msg
+		. += "<span class='deadsay'>It appears to be completely inactive.</span>\n"
+
+/obj/item/mmi/digital/posibrain/ready_for_use(var/mob/user)
+	if(!brainmob)
+		to_chat(user, SPAN_WARNING("\The [src] doesn't have a personality loaded on it yet!"))
+		return
+	if(brainmob.stat == DEAD)
+		to_chat(user, SPAN_WARNING("The personality inside \the [src] is dead!"))
+		return FALSE
+	return TRUE
+
+/obj/item/mmi/digital/posibrain/set_cradle_state(var/new_state)
 	return
 
-/obj/item/device/mmi/digital/posibrain/emp_act(severity)
-	if(!src.brainmob)
-		return
-	else
-		switch(severity)
-			if(1)
-				src.brainmob.emp_damage += rand(20,30)
-			if(2)
-				src.brainmob.emp_damage += rand(10,20)
-			if(3)
-				src.brainmob.emp_damage += rand(0,10)
-	..()
+/obj/item/mmi/digital/posibrain/emp_act(severity)
+	. = ..()
 
-/obj/item/device/mmi/digital/posibrain/New()
-	..()
-	src.brainmob.name = "[pick(list("PBU","HIU","SINA","ARMA","OSI"))]-[rand(100, 999)]"
-	src.brainmob.real_name = src.brainmob.name
+	if(!brainmob)
+		return
+
+	switch(severity)
+		if(EMP_HEAVY)
+			brainmob.emp_damage += rand(20,30)
+		if(EMP_LIGHT)
+			brainmob.emp_damage += rand(10,20)

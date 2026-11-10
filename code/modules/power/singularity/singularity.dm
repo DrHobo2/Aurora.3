@@ -1,13 +1,13 @@
-//This file was auto-corrected by findeclaration.exe on 25.5.2012 20:42:33
+#define I_SINGULO "singulo"
 
-/obj/singularity/
+/obj/singularity
 	name = "gravitational singularity"
 	desc = "A gravitational singularity."
 	icon = 'icons/obj/singularity.dmi'
 	icon_state = "singularity_s1"
 	anchored = 1
 	density = 1
-	layer = 6
+	layer = SINGULARITY_LAYER
 	light_power = -100 //eats all light
 	unacidable = 1 //Don't comment this out.
 	appearance_flags = NO_CLIENT_COLOR
@@ -30,18 +30,19 @@
 
 	var/chained = 0//Adminbus chain-grab
 
-/obj/singularity/New(loc, var/starting_energy = 50, var/temp = 0)
+/obj/singularity/Initialize(mapload, energy = 50, qdel_in = 0, alert_admins = TRUE)
+	. = ..()
 	//CARN: admin-alert for chuckle-fuckery.
-	admin_investigate_setup()
-	energy = starting_energy
+	if(alert_admins)
+		admin_investigate_setup()
+	src.energy = energy
 
-	if (temp)
-		QDEL_IN(src, temp)
+	if(qdel_in)
+		QDEL_IN(src, qdel_in)
 
-	..()
 	START_PROCESSING(SScalamity, src)
 	SScalamity.singularities += src
-	for(var/obj/machinery/power/singularity_beacon/singubeacon in SSmachinery.processing_machines)
+	for(var/obj/structure/machinery/power/tesla_beacon/singubeacon in SSmachinery.processing)
 		if(singubeacon.active)
 			target = singubeacon
 			break
@@ -70,18 +71,22 @@
 			energy += round((rand(20,60)/2),1)
 			return
 
-/obj/singularity/bullet_act(obj/item/projectile/P)
-	return 0 //Will there be an impact? Who knows. Will we see it? No.
+/obj/singularity/bullet_act(obj/projectile/hitting_projectile, def_zone, piercing_hit)
+	. = ..()
+	if(. != BULLET_ACT_HIT)
+		return .
+
+	return BULLET_ACT_BLOCK //Will there be an impact? Who knows. Will we see it? No.
 
 /obj/singularity/Collide(atom/A)
 	. = ..()
 	if (A)
 		consume(A)
 
-/obj/singularity/CollidedWith(atom/movable/AM)
+/obj/singularity/CollidedWith(atom/bumped_atom)
 	. = ..()
-	if (AM)
-		consume(AM)
+	if (bumped_atom)
+		consume(bumped_atom)
 
 /obj/singularity/process()
 	eat()
@@ -93,7 +98,6 @@
 
 	if (current_size >= STAGE_THREE)
 		move()
-		pulse()
 
 		if (prob(event_chance)) //Chance for it to run a special event TODO: Come up with one or two more that fit.
 			event()
@@ -103,12 +107,15 @@
 
 /obj/singularity/proc/admin_investigate_setup()
 	last_warning = world.time
-	var/count = locate(/obj/machinery/containment_field) in orange(30, src)
+	var/count = locate(/obj/structure/machinery/containment_field) in orange(30, src)
 
+	var/msg = "A singulo has been created."
 	if (!count)
-		message_admins("A singulo has been created without containment fields active ([x], [y], [z] - <A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[x];Y=[y];Z=[z]'>JMP</a>).")
+		msg += " No containment field active!"
 
-	investigate_log("was created. [count ? "" : "<font color='red'>No containment fields were active.</font>"]", I_SINGULO)
+	log_and_message_admins("A singulo has been created without containment fields active.", location = get_turf(src))
+
+	investigate_log("was created.[count ? "" : " <span class='warning'>No containment fields were active.</span>"]. usr=[usr ? key_name(usr) : "null"]", I_SINGULO)
 
 /obj/singularity/proc/dissipate()
 	if (!dissipate)
@@ -146,7 +153,7 @@
 			overlays = 0
 			if(chained)
 				overlays = "chain_s1"
-			visible_message("<span class='notice'>The singularity has shrunk to a rather pitiful size.</span>")
+			visible_message(SPAN_NOTICE("The singularity has shrunk to a rather pitiful size."))
 		if (STAGE_TWO) //1 to 3 does not check for the turfs if you put the gens right next to a 1x1 then its going to eat them.
 			name = "gravitational singularity"
 			desc = "A gravitational singularity."
@@ -164,9 +171,9 @@
 			if(chained)
 				overlays = "chain_s3"
 			if(growing)
-				visible_message("<span class='notice'>The singularity noticeably grows in size.</span>")
+				visible_message(SPAN_NOTICE("The singularity noticeably grows in size."))
 			else
-				visible_message("<span class='notice'>The singularity has shrunk to a less powerful size.</span>")
+				visible_message(SPAN_NOTICE("The singularity has shrunk to a less powerful size."))
 		if (STAGE_THREE)
 			if ((check_turfs_in(1, 2)) && (check_turfs_in(2, 2)) && (check_turfs_in(4, 2)) && (check_turfs_in(8, 2)))
 				name = "gravitational singularity"
@@ -185,9 +192,9 @@
 				if(chained)
 					overlays = "chain_s5"
 				if(growing)
-					visible_message("<span class='notice'>The singularity expands to a reasonable size.</span>")
+					visible_message(SPAN_NOTICE("The singularity expands to a reasonable size."))
 				else
-					visible_message("<span class='notice'>The singularity has returned to a safe size.</span>")
+					visible_message(SPAN_NOTICE("The singularity has returned to a safe size."))
 		if(STAGE_FOUR)
 			if ((check_turfs_in(1, 3)) && (check_turfs_in(2, 3)) && (check_turfs_in(4, 3)) && (check_turfs_in(8, 3)))
 				name = "gravitational singularity"
@@ -206,9 +213,9 @@
 				if(chained)
 					overlays = "chain_s7"
 				if(growing)
-					visible_message("<span class='warning'>The singularity expands to a dangerous size.</span>")
+					visible_message(SPAN_WARNING("The singularity expands to a dangerous size."))
 				else
-					visible_message("<span class='notice'>Miraculously, the singularity reduces in size, and can be contained.</span>")
+					visible_message(SPAN_NOTICE("Miraculously, the singularity reduces in size, and can be contained."))
 		if(STAGE_FIVE) //This one also lacks a check for gens because it eats everything.
 			name = "gravitational singularity"
 			desc = "A gravitational singularity."
@@ -224,9 +231,9 @@
 			if(chained)
 				overlays = "chain_s9"
 			if(growing)
-				visible_message("<span class='danger'><font size='2'>The singularity has grown out of control!</font></span>")
+				visible_message(SPAN_DANGER("<font size='2'>The singularity has grown out of control!</font>"))
 			else
-				visible_message("<span class='warning'>The singularity miraculously reduces in size and loses its supermatter properties.</span>")
+				visible_message(SPAN_WARNING("The singularity miraculously reduces in size and loses its supermatter properties."))
 		if(STAGE_SUPER)//SUPERSINGULO
 			name = "super gravitational singularity"
 			desc = "A gravitational singularity with the properties of supermatter. <b>It has the power to destroy worlds.</b>"
@@ -241,10 +248,10 @@
 			event_chance = 25 //Events will fire off more often.
 			if(chained)
 				overlays = "chain_s9"
-			visible_message("<span class='danger'><font size='3'>You witness the creation of a destructive force that cannot possibly be stopped by human hands.</font></span>")
+			visible_message(SPAN_DANGER("<font size='3'>You witness the creation of a destructive force that cannot possibly be stopped by human hands.</font>"))
 
 	if (current_size == allowed_size)
-		investigate_log("<font color='red'>grew to size [current_size].</font>", I_SINGULO)
+		investigate_log(SPAN_WARNING("grew to size [current_size]."), I_SINGULO)
 		return 1
 	else if (current_size < (--temp_allowed_size) && current_size != STAGE_SUPER)
 		expand(temp_allowed_size)
@@ -302,7 +309,7 @@
 	if(!move_self)
 		return 0
 
-	var/movement_dir = pick(alldirs - last_failed_movement)
+	var/movement_dir = pick(GLOB.alldirs - last_failed_movement)
 
 	if(force_move)
 		movement_dir = force_move
@@ -310,13 +317,13 @@
 	if(target && prob(60))
 		movement_dir = get_dir(src,target) //moves to a singulo beacon, if there is one
 		if(target.z < z)
-			visible_message("<span class='danger'>\The [src] gravitates downwards.</span>")
+			visible_message(SPAN_DANGER("\The [src] gravitates downwards."))
 			zMove(DOWN)
-			visible_message("<span class='danger'>\The [src] appears from above.</span>")
+			visible_message(SPAN_DANGER("\The [src] appears from above."))
 		else if(target.z > z)
-			visible_message("<span class='danger'>\The [src] gravitates upwards.</span>")
+			visible_message(SPAN_DANGER("\The [src] gravitates upwards."))
 			zMove(UP)
-			visible_message("<span class='danger'>\The [src] appears from below.</span>")
+			visible_message(SPAN_DANGER("\The [src] appears from below."))
 
 	if(current_size >= 9)//The superlarge one does not care about things in its way
 		spawn(0)
@@ -368,10 +375,10 @@
 	var/dir2 = 0
 	var/dir3 = 0
 	switch(direction)
-		if(NORTH||SOUTH)
+		if(NORTH, SOUTH)
 			dir2 = 4
 			dir3 = 8
-		if(EAST||WEST)
+		if(EAST, WEST)
 			dir2 = 1
 			dir3 = 2
 	var/turf/T2 = T
@@ -396,17 +403,17 @@
 	if (!isturf(T))
 		return 0
 
-	if ((locate(/obj/machinery/containment_field) in T) || (locate(/obj/shieldwall) in T))
+	if ((locate(/obj/structure/machinery/containment_field) in T) || (locate(/obj/shieldwall) in T))
 		return 0
-	else if (locate(/obj/machinery/field_generator) in T)
-		var/obj/machinery/field_generator/G = locate(/obj/machinery/field_generator) in T
+	else if (locate(/obj/structure/machinery/field_generator) in T)
+		var/obj/structure/machinery/field_generator/G = locate(/obj/structure/machinery/field_generator) in T
 
 		if (G && G.active)
 			return 0
-	else if (locate(/obj/machinery/shieldwallgen) in T)
-		var/obj/machinery/shieldwallgen/S = locate(/obj/machinery/shieldwallgen) in T
+	else if (locate(/obj/structure/machinery/shieldwallgen) in T)
+		var/obj/structure/machinery/shieldwallgen/S = locate(/obj/structure/machinery/shieldwallgen) in T
 
-		if (S && S.active)
+		if (S?.power_state)
 			return 0
 	return 1
 
@@ -428,22 +435,10 @@
 
 
 /obj/singularity/proc/toxmob()
-	var/toxrange = 10
-	var/toxdamage = 4
 	var/radiation = 15
-	var/radiationmin = 3
-	if (src.energy>200)
-		toxdamage = round(((src.energy-150)/50)*4,1)
+	if (src.energy > 200)
 		radiation = round(((src.energy-150)/50)*5,1)
-		radiationmin = round((radiation/5),1)//
-	for(var/mob/living/M in view(toxrange, src.loc))
-		if(M.status_flags & GODMODE)
-			continue
-		M.apply_effect(rand(radiationmin,radiation), IRRADIATE, blocked = M.getarmor(null, "rad"))
-		toxdamage = (toxdamage - (toxdamage*M.getarmor(null, "rad")))
-		M.apply_effect(toxdamage, TOX)
-	return
-
+	SSradiation.radiate(src, radiation)
 
 /obj/singularity/proc/mezzer()
 	for(var/mob/living/carbon/M in oviewers(8, src))
@@ -454,15 +449,15 @@
 		if(M.stat == CONSCIOUS)
 			if (istype(M,/mob/living/carbon/human))
 				var/mob/living/carbon/human/H = M
-				if(istype(H.glasses,/obj/item/clothing/glasses/meson) && current_size != 11)
-					H << "<span class=\"notice\">You look directly into The [src.name], good thing you had your protective eyewear on!</span>"
+				if(istype(H.glasses,/obj/item/clothing/glasses/safety) && current_size != 11)
+					to_chat(H, SPAN_NOTICE("You look directly into The [src.name], good thing you had your protective eyewear on!"))
 					return
 				else
-					H << "<span class=\"warning\">You look directly into The [src.name], but your eyewear does absolutely nothing to protect you from it!</span>"
-		M << "<span class='danger'>You look directly into The [src.name] and feel [current_size == 11 ? "helpless" : "weak"].</span>"
+					to_chat(H, SPAN_WARNING("You look directly into The [src.name], but your eyewear does absolutely nothing to protect you from it!"))
+		to_chat(M, SPAN_DANGER("You look directly into The [src.name] and feel [current_size == 11 ? "helpless" : "weak"]."))
 		M.apply_effect(3, STUN)
 		for(var/mob/O in viewers(M, null))
-			O.show_message(text("<span class='danger'>[] stares blankly at The []!</span>", M, src), 1)
+			O.show_message(SPAN_DANGER("[M] stares blankly at The [src]!"), 1)
 
 /obj/singularity/proc/emp_area()
 	if(current_size != 11)
@@ -473,19 +468,14 @@
 /obj/singularity/proc/smwave()
 	for(var/mob/living/M in view(10, src.loc))
 		if(prob(67))
-			M.apply_effect(rand(energy), IRRADIATE, blocked = M.getarmor(null, "rad"))
-			M << "<span class=\"warning\">You hear an uneartly ringing, then what sounds like a shrilling kettle as you are washed with a wave of heat.</span>"
-			M << "<span class=\"notice\">Miraculously, it fails to kill you.</span>"
+			to_chat(M, SPAN_WARNING("You hear an uneartly ringing, then what sounds like a shrilling kettle as you are washed with a wave of heat."))
+			to_chat(M, SPAN_NOTICE("Miraculously, it fails to kill you."))
 		else
-			M << "<span class=\"danger\">You hear an uneartly ringing, then what sounds like a shrilling kettle as you are washed with a wave of heat.</span>"
-			M << "<span class=\"danger\">You don't even have a moment to react as you are reduced to ashes by the intense radiation.</span>"
+			to_chat(M, SPAN_DANGER("You hear an uneartly ringing, then what sounds like a shrilling kettle as you are washed with a wave of heat."))
+			to_chat(M, SPAN_DANGER("You don't even have a moment to react as you are reduced to ashes by the intense radiation."))
 			M.dust()
+	SSradiation.radiate(src, rand(energy))
 	return
-
-/obj/singularity/proc/pulse()
-	for(var/obj/machinery/power/rad_collector/R in rad_collectors)
-		if (get_dist(R, src) <= 15) //Better than using orange() every process.
-			R.receive_pulse(energy)
 
 /obj/singularity/proc/on_capture()
 	chained = 1
@@ -493,15 +483,15 @@
 	move_self = 0
 	switch (current_size)
 		if(1)
-			add_overlay(image('icons/obj/singularity.dmi',"chain_s1"))
+			AddOverlays(image('icons/obj/singularity.dmi',"chain_s1"))
 		if(3)
-			add_overlay(image('icons/effects/96x96.dmi',"chain_s3"))
+			AddOverlays(image('icons/effects/96x96.dmi',"chain_s3"))
 		if(5)
-			add_overlay(image('icons/effects/160x160.dmi',"chain_s5"))
+			AddOverlays(image('icons/effects/160x160.dmi',"chain_s5"))
 		if(7)
-			add_overlay(image('icons/effects/224x224.dmi',"chain_s7"))
+			AddOverlays(image('icons/effects/224x224.dmi',"chain_s7"))
 		if(9)
-			add_overlay(image('icons/effects/288x288.dmi',"chain_s9"))
+			AddOverlays(image('icons/effects/288x288.dmi',"chain_s9"))
 
 /obj/singularity/proc/on_release()
 	chained = 0
@@ -509,18 +499,21 @@
 	move_self = 1
 
 /obj/singularity/singularity_act(S, size)
-    if(current_size <= size)
-        var/gain = (energy/2)
-        var/dist = max((current_size - 2), 1)
-        explosion(src.loc,(dist),(dist*2),(dist*4))
-        spawn(0)
-            qdel(src)
-        return gain
+	if(current_size <= size)
+		var/gain = (energy/2)
+		var/dist = max((current_size - 2), 1)
+		explosion(src.loc, dist, dist * 2, dist * 4, spreading = TRUE)
+		spawn(0)
+			qdel(src)
+		return gain
 
 /obj/singularity/can_fall()
 	return FALSE
 
 /obj/singularity/proc/zMove(direction)
-	var/turf/destination = (direction == UP) ? GetAbove(src) : GetBelow(src)
+	var/turf/T = get_turf(src)
+	var/turf/destination = (direction == UP) ? GET_TURF_ABOVE(T) : GET_TURF_BELOW(T)
 	if(destination)
 		forceMove(destination)
+
+#undef I_SINGULO

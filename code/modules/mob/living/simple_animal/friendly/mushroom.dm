@@ -9,9 +9,10 @@
 	mob_size = MOB_TINY
 	speak_chance = 0
 	turns_per_move = 1
-	maxHealth = 5
+	maxhealth = 5
 	health = 5
-	meat_type = /obj/item/weapon/reagent_containers/food/snacks/hugemushroomslice
+	meat_type = /obj/item/reagent_containers/food/snacks/hugemushroomslice
+	organ_names = list("cap", "chest", "left leg", "right leg")
 	response_help  = "pets"
 	response_disarm = "gently pushes aside"
 	response_harm   = "whacks"
@@ -20,14 +21,15 @@
 	var/harvest_time
 	var/min_explode_time = 1200
 	density = 0
-	holder_type = /obj/item/weapon/holder/mushroom
-	mob_size = 2
+	holder_type = /obj/item/holder/mushroom
+	canbrush = TRUE
+	brush = /obj/item/reagent_containers/glass/rag
 
 /mob/living/simple_animal/mushroom/Initialize()
 	. = ..()
 	harvest_time = world.time
 	var/count = 0
-	for (var/mob/living/simple_animal/mushroom in living_mob_list)
+	for (var/mob/living/simple_animal/mushroom in GLOB.living_mob_list)
 		count++
 
 	if (count > GLOBAL_MUSHROOM_LIMIT)
@@ -48,15 +50,15 @@
 	set src = usr
 
 	if(stat == 2)
-		usr << "<span class='danger'>You are dead; it is too late for that.</span>"
+		to_chat(usr, SPAN_DANGER("You are dead; it is too late for that."))
 		return
 
 	if(!seed)
-		usr << "<span class='danger'>You are sterile!</span>"
+		to_chat(usr, SPAN_DANGER("You are sterile!"))
 		return
 
 	if(world.time < harvest_time + min_explode_time)
-		usr << "<span class='danger'>You are not mature enough for that.</span>"
+		to_chat(usr, SPAN_DANGER("You are not mature enough for that."))
 		return
 
 	spore_explode()
@@ -66,7 +68,7 @@
 		spore_explode()
 		return
 	else
-		src.stat = DEAD
+		set_stat(DEAD)
 		name = "mushroom"
 		desc = "Shame, he was a really fun-gi"
 	..()
@@ -78,7 +80,7 @@
 		return
 	for(var/turf/simulated/target_turf in orange(1,src))
 		if(prob(60) && !target_turf.density && src.Adjacent(target_turf))
-			new /obj/machinery/portable_atmospherics/hydroponics/soil/invisible(target_turf,seed)
+			new /obj/structure/machinery/portable_atmospherics/hydroponics/soil/invisible(target_turf,seed)
 	seed.thrown_at(src,get_turf(src),1)
 	if(src)
 		gib()

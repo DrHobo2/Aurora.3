@@ -1,6 +1,6 @@
 // Generates cave systems for the asteroid, and places ore tiles.
-var/global/list/random_maps = list()
-var/global/list/map_count = list()
+GLOBAL_LIST_EMPTY(random_maps)
+GLOBAL_LIST_EMPTY(map_count)
 
 /datum/random_map
 
@@ -23,6 +23,9 @@ var/global/list/map_count = list()
 	var/wall_type =  /turf/simulated/wall
 	var/floor_type = /turf/simulated/floor
 	var/target_turf_type
+	var/spawn_roof = FALSE //Set to TRUE if a roof should be spawned based.
+
+	var/area/use_area // If set, turfs will be put in this area. If set to type, new instance will be spawned for the map
 
 	// Storage for the final iteration of the map.
 	var/list/map = list()           // Actual map.
@@ -32,20 +35,26 @@ var/global/list/map_count = list()
 	// Test to see if rand_seed() can be used reliably.
 	var/priority_process
 
-/datum/random_map/New(var/seed, var/tx, var/ty, var/tz, var/tlx, var/tly, var/do_not_apply, var/do_not_announce)
+/datum/random_map/New(var/seed, var/tx, var/ty, var/tz, var/tlx, var/tly, var/do_not_apply, var/do_not_announce, var/never_be_priority = 0, var/used_area)
 
 	// Store this for debugging.
-	if(!map_count[descriptor])
-		map_count[descriptor] = 1
+	if(!GLOB.map_count[descriptor])
+		GLOB.map_count[descriptor] = 1
 	else
-		map_count[descriptor]++
-	name = "[descriptor] #[map_count[descriptor]]"
-	if(preserve_map) random_maps[name] = src
+		GLOB.map_count[descriptor]++
+	name = "[descriptor] #[GLOB.map_count[descriptor]]"
+	if(preserve_map) GLOB.random_maps[name] = src
 
 	// Get origins for applying the map later.
 	set_origins(tx, ty, tz)
 	if(tlx) limit_x = tlx
 	if(tly) limit_y = tly
+
+	if(!use_area && used_area)
+		if(ispath(used_area))
+			use_area = new(used_area)
+		else
+			use_area = used_area
 
 	if(do_not_apply)
 		auto_apply = null
@@ -54,19 +63,19 @@ var/global/list/map_count = list()
 	set_map_size()
 
 	var/start_time = world.timeofday
-	if(!do_not_announce) admin_notice("<span class='danger'>Generating [name].</span>", R_DEBUG)
+	if(!do_not_announce) admin_notice(SPAN_DANGER("Generating [name]."), R_DEBUG)
 	CHECK_TICK
 
 	// Testing needed to see how reliable this is (asynchronous calls, called during worldgen), DM ref is not optimistic
 	if(seed)
 		rand_seed(seed)
-		priority_process = 1
+		priority_process = !never_be_priority
 
 	for(var/i = 0;i<max_attempts;i++)
 		if(generate())
-			if(!do_not_announce) admin_notice("<span class='danger'>[capitalize(name)] generation completed in [round(0.1*(world.timeofday-start_time),0.1)] seconds.</span>", R_DEBUG)
+			if(!do_not_announce) admin_notice(SPAN_DANGER("[capitalize(name)] generation completed in [round(0.1*(world.timeofday-start_time),0.1)] seconds."), R_DEBUG)
 			return
-	if(!do_not_announce) admin_notice("<span class='danger'>[capitalize(name)] failed to generate ([round(0.1*(world.timeofday-start_time),0.1)] seconds): could not produce sane map.</span>", R_DEBUG)
+	if(!do_not_announce) admin_notice(SPAN_DANGER("[capitalize(name)] failed to generate ([round(0.1*(world.timeofday-start_time),0.1)] seconds): could not produce sane map."), R_DEBUG)
 
 /datum/random_map/proc/get_map_cell(var/x,var/y)
 	if(!islist(map))
@@ -112,7 +121,7 @@ var/global/list/map_count = list()
 				dat += get_map_char(map[tmp_cell])
 		dat += "<br>"
 	dat += "+------+</code>"
-	user << dat.Join()
+	to_chat(user, dat.Join())
 
 /datum/random_map/proc/set_map_size()
 	map = list()
@@ -164,7 +173,7 @@ var/global/list/map_count = list()
 
 	for(var/x = 1, x <= limit_x, x++)
 		for(var/y = 1, y <= limit_y, y++)
-			if(!priority_process) 
+			if(!priority_process)
 				CHECK_TICK
 			apply_to_turf(x,y)
 
@@ -177,9 +186,13 @@ var/global/list/map_count = list()
 	if(!T || (target_turf_type && !istype(T,target_turf_type)))
 		return 0
 	var/newpath = get_appropriate_path(map[tmp_cell])
-	if(newpath)
+	if(newpath && !istype(T, newpath))
 		T.ChangeTurf(newpath)
+	if(spawn_roof)
+		T.spawn_roof()
 	get_additional_spawns(map[tmp_cell],T,get_spawn_dir(x, y))
+	if(use_area)
+		T.change_area(T.loc, use_area)
 	return T
 
 /datum/random_map/proc/get_spawn_dir()
@@ -194,7 +207,7 @@ var/global/list/map_count = list()
 
 /datum/random_map/proc/get_additional_spawns(var/value, var/turf/T)
 	if(value == DOOR_CHAR)
-		new /obj/machinery/door/airlock(T)
+		new /obj/structure/machinery/door/airlock(T)
 
 /datum/random_map/proc/cleanup()
 	return

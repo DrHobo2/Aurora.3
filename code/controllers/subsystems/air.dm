@@ -1,5 +1,3 @@
-/var/datum/controller/subsystem/air/SSair
-
 /*
 
 Overview:
@@ -63,11 +61,12 @@ Class Procs:
 
 */
 
-/datum/controller/subsystem/air
+SUBSYSTEM_DEF(air)
 	name = "Air"
 	priority = SS_PRIORITY_AIR
-	init_order = SS_INIT_AIR
+	init_order = INIT_ORDER_AIR
 	flags = SS_POST_FIRE_TIMING
+	runlevels = RUNLEVELS_PLAYING
 
 	//Geometry lists
 	var/list/zones = list()
@@ -89,15 +88,22 @@ Class Procs:
 	var/active_zones = 0
 	var/next_id = 1
 
+	/// Prevents gas temp graphics from being attached to turfs on non-Horizon z-levels.
+	var/suppress_nonhorizon_temperature_graphics = FALSE
+
+	#ifdef ZASDBG
+	var/updated = 0
+	#endif
+
 /datum/controller/subsystem/air/proc/reboot()
 	set waitfor = FALSE
-	
+
 	// Stop processing while we rebuild.
 	can_fire = FALSE
 
 	// Make sure we don't rebuild mid-tick.
 	if (state != SS_IDLE)
-		admin_notice(span("danger", "ZAS Rebuild initiated. Waiting for current air tick to complete before continuing."), R_DEBUG)
+		admin_notice(SPAN_DANGER("ZAS Rebuild initiated. Waiting for current air tick to complete before continuing."), R_DEBUG)
 		UNTIL(state == SS_IDLE)
 
 	while (zones.len)
@@ -107,6 +113,9 @@ Class Procs:
 		zone.c_invalidate()
 
 	edges.Cut()
+	for(var/turf/pending_turf as anything in tiles_to_update)
+		if(pending_turf)
+			pending_turf.needs_air_update = FALSE
 	tiles_to_update.Cut()
 	zones_to_update.Cut()
 	active_fire_zones.Cut()
@@ -120,24 +129,26 @@ Class Procs:
 	next_fire = world.time + wait
 	can_fire = TRUE
 
-/datum/controller/subsystem/air/stat_entry()
-	var/out = "TtU:[tiles_to_update.len] "
-	out += "ZtU:[zones_to_update.len] "
-	out += "AFZ:[active_fire_zones.len] "
-	out += "AH:[active_hotspots.len] "
-	out += "AE:[active_edges.len]"
-	..(out)
-
-/datum/controller/subsystem/air/New()
-	NEW_SS_GLOBAL(SSair)
+/datum/controller/subsystem/air/stat_entry(msg)
+	msg = {"\n\
+		Update Queues: \
+		Tiles [tiles_to_update.len] \
+		Zones [zones_to_update.len] \
+		Active Fire Zones [active_fire_zones.len] \
+		Active Hotspots [active_hotspots.len] \
+		Active Edges [active_edges.len]"}
+	return ..()
 
 /datum/controller/subsystem/air/Initialize(timeofday, simulate = TRUE)
 
 	var/starttime = REALTIMEOFDAY
-	admin_notice(span("danger", "Processing Geometry..."), R_DEBUG)
+	admin_notice(SPAN_DANGER("Processing Geometry..."), R_DEBUG)
 
 	var/simulated_turf_count = 0
-	for(var/turf/simulated/S in turfs)
+	for(var/turf/T in world)
+		var/turf/simulated/S = T
+		if(!istype(S))
+			continue
 		simulated_turf_count++
 		S.update_air_properties()
 
@@ -147,28 +158,28 @@ Class Procs:
 Total Simulated Turfs: [simulated_turf_count]
 Total Zones: [zones.len]
 Total Edges: [edges.len]
-Total Active Edges: [active_edges.len ? "<span class='danger'>[active_edges.len]</span>" : "None"]
+Total Active Edges: [active_edges.len ? SPAN_DANGER("[active_edges.len]") : "None"]
 Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_count]
 </span>"}, R_DEBUG)
 
-	admin_notice(span("danger", "Geometry processing completed in [(REALTIMEOFDAY - starttime)/10] seconds!"), R_DEBUG)
-	
+	admin_notice(SPAN_DANGER("Geometry processing completed in [(REALTIMEOFDAY - starttime)/10] seconds!"), R_DEBUG)
+
 	if (simulate)
-		admin_notice(span("danger", "Settling air..."), R_DEBUG)
+		admin_notice(SPAN_DANGER("Settling air..."), R_DEBUG)
 
 		starttime = REALTIMEOFDAY
 		fire(FALSE, TRUE)
 
-		admin_notice(span("danger", "Air settling completed in [(REALTIMEOFDAY - starttime)/10] seconds!"), R_DEBUG)
+		admin_notice(SPAN_DANGER("Air settling completed in [(REALTIMEOFDAY - starttime)/10] seconds!"), R_DEBUG)
 
-	..(timeofday)
+	return SS_INIT_SUCCESS
 
 /datum/controller/subsystem/air/fire(resumed = FALSE, no_mc_tick = FALSE)
 	if (!resumed)
 		processing_edges = active_edges.Copy()
 		processing_fires = active_fire_zones.Copy()
 		processing_hotspots = active_hotspots.Copy()
-	
+
 	var/list/curr_tiles = tiles_to_update
 	var/list/curr_defer = deferred
 	var/list/curr_edges = processing_edges
@@ -189,7 +200,7 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 			continue
 
 		//check if the turf is self-zone-blocked
-		var/c_airblock 
+		var/c_airblock
 		ATMOS_CANPASS_TURF(c_airblock, T, T)
 		if(c_airblock & ZONE_BLOCKED)
 			deferred += T
@@ -203,7 +214,7 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 		T.post_update_air_properties()
 		T.needs_air_update = 0
 		#ifdef ZASDBG
-		T.cut_overlay(mark)
+		T.CutOverlays(GLOB.mark)
 		updated++
 		#endif
 
@@ -220,7 +231,7 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 		T.post_update_air_properties()
 		T.needs_air_update = 0
 		#ifdef ZASDBG
-		T.cut_overlay(mark)
+		T.CutOverlays(GLOB.mark)
 		updated++
 		#endif
 
@@ -239,9 +250,9 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 			else if (MC_TICK_CHECK)
 				return
 			continue
-		
+
 		edge.tick()
-		
+
 		if (no_mc_tick)
 			CHECK_TICK
 		else if (MC_TICK_CHECK)
@@ -257,9 +268,9 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 			CHECK_TICK
 		else if (MC_TICK_CHECK)
 			return
-	
+
 	while (curr_hotspot.len)
-		var/obj/fire/F = curr_hotspot[curr_hotspot.len]
+		var/obj/hotspot/F = curr_hotspot[curr_hotspot.len]
 		curr_hotspot.len--
 
 		F.process()
@@ -292,6 +303,36 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 	if (processing_zones)
 		processing_zones -= z
 
+/// Suppresses or restores temperature graphics on every currently loaded non-station z-level.
+/datum/controller/subsystem/air/proc/set_nonhorizon_temperature_graphics_suppressed(suppress)
+	suppress_nonhorizon_temperature_graphics = suppress
+	. = 0
+
+	for(var/z_level in 1 to world.maxz)
+		if(is_station_level(z_level))
+			continue
+
+		for(var/turf/simulated/T in Z_TURFS(z_level))
+			var/list/temperature_graphics
+
+			if(suppress)
+				for(var/obj/gas_overlay/graphic in T.vis_contents)
+					if(graphic.gas_id == GAS_HEAT || graphic.gas_id == GAS_COLD)
+						LAZYADD(temperature_graphics, graphic)
+			else if(TURF_HAS_VALID_ZONE(T))
+				for(var/obj/gas_overlay/graphic in T.zone.air.graphic)
+					if(graphic.gas_id == GAS_HEAT || graphic.gas_id == GAS_COLD)
+						LAZYADD(temperature_graphics, graphic)
+
+			if(LAZYLEN(temperature_graphics))
+				if(suppress)
+					T.update_graphic(graphic_remove = temperature_graphics)
+				else
+					T.update_graphic(graphic_add = temperature_graphics)
+				. += length(temperature_graphics)
+
+			CHECK_TICK
+
 /datum/controller/subsystem/air/proc/air_blocked(turf/A, turf/B)
 	#ifdef ZASDBG
 	ASSERT(isturf(A))
@@ -299,7 +340,7 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 	#endif
 	var/ablock
 	ATMOS_CANPASS_TURF(ablock, A, B)
-	if(ablock == BLOCKED) 
+	if(ablock == BLOCKED)
 		return BLOCKED
 	ATMOS_CANPASS_TURF(., B, A)
 	return ablock | .
@@ -340,16 +381,15 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 			merge(A.zone,B.zone)
 			return
 
-	var
-		a_to_b = get_dir(A,B)
-		b_to_a = get_dir(B,A)
+	var/a_to_b = get_dir(A,B)
+	var/b_to_a = get_dir(B,A)
 
 	if(!A.connections) A.connections = new
 	if(!B.connections) B.connections = new
 
-	if(A.connections.get(a_to_b)) 
+	if(A.connections.get(a_to_b))
 		return
-	if(B.connections.get(b_to_a)) 
+	if(B.connections.get(b_to_a))
 		return
 	if(!space)
 		if(A.zone == B.zone) return
@@ -366,11 +406,11 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 	#ifdef ZASDBG
 	ASSERT(isturf(T))
 	#endif
-	if(T.needs_air_update) 
+	if(T.needs_air_update)
 		return
 	tiles_to_update += T
 	#ifdef ZASDBG
-	T.add_overlay(mark)
+	T.AddOverlays(GLOB.mark)
 	#endif
 	T.needs_air_update = 1
 
@@ -378,16 +418,17 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 	#ifdef ZASDBG
 	ASSERT(istype(Z))
 	#endif
-	if(Z.needs_update) 
+	if(Z.needs_update)
 		return
 	zones_to_update += Z
 	Z.needs_update = 1
+	Z.update_revision++
 
 /datum/controller/subsystem/air/proc/mark_edge_sleeping(connection_edge/E)
 	#ifdef ZASDBG
 	ASSERT(istype(E))
 	#endif
-	if(E.sleeping) 
+	if(E.sleeping)
 		return
 	active_edges -= E
 	E.sleeping = 1
@@ -396,7 +437,7 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 	#ifdef ZASDBG
 	ASSERT(istype(E))
 	#endif
-	if(!E.sleeping) 
+	if(!E.sleeping)
 		return
 	active_edges += E
 	E.sleeping = 0
@@ -407,7 +448,7 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 /datum/controller/subsystem/air/proc/get_edge(zone/A, zone/B)
 	if(istype(B))
 		for(var/connection_edge/zone/edge in A.edges)
-			if(edge.contains_zone(B)) 
+			if(edge.contains_zone(B))
 				return edge
 		var/connection_edge/edge = new/connection_edge/zone(A,B)
 		edges += edge
@@ -415,7 +456,7 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 		return edge
 	else
 		for(var/connection_edge/unsimulated/edge in A.edges)
-			if(has_same_air(edge.B,B)) 
+			if(has_same_air(edge.B,B))
 				return edge
 		var/connection_edge/edge = new/connection_edge/unsimulated(A,B)
 		edges += edge
@@ -423,14 +464,15 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 		return edge
 
 /datum/controller/subsystem/air/proc/has_same_air(turf/A, turf/B)
-	if(A.oxygen != B.oxygen) 
+	if(A.initial_gas && !B.initial_gas)
 		return 0
-	if(A.nitrogen != B.nitrogen) 
+	if(B.initial_gas && !A.initial_gas)
 		return 0
-	if(A.phoron != B.phoron) 
-		return 0
-	if(A.carbon_dioxide != B.carbon_dioxide)
-		return 0
+	for(var/g in A.initial_gas)
+		if(!(g in B.initial_gas))
+			return 0
+		if(A.initial_gas[g] != B.initial_gas[g])
+			return 0
 	if(A.temperature != B.temperature)
 		return 0
 	return 1
@@ -439,3 +481,9 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 	edges -= E
 	if(!E.sleeping)
 		active_edges -= E
+
+/datum/controller/subsystem/air/ExplosionStart()
+	can_fire = FALSE
+
+/datum/controller/subsystem/air/ExplosionEnd()
+	can_fire = TRUE

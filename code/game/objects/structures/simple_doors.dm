@@ -2,31 +2,39 @@
 	name = "door"
 	density = 1
 	anchored = 1
+	maxhealth = OBJECT_HEALTH_VERY_LOW
 
 	icon = 'icons/obj/doors/material_doors.dmi'
 	icon_state = "metal"
 
-	var/material/material
+	build_amt = 10
+
 	var/state = 0 //closed, 1 == open
 	var/isSwitchingStates = 0
 	var/oreAmount = 7
 	var/datum/lock/lock
 	var/initial_lock_value //for mapping purposes. Basically if this value is set, it sets the lock to this value.
-	var/health = 100
-	var/maxhealth = 100
 
-/obj/structure/simple_door/fire_act(datum/gas_mixture/air, exposed_temperature, exposed_volume)
+
+/obj/structure/simple_door/feedback_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	if(lock)
+		. += SPAN_NOTICE("It appears to have a lock.")
+
+/obj/structure/simple_door/fire_act(exposed_temperature, exposed_volume)
+	. = ..()
+
 	TemperatureAct(exposed_temperature)
 
 /obj/structure/simple_door/proc/TemperatureAct(temperature)
 	health -= material.combustion_effect(get_turf(src),temperature, 0.3)
 	CheckHealth()
 
-/obj/structure/simple_door/New(var/newloc, var/material_name, var/locked)
+/obj/structure/simple_door/New(var/newloc, var/newmaterial, var/locked)
 	..()
-	if(!material_name)
-		material_name = DEFAULT_WALL_MATERIAL
-	material = get_material_by_name(material_name)
+	if(!newmaterial)
+		newmaterial = MATERIAL_STEEL
+	material = SSmaterials.get_material_by_id(newmaterial)
 	if(!material)
 		qdel(src)
 		return
@@ -34,8 +42,8 @@
 	name = "[material.display_name] door"
 	color = material.icon_colour
 
-	maxhealth = max(1,round(material.integrity/10))
-	health = maxhealth
+	set_health(material.integrity)
+	set_health(maxhealth)
 
 	if(initial_lock_value)
 		locked = initial_lock_value
@@ -58,32 +66,31 @@
 	lock = null
 	return ..()
 
-/obj/structure/simple_door/examine(mob/user)
-	..(user)
-	if(lock)
-		to_chat(user, "<span class='notice'>It appears to have a lock.</span>")
-
-/obj/structure/simple_door/get_material()
-	return material
-
-/obj/structure/simple_door/CollidedWith(atom/user)
+/obj/structure/simple_door/CollidedWith(atom/bumped_atom)
 	..()
 	if(!state)
-		return TryToSwitchState(user)
+		return TryToSwitchState(bumped_atom)
 	return
 
 /obj/structure/simple_door/attack_ai(mob/user as mob) //those aren't machinery, they're just big fucking slabs of a mineral
 	if(isAI(user)) //so the AI can't open it
 		return
-	else if(isrobot(user)) //but cyborgs can
-		if(get_dist(user,src) <= 1) //not remotely though
-			return TryToSwitchState(user)
+	else if(isrobot(user) && Adjacent(user)) //but cyborgs can
+		return TryToSwitchState(user)
 
 /obj/structure/simple_door/attack_hand(mob/user as mob)
 	return TryToSwitchState(user)
 
+/obj/structure/simple_door/attack_generic(mob/user, damage, attack_message, environment_smash, armor_penetration, attack_flags, damage_type)
+	if(istype(user, /mob/living/simple_animal/construct)) // don't know of any other attack_generic smart enough to open doors
+		TryToSwitchState(user)
+	return
+
 /obj/structure/simple_door/CanPass(atom/movable/mover, turf/target, height=0, air_group=0)
-	if(air_group) return 0
+	if(air_group)
+		return FALSE
+	if(mover?.movement_type & PHASING)
+		return TRUE
 	if(istype(mover, /obj/effect/beam))
 		return !opacity
 	return !density
@@ -101,10 +108,8 @@
 				var/mob/living/carbon/C = M
 				if(!C.handcuffed)
 					SwitchState(user)
-			else
-				SwitchState(user)
-	else if(istype(user, /obj/mecha))
-		SwitchState()
+			else if(istype(M, /mob/living/simple_animal/construct))
+				SwitchState(M)
 
 /obj/structure/simple_door/proc/SwitchState(mob/user)
 	if(state)
@@ -116,28 +121,36 @@
 
 	if(lock && lock.isLocked())
 		if(user)
-			to_chat(user, "<span class='warning'>\The [src] is locked!</span>")
+			to_chat(user, SPAN_WARNING("\The [src] is locked!"))
 		return
 
 	isSwitchingStates = 1
 	playsound(loc, material.dooropen_noise, 100, 1)
 	flick("[material.door_icon_base]opening",src)
-	sleep(10)
-	density = 0
-	opacity = 0
-	state = 1
-	update_icon()
-	isSwitchingStates = 0
-	update_nearby_tiles()
+	addtimer(CALLBACK(src, PROC_REF(change_state_after_openclode), TRUE), 1 SECONDS)
+
 
 /obj/structure/simple_door/proc/Close()
 	isSwitchingStates = 1
 	playsound(loc, material.dooropen_noise, 100, 1)
 	flick("[material.door_icon_base]closing",src)
-	sleep(10)
-	density = 1
-	opacity = 1
-	state = 0
+	addtimer(CALLBACK(src, PROC_REF(change_state_after_openclode), FALSE), 1 SECONDS)
+
+/**
+ * Complete the open/close of the door
+ *
+ * * to_open - Whether the door is to be set as open, if FALSE, it is to be set as closed instead
+ */
+/obj/structure/simple_door/proc/change_state_after_openclode(to_open = FALSE)
+	if(to_open)
+		density = 0
+		opacity = 0
+		state = 1
+	else
+		density = 1
+		opacity = 1
+		state = 0
+
 	update_icon()
 	isSwitchingStates = 0
 	update_nearby_tiles()
@@ -148,62 +161,61 @@
 	else
 		icon_state = material.door_icon_base
 
-/obj/structure/simple_door/attackby(obj/item/weapon/W as obj, mob/user as mob)
-	if(istype(W, /obj/item/weapon/key) && lock)
-		var/obj/item/weapon/key/K = W
-		if(!lock.toggle(W))
-			to_chat(user, "<span class='warning'>\The [K] does not fit in the lock!</span>")
+/obj/structure/simple_door/attackby(obj/item/attacking_item, mob/user)
+	if(istype(attacking_item, /obj/item/key) && lock)
+		var/obj/item/key/K = attacking_item
+		if(!lock.toggle(attacking_item))
+			to_chat(user, SPAN_WARNING("\The [K] does not fit in the lock!"))
 		return
 
-	if(lock && lock.pick_lock(W,user))
+	if(lock && lock.pick_lock(attacking_item, user))
 		return
 
-	if(istype(W,/obj/item/weapon/material/lock_construct))
+	if(istype(attacking_item, /obj/item/material/lock_construct))
 		if(lock)
-			to_chat(user, "<span class='warning'>\The [src] already has a lock.</span>")
+			to_chat(user, SPAN_WARNING("\The [src] already has a lock."))
 		else
-			var/obj/item/weapon/material/lock_construct/L = W
+			var/obj/item/material/lock_construct/L = attacking_item
 			lock = L.create_lock(src,user)
 		return
 
-	else if(istype(W,/obj/item/weapon))
-		var/obj/item/weapon/I = W
+	else if(istype(attacking_item, /obj/item))
+		var/obj/item/I = attacking_item
 		user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
-		if(I.damtype == BRUTE || I.damtype == BURN)
+		if(I.damtype == DAMAGE_BRUTE || I.damtype == DAMAGE_BURN)
 			if(I.force < 10)
-				user.visible_message("<span class='danger'>\The [user] hits \the [src] with \the [I] with no visible effect.</span>")
+				user.visible_message(SPAN_DANGER("\The [user] hits \the [src] with \the [I] with no visible effect."))
 			else
 				user.do_attack_animation(src)
-				animate_shake()
-				user.visible_message("<span class='danger'>\The [user] forcefully strikes \the [src] with \the [I]!</span>")
-				playsound(src.loc, material.hitsound, 100, 1)
-				src.health -= W.force * 1
+				shake_animation()
+				user.visible_message(SPAN_DANGER("\The [user] forcefully strikes \the [src] with \the [I]!"))
+				playsound(src.loc, material.hitsound, attacking_item.get_clamped_volume(), 1)
+				src.health -= attacking_item.force * 1
 				CheckHealth()
 
 	else
 		attack_hand(user)
 	return
 
-/obj/structure/simple_door/bullet_act(var/obj/item/projectile/Proj)
-	health -= Proj.damage
+/obj/structure/simple_door/bullet_act(obj/projectile/hitting_projectile, def_zone, piercing_hit)
+	. = ..()
+	if(. != BULLET_ACT_HIT)
+		return .
+
+	bullet_ping(hitting_projectile)
 	CheckHealth()
-	return
 
 /obj/structure/simple_door/proc/CheckHealth()
 	if(health <= 0)
-		Dismantle(1)
-
-/obj/structure/simple_door/proc/Dismantle(devastated = 0)
-	material.place_dismantled_product(get_turf(src))
-	qdel(src)
+		dismantle()
 
 /obj/structure/simple_door/ex_act(severity = 1)
 	switch(severity)
 		if(1)
-			Dismantle(1)
+			dismantle()
 		if(2)
 			if(prob(20))
-				Dismantle(1)
+				dismantle()
 			else
 				health--
 				CheckHealth()
@@ -216,31 +228,35 @@
 	if(!material.radioactivity)
 		return
 	for(var/mob/living/L in range(1,src))
-		L.apply_effect(round(material.radioactivity/3),IRRADIATE,0)
+		L.apply_damage(round(material.radioactivity/3),DAMAGE_RADIATION, damage_flags = DAMAGE_FLAG_DISPERSED)
 
 /obj/structure/simple_door/iron/New(var/newloc,var/material_name, var/complexity)
-	..(newloc, "iron", complexity)
+	..(newloc, MATERIAL_IRON, complexity)
 
 /obj/structure/simple_door/silver/New(var/newloc,var/material_name, var/complexity)
-	..(newloc, "silver", complexity)
+	..(newloc, MATERIAL_SILVER, complexity)
 
 /obj/structure/simple_door/gold/New(var/newloc,var/material_name, var/complexity)
-	..(newloc, "gold", complexity)
+	..(newloc, MATERIAL_GOLD, complexity)
 
 /obj/structure/simple_door/uranium/New(var/newloc,var/material_name, var/complexity)
-	..(newloc, "uranium", complexity)
+	..(newloc, MATERIAL_URANIUM, complexity)
 
 /obj/structure/simple_door/sandstone/New(var/newloc,var/material_name, var/complexity)
-	..(newloc, "sandstone", complexity)
+	..(newloc, MATERIAL_SANDSTONE, complexity)
 
 /obj/structure/simple_door/phoron/New(var/newloc,var/material_name, var/complexity)
-	..(newloc, "phoron", complexity)
+	..(newloc, MATERIAL_PHORON, complexity)
 
 /obj/structure/simple_door/diamond/New(var/newloc,var/material_name, var/complexity)
-	..(newloc, "diamond", complexity)
+	..(newloc, MATERIAL_DIAMOND, complexity)
 
 /obj/structure/simple_door/wood/New(var/newloc,var/material_name)
-	..(newloc, "wood")
+	..(newloc, MATERIAL_WOOD)
 
 /obj/structure/simple_door/resin/New(var/newloc,var/material_name)
-	..(newloc, "resin")
+	..(newloc, MATERIAL_RESIN)
+
+/obj/structure/simple_door/cult/New(var/newloc, var/material_name)
+	..(newloc, MATERIAL_CULT)
+	color = COLOR_CULT_DOOR // looks better than the standard cult colours

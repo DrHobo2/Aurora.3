@@ -1,16 +1,15 @@
 /obj/structure/closet/secure_closet/guncabinet
 	name = "gun cabinet"
-	req_access = list(access_armory)
-	icon = 'icons/obj/guncabinet.dmi'
+	req_access = list(/datum/access/armory::id)
+	icon = 'icons/obj/containers/guncabinet.dmi'
 	icon_state = "base"
-	icon_off ="base"
-	icon_broken ="base"
-	icon_locked ="base"
-	icon_closed ="base"
-	icon_opened = "base"
-	anchored = 1
-	canbemoved = 1
+	anchored = TRUE
+	canbemoved = TRUE
 
+	door_underlay = TRUE
+	door_anim_squish = 0.12
+	door_anim_angle = 119
+	door_hinge_x = -9.5
 
 /obj/structure/closet/secure_closet/guncabinet/Initialize()
 	..()
@@ -25,33 +24,65 @@
 	update_icon()
 
 /obj/structure/closet/secure_closet/guncabinet/update_icon()
-	cut_overlays()
-	if(opened)
-		add_overlay("door_open")
-	else
-		var/lazors = 0
-		var/shottas = 0
-		for (var/obj/item/weapon/gun/G in contents)
-			if (istype(G, /obj/item/weapon/gun/energy))
-				lazors++
-			if (istype(G, /obj/item/weapon/gun/projectile/))
-				shottas++
-		if (lazors || shottas)
-			for (var/i = 0 to 2)
-				if (lazors > 0 && (shottas <= 0 || prob(50)))
-					lazors--
-					add_overlay("laser[i]")
-				else if (shottas > 0)
-					shottas--
-					add_overlay("projectile[i]")
+	ClearOverlays()
+	var/lazors = 0
+	var/shottas = 0
+	for (var/obj/item/gun/G in contents)
+		if (istype(G, /obj/item/gun/energy))
+			lazors++
+		if (istype(G, /obj/item/gun/projectile/))
+			shottas++
+	if (lazors || shottas)
+		for (var/i = 0 to 2)
+			if (lazors > 0 && (shottas <= 0 || prob(50)))
+				lazors--
+				AddOverlays("laser[i]")
+			else if (shottas > 0)
+				shottas--
+				AddOverlays("projectile[i]")
+	. = ..()
 
-		add_overlay("door")
-		if(welded)
-			add_overlay(welded_overlay_state)
+/obj/structure/closet/secure_closet/guncabinet/sci
+	name = "science gun cabinet"
+	req_access = list(/datum/access/tox_storage::id)
+	icon_state = "sci"
 
-		if(broken)
-			add_overlay("broken")
-		else if (locked)
-			add_overlay("locked")
-		else
-			add_overlay("open")
+/obj/structure/closet/secure_closet/guncabinet/peac
+	name = "anti-materiel weapons platform cabinet"
+
+/obj/structure/closet/secure_closet/guncabinet/peac/fill()
+	new /obj/item/gun/projectile/peac/unloaded(src)
+	for(var/i = 1 to 4)
+		new /obj/item/ammo_casing/peac(src)
+
+/obj/structure/closet/secure_closet/guncabinet/station/lessthanlethals
+	name = "Less than Lethal Ammunitions"
+
+/obj/structure/closet/secure_closet/guncabinet/station/lessthanlethals/fill()
+	for(var/i = 1 to 15)
+		new /obj/item/ammo_magazine/c45m/rubber(src)
+	for(var/i = 1 to 4)
+		new /obj/item/ammo_magazine/c45/revolver/rubber(src)
+	for(var/i = 1 to 8)
+		new /obj/item/ammo_magazine/mc9mmt/rubber(src)
+	for(var/i = 1 to 4)
+		new /obj/item/storage/box/shells/beanbags(src)
+	for(var/i = 1 to 2)
+		new /obj/item/storage/box/tactical/beanbags(src)
+	new /obj/item/storage/box/shells/flashshells(src)
+	new /obj/item/storage/box/shells/stunshells(src)
+	new /obj/item/storage/box/shells/trackingslugs(src)
+
+/obj/structure/closet/secure_closet/guncabinet/station/lethals
+	name = "Lethal Ammunitions"
+
+/obj/structure/closet/secure_closet/guncabinet/station/lethals/fill()
+	for(var/i = 1 to 8)
+		new /obj/item/ammo_magazine/c45m(src)
+	for(var/i = 1 to 4)
+		new /obj/item/ammo_magazine/c45/revolver(src)
+	for(var/i = 1 to 6)
+		new /obj/item/ammo_magazine/mc9mmt(src)
+		new /obj/item/ammo_magazine/a556/carbine/polymer(src)
+	for(var/i = 1 to 2)
+		new /obj/item/storage/box/shells/buckshot(src)

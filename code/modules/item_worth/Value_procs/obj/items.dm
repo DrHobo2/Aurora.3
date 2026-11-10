@@ -1,17 +1,17 @@
 /obj/item/slime_extract/Value(var/base)
-	return base * Uses
+	return base * uses
 
 /obj/item/ammo_casing/Value()
 	if(!BB)
 		return 1
 	return ..()
 
-/obj/item/weapon/reagent_containers/Value()
+/obj/item/reagent_containers/Value()
 	. = ..()
 	if(reagents)
-		for(var/a in reagents.reagent_list)
-			var/datum/reagent/reg = a
-			. += reg.value * reg.volume
+		for(var/a in reagents.reagent_volumes)
+			var/singleton/reagent/reg = GET_SINGLETON(a)
+			. += reg.value * reagents.reagent_volumes[a]
 	. = round(.)
 
 /obj/item/stack/Value(var/base)
@@ -22,14 +22,14 @@
 		return ..()
 	return material.value * amount
 
-/obj/item/weapon/ore/Value()
-	var/material/mat = get_material_by_name(material)
+/obj/item/ore/Value()
+	var/singleton/material/mat = SSmaterials.get_material_by_id(material)
 	if(mat)
 		return mat.value
 	return 0
 
-/obj/item/weapon/material/Value()
+/obj/item/material/Value()
 	return material.value * worth_multiplier
 
-/obj/item/weapon/spacecash/Value()
-	return worth
+/obj/item/currency/Value()
+	return get_credit_value()

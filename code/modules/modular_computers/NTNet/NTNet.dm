@@ -1,52 +1,60 @@
-var/global/datum/ntnet/ntnet_global = new()
+GLOBAL_DATUM_INIT(ntnet_global, /datum/ntnet, new)
 
 
-// This is the NTNet datum. There can be only one NTNet datum in game at once. Modular computers read data from this.
-/datum/ntnet/
+/// This is the NTNet datum. There can be only one NTNet datum in game at once. Modular computers read data from this.
+/datum/ntnet
 	var/list/relays = list()
 	var/list/logs = list()
+	var/list/messages = list()
 	var/list/available_station_software = list()
 	var/list/available_antag_software = list()
 	var/list/available_software = list()
 	var/list/available_software_presets = list()
 	var/list/available_news = list()
-	var/list/chat_channels = list()
 	var/list/fileservers = list()
-	// Amount of logs the system tries to keep in memory. Keep below 999 to prevent byond from acting weirdly.
-	// High values make displaying logs much laggier.
+	var/list/datum/ntnet_account/users = list()
+	/// Amount of logs the system tries to keep in memory. Keep below 999 to prevent byond from acting weirdly.
+	/// High values make displaying logs much laggier.
 	var/setting_maxlogcount = 100
 
-	// These only affect wireless. LAN (consoles) are unaffected since it would be possible to create scenario where someone turns off NTNet, and is unable to turn it back on since it refuses connections
-	var/setting_softwaredownload = 1
-	var/setting_peertopeer = 1
-	var/setting_communication = 1
-	var/setting_systemcontrol = 1
-	var/setting_disabled = 0					// Setting to 1 will disable all wireless, independently on relays status.
+	/// These only affect wireless. LAN (consoles) are unaffected since it would be possible to create scenario where someone turns off NTNet, and is unable to turn it back on since it refuses connections
+	var/setting_softwaredownload = TRUE
+	var/setting_peertopeer = TRUE
+	var/setting_communication = TRUE
+	var/setting_systemcontrol = TRUE
+	/// Setting to 1 will disable all wireless, independently on relays status.
+	var/setting_disabled = FALSE
+	/// Whether the IDS warning system is enabled
+	var/intrusion_detection_enabled = TRUE
+	/// Set when there is an IDS warning due to malicious (antag) software.
+	var/intrusion_detection_alarm = FALSE
 
-	var/intrusion_detection_enabled = 1 		// Whether the IDS warning system is enabled
-	var/intrusion_detection_alarm = 0			// Set when there is an IDS warning due to malicious (antag) software.
 
-
-// If new NTNet datum is spawned, it replaces the old one.
+/// If new NTNet datum is spawned, it replaces the old one.
 /datum/ntnet/New()
-	if(ntnet_global && (ntnet_global != src))
-		ntnet_global = src // There can be only one.
-	for(var/obj/machinery/ntnet_relay/R in SSmachinery.all_machines)
+	if(GLOB.ntnet_global && (GLOB.ntnet_global != src))
+		GLOB.ntnet_global = src // There can be only one.
+	for(var/obj/structure/machinery/ntnet_relay/R in SSmachinery.machinery)
 		relays.Add(R)
 		R.NTNet = src
 	build_software_lists()
 	build_news_list()
-	add_log("NTNet logging system activated.")
 
-// Simplified logging: Adds a log. log_string is mandatory parameter, source is optional.
-/datum/ntnet/proc/add_log(var/log_string, var/obj/item/weapon/computer_hardware/network_card/source = null)
+	//add some default channels
+	new /datum/ntnet_conversation("NTNet Relay", TRUE)
+
+/// Simplified logging: Adds a log. log_string is mandatory parameter, source is optional.
+/datum/ntnet/proc/add_log(var/log_string, var/obj/item/computer_hardware/network_card/source = null, var/messaging=FALSE)
 	var/log_text = "[worldtime2text()] - "
 	if(source)
 		log_text += "[source.get_network_tag()] - "
 	else
 		log_text += "*SYSTEM* - "
 	log_text += log_string
-	logs.Add(log_text)
+	if(!messaging)
+		logs.Add(log_text)
+	else
+		messages.Add(log_text)
 
 	if(logs.len > setting_maxlogcount)
 		// We have too many logs, remove the oldest entries until we get into the limit
@@ -56,21 +64,12 @@ var/global/datum/ntnet/ntnet_global = new()
 			else
 				break
 
-// Checks whether NTNet operates. If parameter is passed checks whether specific function is enabled.
+/// Checks whether NTNet's core service operates. If parameter is passed checks whether specific function is enabled.
 /datum/ntnet/proc/check_function(var/specific_action = 0)
-	if(!relays || !relays.len) // No relays found. NTNet is down
-		return 0
-
-	var/operating = 0
-
-	// Check all relays. If we have at least one working relay, network is up.
-	for(var/obj/machinery/ntnet_relay/R in relays)
-		if(R.operable())
-			operating = 1
-			break
+	var/operating = has_operable_core()
 
 	if(setting_disabled)
-		return 0
+		return FALSE
 
 	if(specific_action == NTNET_SOFTWAREDOWNLOAD)
 		return (operating && setting_softwaredownload)
@@ -82,13 +81,85 @@ var/global/datum/ntnet/ntnet_global = new()
 		return (operating && setting_systemcontrol)
 	return operating
 
-// Builds lists that contain downloadable software.
+/datum/ntnet/proc/check_endpoint_function(var/specific_action = 0, var/ethernet = FALSE)
+	// Wireless firewall toggles do not affect wired endpoints, but wired endpoints still need a live core service
+	if(ethernet)
+		return has_operable_core()
+	return check_function(specific_action)
+
+/datum/ntnet/proc/has_operable_core()
+	if(!relays || !relays.len)
+		return FALSE
+
+	for(var/obj/structure/machinery/ntnet_relay/R in relays)
+		if(R.provides_core_service())
+			return TRUE
+	return FALSE
+
+/// 'For endpoint' signifies that sometimes we will abstract a device as being a modular computer when really all we care about is whether it is networked.
+/// This will likely need to be simplified in future.
+/datum/ntnet/proc/get_signal_for_endpoint(var/atom/endpoint, var/specific_action = 0, var/ethernet = FALSE, var/long_range = FALSE)
+	if(!istype(endpoint))
+		return 0
+
+	var/turf/endpoint_turf = get_turf(endpoint)
+	if(SSatlas.current_map.is_always_available_network_level(endpoint_turf?.z))
+		if(ethernet)
+			return 3
+		if(long_range)
+			return 2
+		return 1
+
+	if(!check_endpoint_function(specific_action, ethernet))
+		return 0
+
+	var/area/A = get_area(endpoint)
+	if(A?.centcomm_area && ethernet)
+		return 3
+
+	var/signal = 0
+	for(var/obj/structure/machinery/ntnet_relay/R in relays)
+		signal = max(signal, R.get_signal_for_endpoint(endpoint, ethernet, long_range))
+	return signal
+
+/datum/ntnet/proc/get_signal(var/obj/item/computer_hardware/network_card/card, var/specific_action = 0)
+	if(!istype(card) || !card.parent_computer)
+		return 0
+	return get_signal_for_endpoint(card.parent_computer, specific_action, card.ethernet, card.long_range)
+
+/datum/ntnet/proc/get_reachable_z_levels_for_endpoint(var/atom/endpoint, var/specific_action = 0, var/ethernet = FALSE, var/long_range = FALSE)
+	. = list()
+	var/turf/endpoint_turf = get_turf(endpoint)
+	if(SSatlas.current_map.is_always_available_network_level(endpoint_turf?.z))
+		. |= endpoint_turf.z
+		return
+	if(get_signal_for_endpoint(endpoint, specific_action, ethernet, long_range) <= 0)
+		return
+
+	for(var/obj/structure/machinery/ntnet_relay/R in relays)
+		if(R.can_route_to_core())
+			. |= R.get_covered_z_levels()
+
+/datum/ntnet/proc/get_reachable_z_levels(var/obj/item/computer_hardware/network_card/card, var/specific_action = 0)
+	. = list()
+	var/turf/endpoint_turf = get_turf(card?.parent_computer)
+	if(SSatlas.current_map.is_always_available_network_level(endpoint_turf?.z))
+		. |= endpoint_turf.z
+		return
+	if(get_signal(card, specific_action) <= 0)
+		return
+
+	for(var/obj/structure/machinery/ntnet_relay/R in relays)
+		if(R.can_route_to_core())
+			. |= R.get_covered_z_levels()
+
+/// Builds lists that contain downloadable software.
 /datum/ntnet/proc/build_software_lists()
 	available_station_software = list()
 	available_antag_software = list()
 	available_software = list()
 	for(var/F in typesof(/datum/computer_file/program))
-		var/datum/computer_file/program/prog = new F
+		var/datum/computer_file/program/prog = new F("Compless")
 		// Invalid type (shouldn't be possible but just in case), invalid filetype (not executable program) or invalid filename (unset program)
 		if(!prog || !istype(prog) || prog.filename == "UnknownProgram" || prog.filetype != "PRG")
 			continue
@@ -103,7 +174,7 @@ var/global/datum/ntnet/ntnet_global = new()
 		var/datum/modular_computer_app_presets/prs = new path()
 		available_software_presets.Add(prs)
 
-// Builds lists that contain downloadable software.
+/// Builds lists that contain downloadable software.
 /datum/ntnet/proc/build_news_list()
 	available_news = list()
 	for(var/F in typesof(/datum/computer_file/data/news_article/))
@@ -111,30 +182,30 @@ var/global/datum/ntnet/ntnet_global = new()
 		if(news.stored_data)
 			available_news.Add(news)
 
-
-// Attempts to find a downloadable file according to filename var
+/// Attempts to find a downloadable file according to filename var
 /datum/ntnet/proc/find_ntnet_file_by_name(var/filename)
 	for(var/datum/computer_file/program/P in available_software)
 		if(filename == P.filename)
 			return P
 
-// Resets the IDS alarm
+/// Resets the IDS alarm
 /datum/ntnet/proc/resetIDS()
-	intrusion_detection_alarm = 0
+	intrusion_detection_alarm = FALSE
 
 /datum/ntnet/proc/toggleIDS()
 	resetIDS()
 	intrusion_detection_enabled = !intrusion_detection_enabled
 
-// Removes all logs
+/// Removes all logs
 /datum/ntnet/proc/purge_logs()
 	logs = list()
+	messages = list()
 	add_log("-!- LOGS DELETED BY SYSTEM OPERATOR -!-")
 
-// Updates maximal amount of stored logs. Use this instead of setting the number, it performs required checks.
+/// Updates maximal amount of stored logs. Use this instead of setting the number, it performs required checks.
 /datum/ntnet/proc/update_max_log_count(var/lognumber)
 	if(!lognumber)
-		return 0
+		return FALSE
 	// Trim the value if necessary
 	lognumber = between(MIN_NTNET_LOGS, lognumber, MAX_NTNET_LOGS)
 	setting_maxlogcount = lognumber
@@ -156,4 +227,4 @@ var/global/datum/ntnet/ntnet_global = new()
 			add_log("Configuration Updated. Wireless network firewall now [setting_communication ? "allows" : "disallows"] instant messaging and similar communication services.")
 		if(NTNET_SYSTEMCONTROL)
 			setting_systemcontrol = !setting_systemcontrol
-			add_log("Configuration Updated. Wireless network firewall now [setting_systemcontrol ? "allows" : "disallows"] remote control of station's systems.")
+			add_log("Configuration Updated. Wireless network firewall now [setting_systemcontrol ? "allows" : "disallows"] remote control of the station's systems.")

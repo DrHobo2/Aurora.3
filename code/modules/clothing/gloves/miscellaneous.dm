@@ -1,21 +1,15 @@
-/obj/item/clothing/gloves/captain
-	desc = "Regal blue gloves, with a nice gold trim. Swanky."
-	name = "captain's gloves"
-	icon_state = "captain"
-	item_state = "egloves"
-
 /obj/item/clothing/gloves/cyborg
 	desc = "beep boop borp"
 	name = "cyborg gloves"
 	icon_state = "black"
-	item_state = "r_hands"
+	item_state = "black"
 	siemens_coefficient = 1.0
 
 /obj/item/clothing/gloves/swat
 	desc = "These tactical gloves are somewhat fire and impact-resistant."
 	name = "\improper SWAT gloves"
 	icon_state = "black"
-	item_state = "swat_gl"
+	item_state = "black"
 	siemens_coefficient = 0.50
 	permeability_coefficient = 0.05
 
@@ -24,13 +18,38 @@
 	heat_protection = HANDS
 	max_heat_protection_temperature = GLOVES_MAX_HEAT_PROTECTION_TEMPERATURE
 
+/obj/item/clothing/gloves/swat/ert
+	species_restricted = null
+
+/obj/item/clothing/gloves/swat/tactical
+	name = "\improper tactical gloves"
+	icon = 'icons/obj/item/clothing/gloves/black_leather_gloves.dmi'
+	icon_state = "black_leather"
+	item_state = "black_leather"
+	species_restricted = null
+
 /obj/item/clothing/gloves/combat //Combined effect of SWAT gloves and insulated gloves
 	desc = "These tactical gloves are somewhat fire and impact resistant."
 	name = "combat gloves"
 	icon_state = "black"
-	item_state = "swat_gl"
+	item_state = "black"
 	siemens_coefficient = 0
 	permeability_coefficient = 0.05
+	cold_protection = HANDS
+	min_cold_protection_temperature = GLOVES_MIN_COLD_PROTECTION_TEMPERATURE
+	heat_protection = HANDS
+	max_heat_protection_temperature = GLOVES_MAX_HEAT_PROTECTION_TEMPERATURE
+
+/obj/item/clothing/ring/ninja
+	desc = "A pair of plain black infiltration gloves. Too thin to protect anything, but can fit underneath a hardsuit gauntlet."
+	name = "black slipgloves"
+	icon = 'icons/obj/item/clothing/gloves/color_gloves.dmi'
+	icon_state = "black"
+	item_state = "black"
+	contained_sprite = TRUE
+	siemens_coefficient = 0
+	permeability_coefficient = 0.05
+	undergloves = 1
 	cold_protection = HANDS
 	min_cold_protection_temperature = GLOVES_MIN_COLD_PROTECTION_TEMPERATURE
 	heat_protection = HANDS
@@ -39,163 +58,135 @@
 /obj/item/clothing/gloves/latex
 	name = "latex gloves"
 	desc = "Sterile latex gloves."
+	icon = 'icons/obj/item/clothing/gloves/latex.dmi'
 	icon_state = "latex"
-	item_state = "lgloves"
+	item_state = "latex"
+	contained_sprite = TRUE
 	siemens_coefficient = 1.0 //thin latex gloves, much more conductive than fabric gloves (basically a capacitor for AC)
 	permeability_coefficient = 0.01
 	germ_level = 0
-	fingerprint_chance = 75
+	drop_sound = 'sound/items/drop/rubber.ogg'
+	pickup_sound = 'sound/items/pickup/rubber.ogg'
+	var/balloon = /obj/item/toy/balloon/latex
+
+/obj/item/clothing/gloves/latex/assembly_hints(mob/user, distance, is_adjacent)
+	. += ..()
+	. += "You can make balloons with these using some cable coil."
+
+/obj/item/clothing/gloves/latex/attackby(obj/item/attacking_item, mob/user)
+	if(istype(attacking_item, /obj/item/stack/cable_coil))
+		var/obj/item/stack/cable_coil/C = attacking_item
+		if(C.use(1))
+			var/obj/item/L = new src.balloon
+			user.drop_from_inventory(L,get_turf(src))
+			to_chat(user, SPAN_NOTICE("You make a balloon."))
+			qdel(src)
+		else
+			to_chat(user, SPAN_WARNING("You need one length of cable to finish the balloon!"))
+	. = ..()
 
 /obj/item/clothing/gloves/latex/nitrile
 	name = "nitrile gloves"
 	desc = "Sterile nitrile gloves."
+	icon = 'icons/obj/item/clothing/gloves/nitrile.dmi'
 	icon_state = "nitrile"
-	item_state = "ngloves"
+	item_state = "nitrile"
+	contained_sprite = TRUE
+	balloon = /obj/item/toy/balloon/latex/nitrile
+	anomaly_protection = 0.1
+
+/obj/item/clothing/gloves/latex/nitrile/zeng
+	name = "zeng-hu vinyl gloves"
+	desc = "A key design element in the labwear was utility and compatibility with the Zeng-Hu positronic chassis workers that are ubiquitous throughout the corporation. \
+	As a result they are breathable yet non-porous, allowing for ample airflow while retaining the cleanroom standards expected of a medical and scientific uniform."
+	icon = 'icons/obj/item/clothing/gloves/zeng_gloves.dmi'
+	icon_state = "zeng_gloves"
+	item_state = "zeng_gloves"
+	contained_sprite = TRUE
+
+/obj/item/clothing/gloves/latex/nitrile/unathi
+	name = "unathi nitrile gloves"
+	desc = "Sterile nitrile gloves. Designed for Unathi use."
+	icon_state = "nitrile"
+	item_state = "nitrile"
+	species_restricted = list(BODYTYPE_UNATHI)
+
+/obj/item/clothing/gloves/latex/nitrile/tajara
+	name = "tajaran nitrile gloves"
+	desc = "Sterile nitrile gloves. Designed for Tajara use."
+	icon_state = "nitrile"
+	item_state = "nitrile"
+	species_restricted = list(BODYTYPE_TAJARA)
+
+/obj/item/clothing/gloves/latex/nitrile/vaurca
+	name = "vaurca nitrile gloves"
+	desc = "Sterile nitrile gloves. Designed for Vaurca use."
+	icon_state = "nitrile"
+	item_state = "nitrile"
+	species_restricted = list(BODYTYPE_VAURCA)
 
 /obj/item/clothing/gloves/latex/unathi
 	name = "unathi latex gloves"
 	desc = "Sterile latex gloves. Designed for Unathi use."
-	species_restricted = list("Unathi")
+	species_restricted = list(BODYTYPE_UNATHI)
 
 /obj/item/clothing/gloves/latex/tajara
 	name = "tajaran latex gloves"
 	desc = "Sterile latex gloves. Designed for Tajara use."
-	species_restricted = list("Tajara")
+	species_restricted = list(BODYTYPE_TAJARA)
+
+/obj/item/clothing/gloves/latex/vaurca
+	name = "vaurca latex gloves"
+	desc = "Sterile latex gloves. Designed for Vaurca use."
+	species_restricted = list(BODYTYPE_VAURCA)
 
 /obj/item/clothing/gloves/botanic_leather
 	desc = "These leather work gloves protect against thorns, barbs, prickles, spikes and other harmful objects of floral origin."
 	name = "leather gloves"
+	icon = 'icons/obj/item/clothing/gloves/leather_gloves.dmi'
 	icon_state = "leather"
-	item_state = "ggloves"
+	item_state = "leather"
+	contained_sprite = TRUE
 	permeability_coefficient = 0.05
 	siemens_coefficient = 0.50 //thick work gloves
+	drop_sound = 'sound/items/drop/leather.ogg'
+	pickup_sound = 'sound/items/pickup/leather.ogg'
 
 /obj/item/clothing/gloves/botanic_leather/unathi
 	name = "unathi leather gloves"
-	species_restricted = list("Unathi")
+	species_restricted = list(BODYTYPE_UNATHI)
 
 /obj/item/clothing/gloves/botanic_leather/tajara
 	name = "tajaran leather gloves"
-	species_restricted = list("Tajara")
+	species_restricted = list(BODYTYPE_TAJARA)
 
-/obj/item/clothing/gloves/watch
-	desc = "A small wristwatch, capable of telling time."
-	name = "watch"
-	icon_state = "watch"
-	item_state = "watchgloves"
-	w_class = 1
-	wired = 1
-	species_restricted = null
-	gender = NEUTER
-	body_parts_covered = null
-	fingerprint_chance = 100
+/obj/item/clothing/gloves/botanic_leather/vaurca
+	name = "vaurca leather gloves"
+	species_restricted = list(BODYTYPE_VAURCA)
 
-/obj/item/clothing/gloves/watch/verb/checktime()
-	set category = "Object"
-	set name = "Check Time"
-	set src in usr
+/obj/item/clothing/gloves/janitor
+	name = "rubber cleaning gloves"
+	desc = "A pair of thick, long, yellow rubber gloves, designed to protect the wearer from the splash of industrial strength cleaners. Not certified for electrical work."
+	icon = 'icons/obj/item/clothing/gloves/janitor_gloves.dmi'
+	icon_state = "janitor"
+	item_state = "janitor"
+	contained_sprite = TRUE
+	permeability_coefficient = 0.01 //Prevents chemical seepage as well as latex, but without any of the sterility or protection
+	siemens_coefficient = 0.50
+	drop_sound = 'sound/items/drop/rubber.ogg'
+	pickup_sound = 'sound/items/pickup/rubber.ogg'
 
-	if(wired && !clipped)
-		usr << "You check your watch, spotting a digital collection of numbers reading '[worldtime2text()]'. Today's date is '[time2text(world.time, "Month DD")]. [game_year]'."
-		if (emergency_shuttle.get_status_panel_eta())
-			usr << "<span class='warning'>The shuttle's status is reported as: [emergency_shuttle.get_status_panel_eta()].</span>"
-	else if(wired && clipped)
-		usr << "You check your watch realising it's still open"
-	else
-		usr << "You check your watch as it dawns on you that it's broken"
+/obj/item/clothing/gloves/janitor/unathi
+	name = "unathi cleaning gloves"
+	species_restricted = list(BODYTYPE_UNATHI)
 
-/obj/item/clothing/gloves/watch/verb/pointatwatch()
-	set category = "Object"
-	set name = "Point at watch"
-	set src in usr
+/obj/item/clothing/gloves/janitor/tajara
+	name = "tajaran cleaning gloves"
+	species_restricted = list(BODYTYPE_TAJARA)
 
-	if(wired && !clipped)
-		usr.visible_message ("<span class='notice'>[usr] taps their foot on the floor, arrogantly pointing at the [src] on their wrist with a look of derision in their eyes.</span>", "<span class='notice'>You point down at the [src], an arrogant look about your eyes.</span>")
-	else if(wired && clipped)
-		usr.visible_message ("<span class='notice'>[usr] taps their foot on the floor, arrogantly pointing at the [src] on their wrist with a look of derision in their eyes, not noticing it's open</span>", "<span class='notice'>You point down at the [src], an arrogant look about your eyes.</span>")
-	else
-		usr.visible_message ("<span class='notice'>[usr] taps their foot on the floor, arrogantly pointing at the [src] on their wrist with a look of derision in their eyes, not noticing it's broken</span>", "<span class='notice'>You point down at the [src], an arrogant look about your eyes.</span>")
-
-/obj/item/clothing/gloves/watch/examine(mob/user)
-	..()
-	if (get_dist(src, user) <= 1)
-		checktime()
-
-/obj/item/clothing/gloves/watch/attackby(obj/item/weapon/W, mob/user)
-	if(W.isscrewdriver())
-		if (clipped) //Using clipped because adding a new var for something is dumb
-			user.visible_message("<span class='notice'>[user] screws the cover of the [src] closed.</span>","<span class='notice'>You screw the cover of the [src] closed..</span>")
-			clipped = 0
-			return
-//		playsound(src.loc, 'sound/items/Wirecutter.ogg', 100, 1)
-		user.visible_message("<span class='notice'>[user] unscrew the cover of the [src].</span>","<span class='notice'>You unscrew the cover of the [src].</span>")
-		clipped = 1
-		return
-	if(wired)
-		return
-	if(W.iscoil())
-		var/obj/item/stack/cable_coil/C = W
-		if (!clipped)
-			user << "<span class='notice'>The [src] is not open.</span>"
-			return
-
-		if(wired)
-			user << "<span class='notice'>The [src] are already wired.</span>"
-			return
-
-		if(C.amount < 2)
-			user << "<span class='notice'>There is not enough wire to cover the [src].</span>"
-			return
-
-		C.use(2)
-		wired = 1
-		user << "<span class='notice'>You repair some wires in the [src].</span>"
-		return
-
-/obj/item/clothing/gloves/watch/emp_act(severity)
-	if(prob(50/severity))
-		wired = 0
-	..()
-
-/obj/item/clothing/gloves/armchain
-	name = "cobalt arm chains"
-	desc = "A set of luxurious chains intended to be wrapped around long, lanky arms. They don't seem particularly comfortable. They're encrusted with cobalt-blue gems, and made of <b>REAL</b> faux gold."
-	icon_state = "cobalt_armchains"
-	item_state = "cobalt_armchains"
-	siemens_coefficient = 1.0
-	fingerprint_chance = 100
-
-/obj/item/clothing/gloves/armchain/emerald
-	name = "emerald arm chains"
-	desc = "A set of luxurious chains intended to be wrapped around long, lanky arms. They don't seem particularly comfortable. They're encrusted with emerald-green gems, and made of <b>REAL</b> faux gold."
-	icon_state = "emerald_armchains"
-	item_state = "emerald_armchains"
-
-/obj/item/clothing/gloves/armchain/ruby
-	name = "ruby arm chains"
-	desc = "A set of luxurious chains intended to be wrapped around long, lanky arms. They don't seem particularly comfortable. They're encrusted with ruby-red gems, and made of <b>REAL</b> faux gold."
-	icon_state = "ruby_armchains"
-	item_state = "ruby_armchains"
-
-/obj/item/clothing/gloves/goldbracer
-	name = "cobalt bracers"
-	desc = "A pair of sturdy and thick decorative bracers, seeming better for fashion than protection. They're encrusted with cobalt-blue gems, and made of <b>REAL</b> faux gold."
-	icon_state = "cobalt_bracers"
-	item_state = "cobalt_bracers"
-	siemens_coefficient = 1.0
-	fingerprint_chance = 100
-
-/obj/item/clothing/gloves/goldbracer/emerald
-	name = "emerald bracers"
-	desc = "A pair of sturdy and thick decorative bracers, seeming better for fashion than protection. They're encrusted with emerald-green gems, and made of <b>REAL</b> faux gold."
-	icon_state = "emerald_bracers"
-	item_state = "emerald_bracers"
-
-/obj/item/clothing/gloves/goldbracer/ruby
-	name = "ruby bracers"
-	desc = "A pair of sturdy and thick decorative bracers, seeming better for fashion than protection. They're encrusted with ruby-red gems, and made of <b>REAL</b> faux gold."
-	icon_state = "ruby_bracers"
-	item_state = "ruby_bracers"
+/obj/item/clothing/gloves/janitor/vaurca
+	name = "vaurca cleaning gloves"
+	species_restricted = list(BODYTYPE_VAURCA)
 
 	/*
 	Forcegloves.  They amplify force from melee hits as well as muck up disarm and stuff a little.
@@ -206,10 +197,13 @@
 /obj/item/clothing/gloves/force // this pair should be put in r&d if you choose to do so.  and also the hos office locker.  do it okay
 	name = "force gloves"
 	desc = "These gloves bend gravity and bluespace, dampening inertia and augmenting the wearer's melee capabilities."
+	icon = 'icons/obj/item/clothing/gloves/force_gloves.dmi'
 	icon_state = "force_glove" //todo: different sprites for different levels of power
 	item_state = "force_glove"
 	siemens_coefficient = 0.6
 	permeability_coefficient = 0.05
+	drop_sound = 'sound/items/drop/toolbox.ogg'
+	pickup_sound = 'sound/items/pickup/toolbox.ogg'
 
 	cold_protection = HANDS
 	min_cold_protection_temperature = GLOVES_MIN_COLD_PROTECTION_TEMPERATURE
@@ -222,38 +216,51 @@
 /obj/item/clothing/gloves/force/basic //dooo iiiitttttt
 	name = "basic force gloves" //do it skull do it give it to all sec the forums agree go
 	desc = "These gloves bend gravity and bluespace, providing a cheap boost to the effectiveness of your average security staff."
+	icon = 'icons/obj/item/clothing/gloves/power_gloves.dmi'
 	icon_state = "power_glove" //todo: different sprites for different levels of power
 	item_state = "power_glove"
+	contained_sprite = TRUE
 	amplification = 1 //just do it
 
 /obj/item/clothing/gloves/force/syndicate  //for syndies.  pda, *maybe* nuke team or ert.  up to you.  maybe just use the amp 2 variant.
 	name = "enhanced force gloves"
 	amplification = 2.5 //because *2.5 is kind of scary okay.  sometimes you want the scary effect.  sometimes not.
 
-
 /obj/item/clothing/gloves/brassknuckles
 	name = "brass knuckles"
 	desc = "A pair of brass knuckles. Generally used to enhance the user's punches."
+	icon = 'icons/obj/item/clothing/gloves/knuckledusters.dmi'
 	icon_state = "knuckledusters"
+	item_state = "knuckledusters"
+	contained_sprite = TRUE
 	attack_verb = list("punched", "beaten", "struck")
 	siemens_coefficient = 1
 	fingerprint_chance = 100
-	force = 5
+	force = 11
 	punch_force = 5
 	clipped = 1
+	matter = list(MATERIAL_STEEL = 1000)
+
+	drop_sound = 'sound/items/drop/sword.ogg'
+	pickup_sound = SFX_PICKUP_SWORD
 
 /obj/item/clothing/gloves/powerfist
 	name = "power fist"
 	desc = "A metal gauntlet with a piston-powered ram ontop for that extra punch in your punch."
+	icon = 'icons/obj/item/clothing/gloves/powerfist.dmi'
 	icon_state = "powerfist"
 	item_state = "powerfist"
+	contained_sprite = TRUE
 	attack_verb = list("whacked", "fisted", "power-punched")
 	siemens_coefficient = 1
 	fingerprint_chance = 50
-	force = 5
+	force = 11
 	punch_force = 10
 	clipped = 1
-	species_restricted = list("exclude","Golem","Vaurca Breeder","Vaurca Warform")
+	species_restricted = list("exclude",BODYTYPE_GOLEM,BODYTYPE_VAURCA_BREEDER,BODYTYPE_VAURCA_WARFORM,BODYTYPE_VAURCA_BULWARK)
+	drop_sound = 'sound/items/drop/toolbox.ogg'
+	pickup_sound = 'sound/items/pickup/toolbox.ogg'
+	gender = NEUTER
 
 /obj/item/clothing/gloves/powerfist/Touch(atom/A, mob/living/user, proximity)
 	if(!proximity)
@@ -264,11 +271,11 @@
 
 	var/mob/living/L = A
 
-	if(prob(50))
+	if(prob(50) && (user.a_intent == I_HURT))
 		playsound(user, 'sound/weapons/beartrap_shut.ogg', 50, 1, -1)
-		user.visible_message("<span class='danger'>\The [user] slams \the [L] away with \the [src]!</span>")
+		user.visible_message(SPAN_DANGER("\The [user] slams \the [L] away with \the [src]!"))
 		var/T = get_turf(user)
-		spark(T, 3, alldirs)
+		spark(T, 3, GLOB.alldirs)
 		L.throw_at(get_edge_target_turf(loc, loc.dir), 5, 1)
 		if(ishuman(L))
 			var/mob/living/carbon/human/H = L
@@ -277,12 +284,210 @@
 /obj/item/clothing/gloves/claws
 	name = "clawed gauntlets"
 	desc = "A pair of metal gauntlets outfited with menacing sharp blades."
+	icon = 'icons/obj/item/clothing/gloves/warping_claws.dmi'
 	icon_state = "warping_claws"
+	item_state = "warping_claws"
+	contained_sprite = TRUE
 	attack_verb = list("ripped", "torn", "cut")
-	armor = list(melee = 50, bullet = 15, laser = 15, energy = 10, bomb = 10, bio = 0, rad = 0)
+	armor = list(
+		MELEE = ARMOR_MELEE_MAJOR,
+		BULLET = ARMOR_BALLISTIC_MINOR,
+		LASER = ARMOR_LASER_MINOR,
+		ENERGY = ARMOR_ENERGY_MINOR,
+		BOMB = ARMOR_BOMB_MINOR
+	)
 	siemens_coefficient = 1
-	force = 5
+	force = 11
 	punch_force = 10
 	clipped = 1
 	sharp = 1
-	edge = 1
+	edge = TRUE
+	drop_sound = 'sound/items/drop/toolbox.ogg'
+	pickup_sound = 'sound/items/pickup/toolbox.ogg'
+
+/obj/item/clothing/gloves/offworlder
+	name = "starmitts"
+	desc = "Thick arm warmers and mittens that reach past the elbow."
+	icon = 'icons/obj/item/clothing/accessory/offworlder.dmi'
+	contained_sprite = TRUE
+	icon_state = "starmittens"
+	item_state = "starmittens"
+	build_from_parts = TRUE
+	worn_overlay = "over"
+	cold_protection = HANDS
+	min_cold_protection_temperature = MODERATE_MIN_COLD_PROTECTION_TEMPERATURE
+
+/obj/item/clothing/gloves/ballistic
+	name = "ballistic gauntlet"
+	desc = "A metal gauntlet armed with a wrist-mounted shotgun."
+	icon = 'icons/obj/item/clothing/gloves/ballisticfist.dmi'
+	icon_state = "ballisticfist"
+	item_state = "ballisticfist"
+	contained_sprite = TRUE
+	siemens_coefficient = 1
+	fingerprint_chance = 50
+	clipped = 1
+	species_restricted = list("exclude",BODYTYPE_GOLEM,BODYTYPE_VAURCA_BREEDER,BODYTYPE_VAURCA_WARFORM,BODYTYPE_VAURCA_BULWARK)
+	drop_sound = 'sound/items/drop/toolbox.ogg'
+	pickup_sound = 'sound/items/pickup/toolbox.ogg'
+	gender = NEUTER
+	var/obj/item/gun/projectile/mounted
+	var/gun_type = /obj/item/gun/projectile/shotgun/doublebarrel/pellet
+
+/obj/item/clothing/gloves/ballistic/Initialize()
+	. = ..()
+	if(!mounted)
+		var/obj/item/gun/projectile/new_gun = new gun_type (src)
+		mounted = new_gun
+		mounted.name = "wrist-mounted [initial(new_gun.name)]"
+
+/obj/item/clothing/gloves/ballistic/Destroy()
+	if(mounted)
+		QDEL_NULL(mounted)
+	return ..()
+
+/obj/item/clothing/gloves/ballistic/Touch(atom/A, mob/living/user, proximity)
+	if(!proximity)
+		return
+
+	if(!isliving(A))
+		return
+
+	var/mob/living/L = A
+
+	if(user.a_intent == I_HURT)
+		if(mounted)
+			spark(user, 3, GLOB.alldirs)
+			mounted.Fire(L, user)
+
+/obj/item/clothing/gloves/ballistic/attackby(obj/item/attacking_item, mob/user)
+	..()
+	if(mounted)
+		mounted.load_ammo(attacking_item, user)
+		return
+
+/obj/item/clothing/gloves/ballistic/verb/unload_shells()
+	set name = "Unload Ballistic Gauntlet"
+	set desc = "Unload the shells from the gauntlet's mounted gun."
+	set category = "Object"
+	set src in usr
+
+	if(usr.stat || usr.restrained() || usr.incapacitated())
+		return
+
+	if(mounted)
+		mounted.unload_ammo(usr)
+
+/obj/item/clothing/gloves/ballistic/attack_self(mob/user as mob)
+	unload_shells()
+
+/obj/item/clothing/gloves/ballistic/double
+	name = "ballistic gauntlets"
+	icon_state = "dual-ballisticfist"
+	item_state = "ballisticfist" //just reuse the single inhand
+	fingerprint_chance = 0
+	gender = PLURAL
+
+/obj/item/clothing/gloves/ballistic/double/Initialize()
+	. = ..()
+	if(mounted)
+		mounted.switch_firemodes()
+
+/obj/item/clothing/gloves/tesla
+	name = "tesla glove"
+	desc = "A weaponized gauntlet capable of firing lightning bolts."
+	desc_extended = "A tesla-based weapon created by the People's Republic of Adhomai as part of their Tesla Brigade program. Because of its long recharge time, the gauntlet is commonly \
+	used as an ancillary weapon."
+	icon = 'icons/obj/item/clothing/gloves/tesla_gloves.dmi'
+	icon_state = "tesla_glove_on"
+	item_state = "tesla_glove_on"
+	contained_sprite = TRUE
+	siemens_coefficient = 1
+	fingerprint_chance = 50
+	clipped = TRUE
+	species_restricted = list("exclude",BODYTYPE_GOLEM,BODYTYPE_VAURCA_BREEDER,BODYTYPE_VAURCA_WARFORM,BODYTYPE_VAURCA_BULWARK)
+	drop_sound = 'sound/items/drop/toolbox.ogg'
+	pickup_sound = 'sound/items/pickup/toolbox.ogg'
+	gender = NEUTER
+	var/charged = TRUE
+
+/obj/item/clothing/gloves/tesla/Touch(atom/A, mob/living/user, proximity)
+	if(!charged)
+		to_chat(user, SPAN_WARNING("\The [src] is still recharging."))
+		return
+
+	if(user.a_intent == I_HURT)
+		if(proximity)
+			if(iscarbon(A))
+				var/mob/living/carbon/L = A
+				L.electrocute_act(20,src, 1, user.zone_sel.selecting)
+				spark(src, 3, GLOB.alldirs)
+				charged = FALSE
+				update_icon()
+				user.update_inv_gloves()
+				addtimer(CALLBACK(src, PROC_REF(rearm)), 10 SECONDS)
+
+		else
+			var/turf/T = get_turf(user)
+			user.visible_message(SPAN_DANGER("\The [user] crackles with energy!"))
+			var/obj/projectile/beam/tesla/LE = new (T)
+
+			LE.preparePixelProjectile(A, user)
+			LE.firer = user
+			LE.fired_from = src
+			LE.def_zone = user.zone_sel? user.zone_sel.selecting : null
+			LE.fire()
+
+			spark(src, 3, GLOB.alldirs)
+			playsound(user.loc, 'sound/magic/LightningShock.ogg', 75, 1)
+			charged = FALSE
+			update_icon()
+			user.update_inv_gloves()
+			addtimer(CALLBACK(src, PROC_REF(rearm)), 30 SECONDS)
+
+/obj/item/clothing/gloves/tesla/proc/rearm()
+	visible_message(SPAN_NOTICE("\The [src] surges back with energy!"))
+	charged = TRUE
+	update_icon()
+
+/obj/item/clothing/gloves/tesla/update_icon()
+	if(charged)
+		icon_state = "tesla_glove_on"
+		item_state = "tesla_glove_on"
+	else
+		icon_state = "tesla_glove"
+		item_state = "tesla_glove"
+	if(ismob(src.loc))
+		var/mob/M = src.loc
+		M.update_inv_gloves()
+
+/obj/item/clothing/gloves/black/forensic
+	name = "forensic gloves"
+	desc = "Specially made gloves for investigative personnel. The luminescent threads woven into the material stand out under scrutiny."
+	icon = 'icons/obj/item/clothing/gloves/forensic_gloves.dmi'
+	icon_state = "forensic"
+	item_state = "forensic"
+	contained_sprite = TRUE
+	species_restricted = list("exclude",BODYTYPE_GOLEM,BODYTYPE_VAURCA_BREEDER,BODYTYPE_VAURCA_WARFORM,BODYTYPE_VAURCA_BULWARK)
+
+/obj/item/clothing/gloves/single
+	name = "single glove"
+	desc = "A single glove. This one is for the right hand."
+	icon = 'icons/obj/item/clothing/gloves/single.dmi'
+	contained_sprite = TRUE
+	icon_state = "single"
+	item_state = "single"
+
+/obj/item/clothing/gloves/single/left
+	desc = "A single glove. This one is for the left hand."
+	icon_state = "single_left"
+	item_state = "single_left"
+
+/obj/item/clothing/gloves/multi_color
+	name = "multi-color gloves"
+	desc = "A pair of gloves, each is a different color."
+	icon = 'icons/obj/item/clothing/gloves/multi_color.dmi'
+	contained_sprite = TRUE
+	icon_state = "multi_color"
+	item_state = "multi_color"
+	has_accents = TRUE

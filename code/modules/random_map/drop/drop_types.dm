@@ -1,10 +1,10 @@
-var/global/list/datum/supply_drop_loot/supply_drop
+GLOBAL_LIST_INIT_TYPED(supply_drop, /datum/supply_drop_loot, null)
 
 /proc/supply_drop_random_loot_types()
-	if(!supply_drop)
-		supply_drop = init_subtypes(/datum/supply_drop_loot)
-		sortTim(supply_drop, /proc/cmp_supply_drop, FALSE)
-	return supply_drop
+	if(!GLOB.supply_drop)
+		GLOB.supply_drop = init_subtypes(/datum/supply_drop_loot)
+		sortTim(GLOB.supply_drop, GLOBAL_PROC_REF(cmp_supply_drop), FALSE)
+	return GLOB.supply_drop
 
 /datum/supply_drop_loot
 	var/name = ""
@@ -23,7 +23,7 @@ var/global/list/datum/supply_drop_loot/supply_drop
 	name = "Supermatter"
 /datum/supply_drop_loot/supermatter/New()
 	..()
-	contents = list(/obj/machinery/power/supermatter)
+	contents = list(/obj/structure/machinery/power/supermatter)
 
 /datum/supply_drop_loot/lasers
 	name = "Lasers"
@@ -31,10 +31,10 @@ var/global/list/datum/supply_drop_loot/supply_drop
 /datum/supply_drop_loot/lasers/New()
 	..()
 	contents = list(
-		/obj/item/weapon/gun/energy/laser,
-		/obj/item/weapon/gun/energy/laser,
-		/obj/item/weapon/gun/energy/sniperrifle,
-		/obj/item/weapon/gun/energy/rifle/ionrifle)
+		/obj/item/gun/energy/rifle/laser,
+		/obj/item/gun/energy/rifle/laser,
+		/obj/item/gun/energy/rifle/laser/sniper,
+		/obj/item/gun/energy/rifle/ionrifle)
 
 /datum/supply_drop_loot/ballistics
 	name = "Ballistics"
@@ -42,26 +42,14 @@ var/global/list/datum/supply_drop_loot/supply_drop
 /datum/supply_drop_loot/ballistics/New()
 	..()
 	contents = list(
-		/obj/item/weapon/gun/projectile/sec,
-		/obj/item/weapon/gun/projectile/shotgun/doublebarrel,
-		/obj/item/weapon/gun/projectile/shotgun/pump/combat,
-		/obj/item/weapon/gun/projectile/automatic/wt550,
-		/obj/item/weapon/gun/projectile/automatic/rifle/z8)
-
-/datum/supply_drop_loot/ballistics
-	name = "Ballistics"
-	container = /obj/structure/largecrate
-/datum/supply_drop_loot/ballistics/New()
-	..()
-	contents = list(
-		/obj/item/weapon/gun/projectile/sec,
-		/obj/item/weapon/gun/projectile/shotgun/doublebarrel,
-		/obj/item/weapon/gun/projectile/shotgun/pump/combat,
-		/obj/item/weapon/gun/projectile/automatic/wt550,
-		/obj/item/weapon/gun/projectile/automatic/rifle/z8)
+		/obj/item/gun/projectile/sec,
+		/obj/item/gun/projectile/shotgun/doublebarrel,
+		/obj/item/gun/projectile/shotgun/pump/combat,
+		/obj/item/gun/projectile/automatic/wt550,
+		/obj/item/gun/projectile/automatic/rifle/z8)
 
 /datum/supply_drop_loot/seeds
-	name = "Seeds"
+	name = SEED_NOUN_SEEDS
 	container = /obj/structure/closet/crate
 /datum/supply_drop_loot/seeds/New()
 	..()
@@ -89,35 +77,35 @@ var/global/list/datum/supply_drop_loot/supply_drop
 /datum/supply_drop_loot/food/New()
 	..()
 	contents = list(
-		/obj/item/weapon/reagent_containers/food/condiment/flour,
-		/obj/item/weapon/reagent_containers/food/condiment/flour,
-		/obj/item/weapon/reagent_containers/food/condiment/flour,
-		/obj/item/weapon/reagent_containers/food/drinks/milk,
-		/obj/item/weapon/reagent_containers/food/drinks/milk,
-		/obj/item/weapon/storage/fancy/egg_box,
-		/obj/item/weapon/reagent_containers/food/snacks/tofu,
-		/obj/item/weapon/reagent_containers/food/snacks/tofu,
-		/obj/item/weapon/reagent_containers/food/snacks/meat,
-		/obj/item/weapon/reagent_containers/food/snacks/meat)
+		/obj/item/reagent_containers/food/condiment/flour,
+		/obj/item/reagent_containers/food/condiment/flour,
+		/obj/item/reagent_containers/food/condiment/flour,
+		/obj/item/reagent_containers/food/drinks/carton/milk,
+		/obj/item/reagent_containers/food/drinks/carton/milk,
+		/obj/item/storage/box/fancy/egg_box,
+		/obj/item/reagent_containers/food/snacks/tofu,
+		/obj/item/reagent_containers/food/snacks/tofu,
+		/obj/item/reagent_containers/food/snacks/meat,
+		/obj/item/reagent_containers/food/snacks/meat)
 
-/datum/supply_drop_loot/armour
-	name = "Armour"
+/datum/supply_drop_loot/armor
+	name = "Armor"
 	container = /obj/structure/largecrate
-/datum/supply_drop_loot/armour/New()
+/datum/supply_drop_loot/armor/New()
 	..()
 	contents = list(
 		/obj/item/clothing/head/helmet/riot,
-		/obj/item/clothing/suit/armor/riot,
+		/obj/item/clothing/suit/armor/carrier/riot,
 		/obj/item/clothing/head/helmet/riot,
-		/obj/item/clothing/suit/armor/riot,
+		/obj/item/clothing/suit/armor/carrier/riot,
 		/obj/item/clothing/head/helmet/riot,
-		/obj/item/clothing/suit/armor/riot,
+		/obj/item/clothing/suit/armor/carrier/riot,
 		/obj/item/clothing/suit/armor/vest,
 		/obj/item/clothing/suit/armor/vest,
 		/obj/item/clothing/suit/storage/vest,
 		/obj/item/clothing/suit/storage/vest,
-		/obj/item/clothing/suit/armor/laserproof,
-		/obj/item/clothing/suit/armor/bulletproof)
+		/obj/item/clothing/suit/armor/carrier/ablative,
+		/obj/item/clothing/suit/armor/carrier/ballistic)
 
 /datum/supply_drop_loot/materials
 	name = "Materials"
@@ -141,16 +129,18 @@ var/global/list/datum/supply_drop_loot/supply_drop
 /datum/supply_drop_loot/medical/New()
 	..()
 	contents = list(
-		/obj/item/weapon/storage/firstaid/regular,
-		/obj/item/weapon/storage/firstaid/fire,
-		/obj/item/weapon/storage/firstaid/toxin,
-		/obj/item/weapon/storage/firstaid/o2,
-		/obj/item/weapon/storage/firstaid/adv,
-		/obj/item/weapon/reagent_containers/glass/bottle/antitoxin,
-		/obj/item/weapon/reagent_containers/glass/bottle/inaprovaline,
-		/obj/item/weapon/reagent_containers/glass/bottle/stoxin,
-		/obj/item/weapon/storage/box/syringes,
-		/obj/item/weapon/storage/box/autoinjectors)
+		/obj/item/storage/firstaid/regular,
+		/obj/item/storage/firstaid/trauma,
+		/obj/item/storage/firstaid/fire,
+		/obj/item/storage/firstaid/toxin,
+		/obj/item/storage/firstaid/o2,
+		/obj/item/storage/firstaid/radiation,
+		/obj/item/storage/firstaid/adv,
+		/obj/item/reagent_containers/glass/bottle/antitoxin,
+		/obj/item/reagent_containers/glass/bottle/inaprovaline,
+		/obj/item/reagent_containers/glass/bottle/stoxin,
+		/obj/item/storage/box/syringes,
+		/obj/item/storage/box/autoinjectors)
 
 /datum/supply_drop_loot/power
 	name = "Power"
@@ -168,25 +158,15 @@ var/global/list/datum/supply_drop_loot/supply_drop
 		/obj/item/stack/material/glass/reinforced,
 		/obj/item/stack/material/plasteel)
 
+/datum/supply_drop_loot/power/contents()
+	return list(pick(contents))
+
 /datum/supply_drop_loot/hydroponics
 	name = "Hydroponics"
 	container = /obj/structure/largecrate
 /datum/supply_drop_loot/hydroponics/New()
 	..()
 	contents = list(
-		/obj/machinery/portable_atmospherics/hydroponics,
-		/obj/machinery/portable_atmospherics/hydroponics,
-		/obj/machinery/portable_atmospherics/hydroponics)
-
-/datum/supply_drop_loot/power
-	name = "Power"
-	container = /obj/structure/largecrate
-/datum/supply_drop_loot/power/New()
-	..()
-	contents = list(
-		/obj/machinery/power/port_gen/pacman,
-		/obj/machinery/power/port_gen/pacman/super,
-		/obj/machinery/power/port_gen/pacman/mrs)
-
-/datum/supply_drop_loot/power/contents()
-	return list(pick(contents))
+		/obj/structure/machinery/portable_atmospherics/hydroponics,
+		/obj/structure/machinery/portable_atmospherics/hydroponics,
+		/obj/structure/machinery/portable_atmospherics/hydroponics)

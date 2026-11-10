@@ -1,30 +1,72 @@
 //Contains: Engineering department jumpsuits
 /obj/item/clothing/under/rank/chief_engineer
-	desc = "It's a high visibility jumpsuit given to those engineers insane enough to achieve the rank of \"Chief engineer\". It has minor radiation shielding."
 	name = "chief engineer's jumpsuit"
-	icon_state = "chiefengineer"
-	item_state = "g_suit"
-	worn_state = "chief"
-	armor = list(melee = 0, bullet = 0, laser = 0,energy = 0, bomb = 0, bio = 0, rad = 10)
+	desc = "It's a high visibility jumpsuit given to those engineers insane enough to achieve the rank of \"Chief Engineer\". It has minor radiation shielding."
+	icon = 'icons/obj/item/clothing/department_uniforms/command.dmi'
+	icon_state = "chief_engineer"
+	item_state = "chief_engineer"
+	contained_sprite = TRUE
+	armor = list(
+		RAD = ARMOR_RAD_MINOR
+	)
+	siemens_coefficient = 0.75
 
 /obj/item/clothing/under/rank/atmospheric_technician
-	desc = "It's a jumpsuit worn by atmospheric technicians."
 	name = "atmospheric technician's jumpsuit"
-	icon_state = "atmos"
-	item_state = "atmos_suit"
-	worn_state = "atmos"
+	desc = "It's a jumpsuit worn by atmospheric technicians."
+	icon = 'icons/obj/item/clothing/department_uniforms/engineering.dmi'
+	icon_state = "nt_atmos"
+	item_state = "nt_atmos"
+	contained_sprite = TRUE
+	siemens_coefficient = 0.75
+
+/obj/item/clothing/under/rank/atmospheric_technician/heph
+	icon_state = "heph_atmos"
+	item_state = "heph_atmos"
+
+/obj/item/clothing/under/rank/atmospheric_technician/zavod
+	icon_state = "zav_atmos"
+	item_state = "zav_atmos"
 
 /obj/item/clothing/under/rank/engineer
-	desc = "It's an orange high visibility jumpsuit worn by engineers. It has minor radiation shielding."
 	name = "engineer's jumpsuit"
-	icon_state = "engine"
-	item_state = "engi_suit"
-	worn_state = "engine"
-	armor = list(melee = 0, bullet = 0, laser = 0,energy = 0, bomb = 0, bio = 0, rad = 10)
+	desc = "It's an orange high visibility jumpsuit worn by engineers. It has minor radiation shielding."
+	icon = 'icons/obj/item/clothing/department_uniforms/engineering.dmi'
+	icon_state = "nt_engineer"
+	item_state = "nt_engineer"
+	contained_sprite = TRUE
+	armor = list(
+		RAD = ARMOR_RAD_MINOR
+	)
+	siemens_coefficient = 0.75
 
-/obj/item/clothing/under/rank/roboticist
-	desc = "It's a slimming black jumpsuit with reinforced seams; great for industrial work."
-	name = "roboticist's jumpsuit"
-	icon_state = "robotics"
-	item_state = "bl_suit"
-	worn_state = "robotics"
+/obj/item/clothing/under/rank/engineer/heph
+	icon_state = "heph_engineer"
+	item_state = "heph_engineer"
+
+/obj/item/clothing/under/rank/engineer/zavod
+	icon_state = "zav_engineer"
+	item_state = "zav_engineer"
+
+/obj/item/clothing/under/rank/engineer/einstein
+	name = "einstein engineer's jumpsuit"
+	desc = "It's a grey-green high visibility jumpsuit worn by engineers. It has minor radiation shielding."
+	desc_extended = "Usually, but not necessarily worn by Einstein's Taipei Engineering Industrial subsidiary. Subsidiary or not, \
+	whoever wears this uniform probably knows a lot about the latest warp drives."
+	icon = 'icons/obj/item/clothing/under/human/corporation/einstein.dmi'
+	icon_state = "ee_engineer"
+	item_state = "ee_engineer"
+
+/obj/item/clothing/under/rank/engineer/apprentice
+	name = "engineering apprentice's jumpsuit"
+	desc = "It's a noticeably cheaper high visibility jumpsuit worn by engineering apprentices. It has minor radiation shielding."
+	icon_state = "nt_apprentice"
+	item_state = "nt_apprentice"
+
+/obj/item/clothing/under/rank/engineer/apprentice/heph
+	icon_state = "heph_apprentice"
+	item_state = "heph_apprentice"
+
+/obj/item/clothing/under/rank/engineer/apprentice/zavod
+	icon_state = "zav_apprentice"
+	item_state = "zav_apprentice"

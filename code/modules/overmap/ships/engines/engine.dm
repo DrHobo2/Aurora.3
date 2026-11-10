@@ -1,60 +1,48 @@
 //Engine component object
 
-var/list/ship_engines = list()
+GLOBAL_LIST_INIT_TYPED(ship_engines, /datum/ship_engine, list())
+
 /datum/ship_engine
 	var/name = "ship engine"
-	var/obj/machinery/engine	//actual engine object
-	var/zlevel = 0
+	var/obj/structure/machinery/holder	//actual engine object
 
-/datum/ship_engine/New(var/obj/machinery/holder)
-	engine = holder
-	zlevel = holder.z
-	for(var/obj/machinery/computer/engines/E in SSmachinery.processing_machines)
-		if (E.z == zlevel && !(src in E.engines))
-			E.engines += src
-			break
+/datum/ship_engine/New(var/obj/structure/machinery/_holder)
+	..()
+	holder = _holder
+	GLOB.ship_engines += src
 
-//Tries to fire the engine. If successfull, returns 1
-/datum/ship_engine/proc/burn()
-	if(!engine)
-		die()
-	return 1
+/datum/ship_engine/proc/can_burn()
+	return 0
 
-//Returns status string for this engine
+/// Tries to fire the engine with power modifier (0..1). Returns thrust.
+/// Power modifier is intended to be used for maneuvers or the like,
+/// that should use less/more fuel/electricity than an actual burn.
+/datum/ship_engine/proc/burn(var/power_modifier = 1)
+	return 0
+
+/// Returns status string for this engine
 /datum/ship_engine/proc/get_status()
-	if(!engine)
-		die()
 	return "All systems nominal"
 
 /datum/ship_engine/proc/get_thrust()
-	if(!engine)
-		die()
-	return 100
+	return 1
 
 //Sets thrust limiter, a number between 0 and 1
 /datum/ship_engine/proc/set_thrust_limit(var/new_limit)
-	if(!engine)
-		die()
 	return 1
 
 /datum/ship_engine/proc/get_thrust_limit()
-	if(!engine)
-		die()
 	return 1
 
 /datum/ship_engine/proc/is_on()
-	if(!engine)
-		die()
 	return 1
 
 /datum/ship_engine/proc/toggle()
-	if(!engine)
-		die()
 	return 1
 
-/datum/ship_engine/proc/die()
-	for(var/obj/machinery/computer/engines/E in SSmachinery.processing_machines)
-		if (E.z == zlevel)
-			E.engines -= src
-			break
-	qdel(src)
+/datum/ship_engine/Destroy()
+	GLOB.ship_engines -= src
+	for(var/obj/effect/overmap/visitable/ship/S in SSshuttle.ships)
+		S.engines -= src
+	holder = null
+	. = ..()

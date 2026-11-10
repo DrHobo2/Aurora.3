@@ -1,7 +1,5 @@
 // Alien larva are quite simple.
-/mob/living/carbon/alien/Life()
-	set background = BACKGROUND_ENABLED
-
+/mob/living/carbon/alien/Life(seconds_per_tick, times_fired)
 	if (transforming)	return
 	if(!loc)			return
 
@@ -13,7 +11,7 @@
 	blinded = null
 
 	//Status updates, death etc.
-	update_icons()
+	update_icon()
 
 /mob/living/carbon/alien/proc/can_progress()
 	return 1
@@ -35,7 +33,7 @@
 	adjustToxLoss(-(rads))
 	return
 
-/mob/living/carbon/alien/handle_regular_status_updates()
+/mob/living/carbon/alien/handle_regular_status_updates(seconds_per_tick)
 
 	if(status_flags & GODMODE)	return 0
 
@@ -55,25 +53,25 @@
 		if(paralysis && paralysis > 0)
 			handle_paralysed()
 			blinded = 1
-			stat = UNCONSCIOUS
-			if(halloss > 0)
-				adjustHalLoss(-3)
+			set_stat(UNCONSCIOUS)
+			if(getHalLoss() > 0)
+				adjustHalLoss(-0.3 * seconds_per_tick)
 
 		if(sleeping)
-			adjustHalLoss(-3)
+			adjustHalLoss(-0.3 * seconds_per_tick)
 			if (mind)
 				if(mind.active && client != null)
 					sleeping = max(sleeping-1, 0)
 			blinded = 1
-			stat = UNCONSCIOUS
+			set_stat(UNCONSCIOUS)
 		else if(resting)
-			if(halloss > 0)
-				adjustHalLoss(-3)
+			if(getHalLoss() > 0)
+				adjustHalLoss(-0.3 * seconds_per_tick)
 
 		else
-			stat = CONSCIOUS
-			if(halloss > 0)
-				adjustHalLoss(-1)
+			set_stat(CONSCIOUS)
+			if(getHalLoss() > 0)
+				adjustHalLoss(-0.1 * seconds_per_tick)
 
 		// Eyes and blindness.
 		if(!has_eyes())
@@ -86,29 +84,27 @@
 		else if(eye_blurry)
 			eye_blurry = max(eye_blurry-1, 0)
 
-		update_icons()
+		update_icon()
 
 	return 1
 
 /mob/living/carbon/alien/handle_regular_hud_updates()
-	if (!..())
-		return//Returns if no client
+	if(!..())
+		return // Returns if no client.
 
-	if (stat == 2 || (XRAY in src.mutations))
-		sight |= (SEE_TURFS|SEE_MOBS|SEE_OBJS)
-		see_in_dark = 8
-		see_invisible = SEE_INVISIBLE_LEVEL_TWO
-	else if (stat != 2 && is_ventcrawling == 0)
-		if (species && species.vision_flags)
+	if(stat == DEAD || (mutations & XRAY))
+		set_sight(sight|SEE_TURFS|SEE_MOBS|SEE_OBJS)
+		set_see_invisible(SEE_INVISIBLE_LEVEL_TWO)
+	else if(stat != DEAD && is_ventcrawling == FALSE)
+		if(species && species.vision_flags)
 			sight = species.vision_flags
 		else
-			sight &= ~(SEE_TURFS|SEE_MOBS|SEE_OBJS)
-		see_in_dark = 2
-		see_invisible = SEE_INVISIBLE_LIVING
+			set_sight(sight&(~SEE_TURFS)&(~SEE_MOBS)&(~SEE_OBJS))
+		set_see_invisible(SEE_INVISIBLE_LIVING)
 
 	if (healths)
-		if (stat != 2)
-			switch(health - halloss)//Halloss should be factored in here for displaying
+		if (stat != DEAD)
+			switch((health - getHalLoss()) / maxhealth * 100) // Halloss should be factored in here for displaying
 				if(100 to INFINITY)
 					healths.icon_state = "health0"
 				if(80 to 100)
@@ -126,23 +122,17 @@
 		else
 			healths.icon_state = "health7"
 
-	client.screen.Remove(global_hud.blurry,global_hud.druggy,global_hud.vimpaired)
+	client.screen.Remove(GLOB.global_hud.blurry, GLOB.global_hud.druggy, GLOB.global_hud.vimpaired)
 
-	if ((blind && stat != 2))
-		if ((blinded))
-			blind.invisibility = 0
+	if(stat != DEAD)
+		if(blinded)
+			overlay_fullscreen("blind", /atom/movable/screen/fullscreen/blind)
 		else
-			blind.invisibility = 101
-			if (disabilities & NEARSIGHTED)
-				client.screen += global_hud.vimpaired
-			if (eye_blurry)
-				client.screen += global_hud.blurry
-			if (druggy)
-				client.screen += global_hud.druggy
-
-	if (stat != 2)
-		if (machine)
-			if ( machine.check_eye(src) < 0)
+			clear_fullscreen("blind")
+			set_fullscreen(disabilities & NEARSIGHTED, "impaired", /atom/movable/screen/fullscreen/impaired, 1)
+			set_fullscreen(eye_blurry, "blurry", /atom/movable/screen/fullscreen/blurry)
+		if(machine)
+			if (machine.check_eye(src) < 0)
 				reset_view(null)
 		else
 			if(client && !client.adminobs)
@@ -151,20 +141,19 @@
 	return 1
 
 /mob/living/carbon/alien/handle_environment(var/datum/gas_mixture/environment)
+	..()
 	// Both alien subtypes survive in vaccum and suffer in high temperatures,
 	// so I'll just define this once, for both (see radiation comment above)
 	if(!environment) return
 
 	if(environment.temperature > (T0C+66))
 		adjustFireLoss((environment.temperature - (T0C+66))/5) // Might be too high, check in testing.
-		if (fire) fire.icon_state = "fire2"
 		if(prob(20))
-			src << "<span class='danger'>You feel a searing heat!</span>"
-	else
-		if (fire) fire.icon_state = "fire0"
+			to_chat(src, SPAN_DANGER("You feel a searing heat!"))
 
-/mob/living/carbon/alien/handle_fire()
+/mob/living/carbon/alien/handle_fire(var/seconds_per_tick, var/datum/gas_mixture/environment)
 	if(..())
 		return
-	bodytemperature += BODYTEMP_HEATING_MAX //If you're on fire, you heat up!
+	// Increment bodytemp up by up to BODYTEMP_HEATING_MAX C / sec.
+	bodytemperature += BODYTEMP_HEATING_MAX * 20 * seconds_per_tick
 	return

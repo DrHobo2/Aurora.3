@@ -1,0 +1,92 @@
+// Custodial Locker
+/obj/structure/closet/secure_closet/custodial
+	name = "custodial closet"
+	desc = "It's a storage unit for a custodian's clothes and gear."
+	icon_state = "custodial"
+	req_access = list(/datum/access/janitor::id)
+
+/obj/structure/closet/secure_closet/custodial/fill()
+	new /obj/item/radio/headset/headset_service(src)
+	new /obj/item/storage/box/janitorgloves(src)
+	new /obj/item/storage/belt/custodial(src)
+	new /obj/item/clothing/accessory/holster/utility/custodial/hip(src)
+	new /obj/item/clothing/accessory/holster/utility/custodial/armpit(src)
+	new /obj/item/clothing/shoes/galoshes(src)
+	new /obj/item/gun/energy/mousegun(src)
+	new /obj/item/flashlight(src)
+	new /obj/item/reagent_containers/spray/cleaner(src)
+	new /obj/item/soap/nanotrasen(src)
+	new /obj/item/reagent_containers/glass/rag(src)
+	new /obj/item/reagent_containers/glass/rag/advanced(src)
+	new /obj/item/lightreplacer(src)
+	new /obj/item/storage/bag/trash(src)
+	new /obj/item/grenade/chem_grenade/cleaner(src)
+	new /obj/item/grenade/chem_grenade/cleaner(src)
+	new /obj/item/grenade/chem_grenade/cleaner(src)
+	new /obj/item/gps/janitor(src)
+	new /obj/item/taperoll/custodial(src)
+	new /obj/item/storage/box/lights/mixed(src)
+	new /obj/item/storage/box/mousetraps(src)
+	new /obj/item/storage/box/cleaner_tablets(src)
+
+// Away Ship/Site Custodial Locker
+/obj/structure/closet/secure_closet/custodial/offship
+	req_access = null
+
+/obj/structure/closet/secure_closet/custodial/offship/fill()
+	new /obj/item/storage/box/janitorgloves(src)
+	new /obj/item/storage/belt/custodial(src)
+	new /obj/item/clothing/shoes/galoshes(src)
+	new /obj/item/flashlight(src)
+	new /obj/item/reagent_containers/spray/cleaner(src)
+	new /obj/item/soap/red_soap(src)
+	new /obj/item/reagent_containers/glass/rag(src)
+	new /obj/item/lightreplacer(src)
+	new /obj/item/storage/bag/trash(src)
+	new /obj/item/grenade/chem_grenade/cleaner(src)
+	new /obj/item/grenade/chem_grenade/cleaner(src)
+	new /obj/item/grenade/chem_grenade/cleaner(src)
+	new /obj/item/taperoll/custodial(src)
+	new /obj/item/clothing/suit/caution(src)
+	new /obj/item/clothing/suit/caution(src)
+	new /obj/item/clothing/suit/caution(src)
+	new /obj/item/clothing/suit/caution(src)
+	new /obj/item/storage/box/lights/mixed(src)
+	new /obj/item/storage/box/mousetraps(src)
+
+// Journalist's Locker
+/obj/structure/closet/secure_closet/journalist
+	name = "journalist's closet"
+	desc = "It's a storage unit for a journalist's gear."
+	req_access = list(/datum/access/journalist::id)
+
+/obj/structure/closet/secure_closet/journalist/fill()
+	// Clothing
+	new /obj/item/radio(src)
+	new /obj/item/radio/headset/headset_service(src)
+	new /obj/item/radio/headset/wrist/service(src)
+	new /obj/item/radio/headset/wrist/clip/service(src)
+	new /obj/item/storage/backpack/satchel/leather(src)
+	new /obj/item/storage/briefcase/black(src)
+	new /obj/item/storage/secure/briefcase(src)
+	new /obj/item/clothing/head/helmet/security/press(src)
+	new /obj/item/clothing/suit/armor/carrier/press(src)
+	new /obj/item/storage/wallet/lanyard/press(src)
+	// Supply
+	new /obj/item/storage/photo_album(src)
+	new /obj/item/camera_film(src)
+	new /obj/item/camera_film(src)
+	new /obj/item/paper_scanner(src)
+	new /obj/item/storage/slide_projector(src)
+	new /obj/item/storage/box/folders(src)
+	new /obj/item/stack/wrapping_paper(src)
+	new /obj/item/stack/packageWrap(src)
+	new /obj/item/portable_whiteboard(src)
+	new /obj/item/tape_roll(src)
+	// Tools
+	new /obj/item/radio/microphone(src)
+	new /obj/item/taperecorder(src)
+	new /obj/item/tvcamera(src)
+	new /obj/item/camera/detective/press(src)
+	new /obj/item/hand_labeler(src)
+	new /obj/item/destTagger(src)

@@ -3,6 +3,7 @@
 	name = "corgi"
 	real_name = "corgi"
 	desc = "It's a corgi."
+	icon = 'icons/mob/npc/pets.dmi'
 	icon_state = "corgi"
 	icon_living = "corgi"
 	icon_dead = "corgi_dead"
@@ -12,78 +13,82 @@
 	emote_see = list("shakes its head", "shivers")
 	speak_chance = 1
 	turns_per_move = 10
-	meat_type = /obj/item/weapon/reagent_containers/food/snacks/meat/corgi
+	meat_type = /obj/item/reagent_containers/food/snacks/meat/corgi
 	meat_amount = 3
+	organ_names = list("head", "chest", "right fore leg", "left fore leg", "right rear leg", "left rear leg")
 	response_help  = "pets"
 	response_disarm = "bops"
 	response_harm   = "kicks"
-	see_in_dark = 5
-	mob_size = 5
-	max_nutrition = 250	//Dogs are insatiable eating monsters. This scales with their mob size too
-	stomach_size_mult = 30
+	mob_size = 3.5
+	max_nutrition = 70	//Dogs are insatiable eating monsters. This scales with their mob size too
+	stomach_size_mult = 8
 	seek_speed = 6
 	possession_candidate = 1
+	canbrush = TRUE
+	holder_type = /obj/item/holder/corgi
 
-	holder_type = /obj/item/weapon/holder/corgi
+	butchering_products = list(/obj/item/stack/material/animalhide/corgi = 3)
 
 	var/obj/item/inventory_head
 	var/obj/item/inventory_back
+	emote_sounds = list('sound/effects/creatures/dog_bark.ogg', 'sound/effects/creatures/dog_bark2.ogg', 'sound/effects/creatures/dog_bark3.ogg')
 
 /mob/living/simple_animal/corgi/Initialize()
 	. = ..()
-	nutrition = max_nutrition * 0.3	//Ian doesn't start with a full belly so will be hungry at roundstart
-	nutrition_step = mob_size * 0.12
+	nutrition = max_nutrition * 0.8	//They can start a little hungry, but let's no go crazy
 
 //IAN! SQUEEEEEEEEE~
 /mob/living/simple_animal/corgi/Ian
 	name = "Ian"
 	real_name = "Ian"	//Intended to hold the name without altering it.
 	gender = MALE
-	desc = "It's a corgi."
+	desc = "It's Ian the corgi."
+	icon = 'icons/mob/npc/pets.dmi'
+	icon_state = "ian"
+	icon_living = "ian"
+	icon_dead = "ian_dead"
+	named = TRUE
 	//var/obj/movement_target
 	response_help  = "pets"
 	response_disarm = "bops"
 	response_harm   = "kicks"
+	holder_type = /obj/item/holder/ian
 
 /mob/living/simple_animal/corgi/Ian/think()
 	..()
 
-	if(!stat && !resting && !buckled)
+	if(!stat && !resting && !buckled_to)
 		if(prob(1))
-			visible_emote(pick("dances around","chases their tail"),0)
-			INVOKE_ASYNC(src, .proc/do_dance, list(1,2,4,8,4,2,1,2,4,8,4,2,1,2,4,8,4,2))
+			visible_emote(pick("dances around.","chases their tail."),0)
+			INVOKE_ASYNC(src, PROC_REF(do_dance), list(1,2,4,8,4,2,1,2,4,8,4,2,1,2,4,8,4,2))
 
 /mob/living/simple_animal/corgi/proc/do_dance(list/directions = list())
 	for(var/i in directions)
 		set_dir(i)
 		sleep(1)
 
-/mob/living/simple_animal/corgi/beg(var/atom/thing, var/atom/holder)
-	visible_emote("stares at the [thing] that [holder] has with sad puppy eyes.",0)
-
-/obj/item/weapon/reagent_containers/food/snacks/meat/corgi
+/obj/item/reagent_containers/food/snacks/meat/corgi
 	name = "Corgi meat"
 	desc = "Tastes like... well you know..."
 
-/mob/living/simple_animal/corgi/attackby(var/obj/item/O as obj, var/mob/user as mob)  //Marker -Agouri
-	if(istype(O, /obj/item/weapon/newspaper))
+/mob/living/simple_animal/corgi/attackby(obj/item/attacking_item, mob/user)  //Marker -Agouri
+	if(istype(attacking_item, /obj/item/newspaper))
 		if(!stat)
 			visible_message(
-				"<span class='notice'>[user] baps [src] on the nose with the rolled up [O.name].</span>",
-				"<span class='alert'>[user] baps you on the nose with the rolled up [O.name]!</span>"
+				SPAN_NOTICE("[user] baps [src] on the nose with the rolled up [attacking_item.name]."),
+				SPAN_ALERT("[user] baps you on the nose with the rolled up [attacking_item.name]!")
 			)
 			scan_interval = max_scan_interval
-			movement_target = null
-			foodtarget = 0
+			lostMovementTarget()
 			stop_automated_movement = 0
 			turns_since_scan = 0
 
-			INVOKE_ASYNC(src, .proc/do_dance, list(1,2,4,8,4,2,1,2))
+			INVOKE_ASYNC(src, PROC_REF(do_dance), list(1,2,4,8,4,2,1,2))
 	else
-		..()
+		return ..()
 
 /mob/living/simple_animal/corgi/regenerate_icons()
-	cut_overlays()
+	ClearOverlays()
 
 	if(inventory_head)
 		var/head_icon_state = inventory_head.icon_state
@@ -92,7 +97,7 @@
 
 		var/icon/head_icon = image('icons/mob/corgi_head.dmi',head_icon_state)
 		if(head_icon)
-			add_overlay(head_icon)
+			AddOverlays(head_icon)
 
 	if(inventory_back)
 		var/back_icon_state = inventory_back.icon_state
@@ -101,7 +106,7 @@
 
 		var/icon/back_icon = image('icons/mob/corgi_back.dmi',back_icon_state)
 		if(back_icon)
-			add_overlay(back_icon)
+			AddOverlays(back_icon)
 
 /mob/living/simple_animal/corgi/puppy
 	name = "corgi puppy"
@@ -110,11 +115,14 @@
 	icon_state = "puppy"
 	icon_living = "puppy"
 	icon_dead = "puppy_dead"
+	holder_type = /obj/item/holder/corgi
+
+	butchering_products = list(/obj/item/stack/material/animalhide/corgi = 1)
 
 //pupplies cannot wear anything.
 /mob/living/simple_animal/corgi/puppy/Topic(href, href_list)
 	if(href_list["remove_inv"] || href_list["add_inv"])
-		usr << "<span class='warning'>You can't fit this on [src]</span>"
+		to_chat(usr, SPAN_WARNING("You can't fit this on [src]"))
 		return
 	..()
 
@@ -125,24 +133,26 @@
 	real_name = "Lisa"
 	gender = FEMALE
 	desc = "It's a corgi with a cute pink bow."
+	named = TRUE
 	icon_state = "lisa"
 	icon_living = "lisa"
 	icon_dead = "lisa_dead"
 	response_help  = "pets"
 	response_disarm = "bops"
 	response_harm   = "kicks"
+	holder_type = /obj/item/holder/lisa
 	var/puppies = 0
 
 //Lisa already has a cute bow!
 /mob/living/simple_animal/corgi/Lisa/Topic(href, href_list)
 	if(href_list["remove_inv"] || href_list["add_inv"])
-		usr << "<span class='warning'>[src] already has a cute bow!</span>"
+		to_chat(usr, SPAN_WARNING("[src] already has a cute bow!"))
 		return
 	..()
 
 /mob/living/simple_animal/corgi/Lisa/think()
 	..()
-	if(!stat && !resting && !buckled)
+	if(!stat && !resting && !buckled_to)
 		turns_since_scan++
 		if(turns_since_scan > 15)
 			turns_since_scan = 0
@@ -164,6 +174,6 @@
 				new /mob/living/simple_animal/corgi/puppy(loc)
 				puppies++
 
-	if (!stat && !resting && !buckled && prob(1))
+	if (!stat && !resting && !buckled_to && prob(1))
 		visible_emote(pick("dances around","chases her tail"),0)
-		INVOKE_ASYNC(src, .proc/do_dance, list(1,2,4,8,4,2,1,2,4,8,4,2,1,2,4,8,4,2))
+		INVOKE_ASYNC(src, PROC_REF(do_dance), list(1,2,4,8,4,2,1,2,4,8,4,2,1,2,4,8,4,2))

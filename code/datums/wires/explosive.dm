@@ -1,31 +1,39 @@
 /datum/wires/explosive
-	wire_count = 1
+	// If we ever get an explosives or similar skill...
+	associated_skill = null
 
-var/const/WIRE_EXPLODE = 1
+/datum/wires/explosive/New()
+	wires = list(
+		WIRE_EXPLODE
+	)
+	add_duds(4)
+	..()
 
 /datum/wires/explosive/proc/explode()
 	return
 
-/datum/wires/explosive/UpdatePulsed(var/index)
-	switch(index)
+/datum/wires/explosive/on_pulse(wire)
+	switch(wire)
 		if(WIRE_EXPLODE)
 			explode()
 
-/datum/wires/explosive/UpdateCut(var/index, var/mended)
-	switch(index)
+/datum/wires/explosive/on_cut(wire, mend, source)
+	switch(wire)
 		if(WIRE_EXPLODE)
-			if(!mended)
+			if(!mend)
 				explode()
 
 /datum/wires/explosive/c4
-	holder_type = /obj/item/weapon/plastique
+	holder_type = /obj/item/plastique
 
-/datum/wires/explosive/c4/CanUse(var/mob/living/L)
-	var/obj/item/weapon/plastique/P = holder
+/datum/wires/explosive/c4/interactable(mob/user)
+	if(!..())
+		return FALSE
+	var/obj/item/plastique/P = holder
 	if(P.open_panel)
-		return 1
-	return 0
+		return TRUE
+	return FALSE
 
 /datum/wires/explosive/c4/explode()
-	var/obj/item/weapon/plastique/P = holder
+	var/obj/item/plastique/P = holder
 	P.explode(get_turf(P))

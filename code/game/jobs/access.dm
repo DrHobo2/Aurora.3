@@ -1,8 +1,5 @@
 //This file was auto-corrected by findeclaration.exe on 25.5.2012 20:42:31
 
-/obj/var/list/req_access
-/obj/var/list/req_one_access
-
 //returns 1 if this mob has sufficient access to use this object
 /obj/proc/allowed(mob/M)
 	//check if it doesn't require any access at all
@@ -15,7 +12,8 @@
 	return 0
 
 /obj/item/proc/GetAccess()
-	return list()
+	var/obj/item/card/id = GetID()
+	return istype(id) ? id.GetAccess() : list()
 
 /obj/proc/GetID()
 	return null
@@ -41,56 +39,76 @@
 
 /proc/get_centcom_access(job)
 	switch(job)
-		if("VIP Guest")
-			return list(access_cent_general)
-		if("Custodian")
-			return list(access_cent_general, access_cent_living, access_cent_storage)
-		if("Thunderdome Overseer")
-			return list(access_cent_general, access_cent_thunder)
-		if("Intel Officer")
-			return list(access_cent_general, access_cent_living)
-		if("Medical Officer")
-			return list(access_cent_general, access_cent_living, access_cent_medical)
+		if("SCC Agent", "SCC Executive", "SCC Bodyguard")
+			return list(/datum/access/cent_general::id, /datum/access/cent_ccia::id, /datum/access/cent_specops::id)
+		if("CCIA Agent")
+			return list(/datum/access/cent_general::id, /datum/access/cent_ccia::id, /datum/access/cent_specops::id)
+		if("Emergency Response Team")
+			return list(/datum/access/cent_general::id, /datum/access/cent_specops::id, /datum/access/cent_living::id)
+		if("Odin Security")
+			return list(/datum/access/cent_general::id, /datum/access/cent_specops::id, /datum/access/cent_living::id)
+		if("Medical Doctor")
+			return list(/datum/access/cent_general::id, /datum/access/cent_medical::id)
+		if("Service")
+			return list(/datum/access/cent_general::id, /datum/access/cent_living::id)
 		if("Death Commando")
-			return list(access_cent_general, access_cent_specops, access_cent_living, access_cent_storage)
-		if("Research Officer")
-			return list(access_cent_general, access_cent_specops, access_cent_medical, access_cent_teleporter, access_cent_storage)
+			return list(/datum/access/cent_general::id, /datum/access/cent_specops::id, /datum/access/cent_living::id, /datum/access/cent_storage::id, /datum/access/cent_medical::id)
 		if("BlackOps Commander")
-			return list(access_cent_general, access_cent_thunder, access_cent_specops, access_cent_living, access_cent_storage, access_cent_creed)
+			return list(/datum/access/cent_general::id, /datum/access/cent_thunder::id, /datum/access/cent_specops::id, /datum/access/cent_living::id, /datum/access/cent_storage::id, /datum/access/cent_creed::id)
+		if("NanoTrasen Representative") //Adminspawn roles
+			return get_all_centcom_access()
 		if("Supreme Commander")
 			return get_all_centcom_access()
-		if("CCIA Agent")
-			return list(access_cent_general, access_cent_captain, access_cent_living, access_cent_storage)
-		if("Emergency Response Team")
-			return list(access_cent_general, access_cent_specops, access_cent_living, access_cent_storage)
 
-/var/list/datum/access/priv_all_access_datums
+	LOG_DEBUG("Invalid job [job] passed to get_centcom_access")
+	return list()
+
+/proc/get_syndicate_access(job)
+	switch(job)
+		if("Syndicate Operative")
+			return list(/datum/access/syndicate::id)
+		if("Syndicate Operative Leader")
+			return list(/datum/access/syndicate::id, /datum/access/syndicate_leader::id)
+		if("Syndicate Agent")
+			return list(/datum/access/syndicate::id, /datum/access/maint_tunnels::id)
+		if("Syndicate Commando")
+			return list(/datum/access/syndicate::id, /datum/access/syndicate_leader::id)
+	LOG_DEBUG("Invalid job [job] passed to get_syndicate_access")
+	return list()
+
+/proc/get_distress_access()
+	return list(/datum/access/distress::id, /datum/access/maint_tunnels::id, /datum/access/external_airlocks::id, /datum/access/security::id, /datum/access/engine::id, /datum/access/engine_equip::id, /datum/access/medical::id, /datum/access/research::id, /datum/access/atmospherics::id, /datum/access/medical_equip::id, /datum/access/construction::id)
+
+/proc/get_distress_access_lesser()
+	return list(/datum/access/distress::id, /datum/access/external_airlocks::id)
+
+GLOBAL_LIST_INIT_TYPED(priv_all_access_datums, /datum/access, null)
 /proc/get_all_access_datums()
-	if(!priv_all_access_datums)
-		priv_all_access_datums = init_subtypes(/datum/access)
-		sortTim(priv_all_access_datums, /proc/cmp_access, FALSE)
+	if(!GLOB.priv_all_access_datums)
+		GLOB.priv_all_access_datums = init_subtypes(/datum/access)
+		sortTim(GLOB.priv_all_access_datums, GLOBAL_PROC_REF(cmp_access), FALSE)
 
-	return priv_all_access_datums
+	return GLOB.priv_all_access_datums
 
-/var/list/datum/access/priv_all_access_datums_id
+GLOBAL_LIST_INIT_TYPED(priv_all_access_datums_id, /datum/access, null)
 /proc/get_all_access_datums_by_id()
-	if(!priv_all_access_datums_id)
-		priv_all_access_datums_id = list()
+	if(!GLOB.priv_all_access_datums_id)
+		GLOB.priv_all_access_datums_id = list()
 		for(var/datum/access/A in get_all_access_datums())
-			priv_all_access_datums_id["[A.id]"] = A
+			GLOB.priv_all_access_datums_id["[A.id]"] = A
 
-	return priv_all_access_datums_id
+	return GLOB.priv_all_access_datums_id
 
-/var/list/datum/access/priv_all_access_datums_region
+GLOBAL_LIST_INIT_TYPED(priv_all_access_datums_region, /datum/access, null)
 /proc/get_all_access_datums_by_region()
-	if(!priv_all_access_datums_region)
-		priv_all_access_datums_region = list()
+	if(!GLOB.priv_all_access_datums_region)
+		GLOB.priv_all_access_datums_region = list()
 		for(var/datum/access/A in get_all_access_datums())
-			if(!priv_all_access_datums_region[A.region])
-				priv_all_access_datums_region[A.region] = list()
-			priv_all_access_datums_region[A.region] += A
+			if(!GLOB.priv_all_access_datums_region[A.region])
+				GLOB.priv_all_access_datums_region[A.region] = list()
+			GLOB.priv_all_access_datums_region[A.region] += A
 
-	return priv_all_access_datums_region
+	return GLOB.priv_all_access_datums_region
 
 /proc/get_access_ids(var/access_types = ACCESS_TYPE_ALL)
 	var/list/L = new()
@@ -99,47 +117,47 @@
 			L += A.id
 	return L
 
-/var/list/priv_all_access
+GLOBAL_LIST(priv_all_access)
 /proc/get_all_accesses()
-	if(!priv_all_access)
-		priv_all_access = get_access_ids()
+	if(!GLOB.priv_all_access)
+		GLOB.priv_all_access = get_access_ids()
 
-	return priv_all_access.Copy()
+	return GLOB.priv_all_access.Copy()
 
-/var/list/priv_station_access
+GLOBAL_LIST(priv_station_access)
 /proc/get_all_station_access()
-	if(!priv_station_access)
-		priv_station_access = get_access_ids(ACCESS_TYPE_STATION)
+	if(!GLOB.priv_station_access)
+		GLOB.priv_station_access = get_access_ids(ACCESS_TYPE_STATION)
 
-	return priv_station_access.Copy()
+	return GLOB.priv_station_access.Copy()
 
-/var/list/priv_centcom_access
+GLOBAL_LIST(priv_centcom_access)
 /proc/get_all_centcom_access()
-	if(!priv_centcom_access)
-		priv_centcom_access = get_access_ids(ACCESS_TYPE_CENTCOM)
+	if(!GLOB.priv_centcom_access)
+		GLOB.priv_centcom_access = get_access_ids(ACCESS_TYPE_CENTCOM)
 
-	return priv_centcom_access.Copy()
+	return GLOB.priv_centcom_access.Copy()
 
-/var/list/priv_syndicate_access
+GLOBAL_LIST(priv_syndicate_access)
 /proc/get_all_syndicate_access()
-	if(!priv_syndicate_access)
-		priv_syndicate_access = get_access_ids(ACCESS_TYPE_SYNDICATE)
+	if(!GLOB.priv_syndicate_access)
+		GLOB.priv_syndicate_access = get_access_ids(ACCESS_TYPE_SYNDICATE)
 
-	return priv_syndicate_access.Copy()
+	return GLOB.priv_syndicate_access.Copy()
 
-/var/list/priv_region_access
+GLOBAL_LIST(priv_region_access)
 /proc/get_region_accesses(var/code)
 	if(code == ACCESS_REGION_ALL)
 		return get_all_station_access()
 
-	if(!priv_region_access)
-		priv_region_access = list()
+	if(!GLOB.priv_region_access)
+		GLOB.priv_region_access = list()
 		for(var/datum/access/A in get_all_access_datums())
-			if(!priv_region_access["[A.region]"])
-				priv_region_access["[A.region]"] = list()
-			priv_region_access["[A.region]"] += A.id
+			if(!GLOB.priv_region_access["[A.region]"])
+				GLOB.priv_region_access["[A.region]"] = list()
+			GLOB.priv_region_access["[A.region]"] += A.id
 
-	return priv_region_access["[code]"]
+	return GLOB.priv_region_access["[code]"]
 
 /proc/get_region_accesses_name(var/code)
 	switch(code)
@@ -158,7 +176,7 @@
 		if(ACCESS_REGION_GENERAL) //station general
 			return "Station General"
 		if(ACCESS_REGION_SUPPLY) //supply
-			return "Supply"
+			return "Operations"
 
 /proc/get_access_desc(id)
 	var/list/AS = get_all_access_datums_by_id()
@@ -172,7 +190,7 @@
 /proc/get_all_jobs()
 	var/list/all_jobs = list()
 	var/list/all_datums = typesof(/datum/job)
-	all_datums -= exclude_jobs
+	all_datums -= GLOB.exclude_jobs
 	var/datum/job/jobdatum
 	for(var/jobtype in all_datums)
 		jobdatum = new jobtype
@@ -180,62 +198,74 @@
 	return all_jobs
 
 /proc/get_all_centcom_jobs()
-	return list("VIP Guest",
-		"Custodian",
-		"Thunderdome Overseer",
-		"Intel Officer",
-		"General",
+	return list("NanoTrasen Representative",
+		"NanoTrasen Navy Officer",
+		"NanoTrasen Navy Captain",
+		"ERT Protection Detail",
+		"ERT Commander",
 		"Bluespace Technician",
-		"Internal Affairs Agent",
-		"VIP Guest",
-		"Medical Officer",
-		"Death Commando",
-		"Research Officer",
-		"BlackOps Commander",
-		"Supreme Commander",
+		"CCIA Agent",
+		"CCIA Escort",
+		"Odin Checkpoint Security",
+		"Odin Security",
+		"Aurora Prepatory Wing Security",
+		"Odin Medical Doctor",
+		"Odin Pharmacist",
+		"Odin Chef",
+		"Odin Bartender",
+		"Sanitation Specialist",
 		"Emergency Response Team",
 		"Emergency Response Team Leader",
 		"Emergency Responder",
-		"Central Command Internal Affairs Agent")
+		"Death Commando")
 
 /mob/proc/GetIdCard()
 	return null
 
-var/obj/item/weapon/card/id/all_access/ghost_all_access
-/mob/abstract/observer/GetIdCard()
+GLOBAL_LIST_INIT_TYPED(ghost_all_access, /obj/item/card/id/all_access, list())
+/mob/abstract/ghost/observer/GetIdCard()
 	if(!is_admin(src))
 		return
 
-	if(!ghost_all_access)
-		ghost_all_access = new()
-	return ghost_all_access
+	if(!GLOB.ghost_all_access)
+		GLOB.ghost_all_access = new()
+	return GLOB.ghost_all_access
 
 /mob/living/bot/GetIdCard()
 	return botcard
 
-/mob/living/carbon/human/GetIdCard()
+/mob/living/simple_animal/spiderbot/GetIdCard()
+	return internal_id
+
+/mob/living/carbon/human/GetIdCard(var/ignore_hand = FALSE)
 	var/obj/item/I = get_active_hand()
-	if(I)
+	if(I && !ignore_hand)
 		var/id = I.GetID()
 		if(id)
 			return id
 	if(wear_id)
-		return wear_id.GetID()
+		var/id = wear_id.GetID()
+		if(id)
+			return id
+	if(wrists)
+		var/id = wrists.GetID()
+		if(id)
+			return id
 
 /mob/living/silicon/GetIdCard()
-	return idcard
+	return id_card
 
-proc/FindNameFromID(var/mob/M, var/missing_id_name = "Unknown")
-	var/obj/item/weapon/card/id/C = M.GetIdCard()
+/proc/FindNameFromID(var/mob/M, var/missing_id_name = "Unknown")
+	var/obj/item/card/id/C = M.GetIdCard()
 	if(C)
 		return C.registered_name
 	return missing_id_name
 
-proc/get_all_job_icons() //For all existing HUD icons
-	return joblist + list("Prisoner")
+/proc/get_all_job_icons() //For all existing HUD icons
+	return GLOB.joblist + list("Prisoner")
 
 /obj/proc/GetJobName() //Used in secHUD icon generation
-	var/obj/item/weapon/card/id/I = GetID()
+	var/obj/item/card/id/I = GetID()
 
 	if(I)
 		var/job_icons = get_all_job_icons()

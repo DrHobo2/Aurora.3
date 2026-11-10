@@ -1,23 +1,24 @@
-/obj/item/custom_ka_upgrade/cells/attack_self(mob/user as mob)
-
+/obj/item/custom_ka_upgrade/cells/attack_self(mob/user)
 	if(is_pumping)
 		return
 
 	if(pump_restore)
 		is_pumping = TRUE
 		if(stored_charge >= cell_increase)
-			to_chat(user,"The pump on the [src] refuses to move.")
+			to_chat(user, SPAN_WARNING("The pump on \the [src] refuses to move."))
 		else
-			if(!pump_delay || do_after(user,pump_delay,use_user_turf = -1))
-				if(isturf(src.loc))
-					to_chat(user,"You pump \the [src].")
-				else
-					to_chat(user,"You pump \the [src.loc].")
-				stored_charge = min(stored_charge + pump_restore,cell_increase)
-				playsound(src,'sound/weapons/kenetic_reload.ogg', 50, 0)
+			if(!pump_delay || do_after(user, pump_delay, do_flags = (DO_SHOW_PROGRESS|DO_USER_CAN_MOVE|DO_USER_CAN_TURN)))
+				if(last_pump < world.time)
+					if(isturf(src.loc))
+						to_chat(user, SPAN_NOTICE("You pump \the [src]."))
+					else
+						to_chat(user, SPAN_NOTICE("You pump \the [src.loc]."))
+					last_pump = world.time + 100 // every ten seconds
+				stored_charge = min(stored_charge + pump_restore, cell_increase)
+				playsound(src, 'sound/weapons/kinetic_reload.ogg', 50, FALSE)
 
 		is_pumping = FALSE
-		user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
+		user.setClickCooldown(DEFAULT_QUICK_COOLDOWN)
 
 /obj/item/custom_ka_upgrade/cells/cell01
 	//Pump Action
@@ -89,7 +90,7 @@
 
 	origin_tech = list(TECH_MATERIAL = 5,TECH_ENGINEERING = 4,TECH_MAGNET = 3,TECH_POWER = 5)
 
-/obj/item/custom_ka_upgrade/cells/cell04/on_update(var/obj/item/weapon/gun/custom_ka/the_gun)
+/obj/item/custom_ka_upgrade/cells/cell04/on_update(var/obj/item/gun/custom_ka/the_gun)
 	stored_charge = min(stored_charge + 3,cell_increase)
 
 /obj/item/custom_ka_upgrade/cells/cell05
@@ -112,7 +113,7 @@
 
 	disallow_chip = TRUE
 
-/obj/item/custom_ka_upgrade/cells/cell05/on_fire(var/obj/item/weapon/gun/custom_ka/the_gun)
+/obj/item/custom_ka_upgrade/cells/cell05/on_fire(var/obj/item/gun/custom_ka/the_gun)
 	if(the_gun.recoil_increase > 0)
 		stored_charge = min(stored_charge + min(the_gun.recoil_increase*2,the_gun.cost_increase*0.5),cell_increase)
 
@@ -134,38 +135,73 @@
 
 	origin_tech = list()
 
-/obj/item/custom_ka_upgrade/cells/cyborg/on_update(var/obj/item/weapon/gun/custom_ka/the_gun)
+/obj/item/custom_ka_upgrade/cells/cyborg/on_update(var/obj/item/gun/custom_ka/the_gun)
 	var/mob/living/silicon/robot/owner_robot = the_gun.loc
 	if(!istype(owner_robot))
 		return
 
-	var/obj/item/weapon/cell/external = owner_robot.cell
+	var/obj/item/cell/external = owner_robot.cell
 	var/charge_to_give = cell_increase - stored_charge
 	if(istype(external) && external.use(charge_to_give*5))
+		stored_charge += charge_to_give
+
+/obj/item/custom_ka_upgrade/cells/exosuit
+	name = "exosuit KA cell"
+	build_name = "battery powered"
+	desc = "A pumpless cell assembly that leaches power from the exosuit's power core."
+	icon_state = "cell_cyborg"
+	damage_increase = 0
+	recoil_increase = 0
+	cost_increase = 0
+	cell_increase = 150
+	capacity_increase = 0
+	mod_limit_increase = 0
+	firedelay_increase = 0.1 SECONDS
+
+	pump_restore = 0
+	pump_delay = 0
+
+	origin_tech = list()
+
+/obj/item/custom_ka_upgrade/cells/exosuit/on_update(var/obj/item/gun/custom_ka/the_gun)
+	var/charge_to_give = cell_increase - stored_charge
+	if(!charge_to_give)
+		return
+
+	var/obj/item/mecha_equipment/mounted_system/mining/kinetic_accelerator/owner_equipment = the_gun.loc
+	if(!istype(owner_equipment))
+		return
+
+	var/mob/living/heavy_vehicle/owner_exosuit = owner_equipment.loc
+	if(!istype(owner_exosuit))
+		return
+
+	var/obj/item/cell/external = owner_exosuit.get_cell()
+	if(istype(external) && external.use(charge_to_give * 5))
 		stored_charge += charge_to_give
 
 /obj/item/custom_ka_upgrade/cells/illegal
 	//Pump Action
 	name = "pump action KA cell"
 	build_name = "pump-action"
-	desc = "A clusterfuck of circuitry and battery parts all snuggly fit inside a solid, static plastisteel frame. A single pump is enough for any shot of any weapon."
+	desc = "A clusterfuck of circuitry and battery parts all snuggly fit inside a solid, static plastisteel frame. A single pump is enough to fully charge any set-up."
 	icon_state = "cell_illegal"
 	firedelay_increase = 0
 	recoil_increase = 0
 	cost_increase = -100
-	stored_charge = 1
-	cell_increase = 1
+	stored_charge = 5
+	cell_increase = 5
 	capacity_increase = 0
 	mod_limit_increase = 0
 
-	pump_restore = 1
+	pump_restore = 30
 	pump_delay = 0.3 SECONDS
 
 	origin_tech = list(TECH_MATERIAL = 3,TECH_ENGINEERING = 3,TECH_MAGNET = 3,TECH_POWER = 3, TECH_ILLEGAL = 4)
 
-/obj/item/custom_ka_upgrade/cells/kinetic_charging
-	name = "kinetic charging KA cell"
-	build_name = "kinetic recharging"
+/obj/item/custom_ka_upgrade/cells/inertia_charging
+	name = "inertial charging KA cell"
+	build_name = "inertial recharging"
 	desc = "A curious cell and pump combo that automatically charges based on how much charge is already present in the cell."
 	icon_state = "cell_burst"
 	firedelay_increase = 0.1 SECONDS
@@ -181,7 +217,7 @@
 
 	origin_tech = list(TECH_MATERIAL = 6,TECH_ENGINEERING = 5,TECH_MAGNET = 4,TECH_POWER = 6)
 
-/obj/item/custom_ka_upgrade/cells/kinetic_charging/on_update(var/obj/item/weapon/gun/custom_ka/the_gun)
+/obj/item/custom_ka_upgrade/cells/inertia_charging/on_update(var/obj/item/gun/custom_ka/the_gun)
 	stored_charge = min(stored_charge + round(stored_charge*0.2),cell_increase)
 
 
@@ -203,28 +239,28 @@
 	var/type_to_take = "phoron"
 	var/charge_per_sheet = 100
 
-/obj/item/custom_ka_upgrade/cells/loader/attackby(var/obj/item/I as obj, var/mob/user as mob)
+/obj/item/custom_ka_upgrade/cells/loader/attackby(obj/item/attacking_item, mob/user)
 
-	var/obj/item/stack/material/the_sheet = I
+	var/obj/item/stack/material/the_sheet = attacking_item
 
 	if(istype(the_sheet) && the_sheet.default_type == type_to_take)
 
 		var/amount_to_take = 1
 		if(stored_charge + charge_per_sheet > cell_increase)
-			to_chat(user,"<span class='notice'>You can't put any more [I] into \the [src].</span>")
+			to_chat(user,SPAN_NOTICE("You can't put any more [attacking_item] into \the [src]."))
 			return
 
 		amount_to_take = min(amount_to_take,the_sheet.amount)
 		the_sheet.amount -= amount_to_take
 		stored_charge += amount_to_take*charge_per_sheet
 
-		user.visible_message("<span class='notice'>\The [user] inserts a sheet [I] into \the [src].</span>", \
-			"<span class='notice'>You insert a sheet of [I]s into \the [src].</span>", \
-			"<span class='notice'>You hear mechanical whirring.</span>")
+		user.visible_message(SPAN_NOTICE("\The [user] inserts a sheet [attacking_item] into \the [src]."), \
+			SPAN_NOTICE("You insert a sheet of [attacking_item]s into \the [src]."), \
+			SPAN_NOTICE("You hear mechanical whirring."))
 
 
 		if(the_sheet.amount <= 0)
-			qdel(I)
+			qdel(attacking_item)
 
 /obj/item/custom_ka_upgrade/cells/loader/uranium
 	name = "uranium loading KA cell"
@@ -233,7 +269,7 @@
 	icon_state = "cell_uraniumloader"
 	cell_increase = 300
 	capacity_increase = -5
-
+	firedelay_increase = 0.5 SECONDS
 	pump_restore = 0
 	pump_delay = 0
 
@@ -256,5 +292,5 @@
 
 	origin_tech = list(TECH_MATERIAL = 4,TECH_ENGINEERING = 5,TECH_MAGNET = 4,TECH_POWER = 4)
 
-	type_to_take = "mhydrogen"
+	type_to_take = "metallic hydrogen"
 	charge_per_sheet = 90

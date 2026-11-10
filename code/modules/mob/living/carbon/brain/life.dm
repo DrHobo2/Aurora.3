@@ -3,38 +3,39 @@
 
 /mob/living/carbon/brain/handle_mutations_and_radiation()
 	if (total_radiation)
-		if (total_radiation > 100)
-			total_radiation = 100
+		if (total_radiation > RADS_MAX)
+			total_radiation = RADS_MAX
 			if(!container)//If it's not in an MMI
-				src << "<span class='warning'>You feel weak.</span>"
+				to_chat(src, SPAN_WARNING("You feel weak."))
 			else//Fluff-wise, since the brain can't detect anything itself, the MMI handles thing like that
-				src << "<span class='warning'>STATUS: CRITICAL AMOUNTS OF RADIATION DETECTED.</span>"
+				to_chat(src, SPAN_WARNING("STATUS: CRITICAL AMOUNTS OF RADIATION DETECTED."))
 
 		switch(total_radiation)
-			if(1 to 49)
+			if(RADS_LOW to RADS_MED-1)
 				apply_radiation(-1)
 				if(prob(25))
 					adjustToxLoss(1)
 					updatehealth()
 
-			if(50 to 74)
+			if(RADS_MED to RADS_HIGH-1)
 				apply_radiation(-2)
 				adjustToxLoss(1)
 				if(prob(5))
 					apply_radiation(-5)
 					if(!container)
-						src << "<span class='warning'>You feel weak.</span>"
+						to_chat(src, SPAN_WARNING("You feel weak."))
 					else
-						src << "<span class='danger'>STATUS: DANGEROUS LEVELS OF RADIATION DETECTED.</span>"
+						to_chat(src, SPAN_DANGER("STATUS: DANGEROUS LEVELS OF RADIATION DETECTED."))
 				updatehealth()
 
-			if(75 to 100)
+			if(RADS_HIGH to RADS_MAX)
 				apply_radiation(-3)
 				adjustToxLoss(3)
 				updatehealth()
 
 
 /mob/living/carbon/brain/handle_environment(datum/gas_mixture/environment)
+	..()
 	if(!environment)
 		return
 	var/environment_heat_capacity = environment.heat_capacity()
@@ -55,7 +56,8 @@
 	return //TODO: DEFERRED
 
 /mob/living/carbon/brain/proc/handle_temperature_damage(body_part, exposed_temperature, exposed_intensity)
-	if(status_flags & GODMODE) return
+	if(status_flags & GODMODE)
+		return
 
 	if(exposed_temperature > bodytemperature)
 		var/discomfort = min( abs(exposed_temperature - bodytemperature)*(exposed_intensity)/2000000, 1.0)
@@ -74,7 +76,8 @@
 	analgesic = 0
 
 	if(touching) touching.metabolize()
-	if(ingested) ingested.metabolize()
+	var/datum/reagents/metabolism/ingested = get_ingested_reagents()
+	if(istype(ingested)) ingested.metabolize()
 	if(bloodstr) bloodstr.metabolize()
 	if(breathing) breathing.metabolize()
 
@@ -92,14 +95,14 @@
 
 	return //TODO: DEFERRED
 
-/mob/living/carbon/brain/handle_regular_status_updates()	//TODO: comment out the unused bits >_>
+/mob/living/carbon/brain/handle_regular_status_updates(seconds_per_tick)	//TODO: comment out the unused bits >_>
 	updatehealth()
 
 	if(stat == DEAD)	//DEAD. BROWN BREAD. SWIMMING WITH THE SPESS CARP
 		blinded = 1
 		silent = 0
 	else				//ALIVE. LIGHTS ARE ON
-		if( !container && (health < config.health_threshold_dead || ((world.time - timeofhostdeath) > config.revival_brain_life)) )
+		if(!container && (health < GLOB.config.health_threshold_dead || ((GLOB.config.revival_brain_life != -1) && world.time - timeofhostdeath > GLOB.config.revival_brain_life)))
 			death()
 			blinded = 1
 			silent = 0
@@ -107,7 +110,7 @@
 
 		//Handling EMP effect in the Life(), it's made VERY simply, and has some additional effects handled elsewhere
 		if(emp_damage)			//This is pretty much a damage type only used by MMIs, dished out by the emp_act
-			if(!(container && istype(container, /obj/item/device/mmi)))
+			if(!(container && istype(container, /obj/item/mmi)))
 				emp_damage = 0
 			else
 				emp_damage = round(emp_damage,1)//Let's have some nice numbers to work with
@@ -121,7 +124,7 @@
 					silent = 1
 					if(!alert)//Sounds an alarm, but only once per 'level'
 						emote("alarm")
-						src << "<span class='warning'>Major electrical distruption detected: System rebooting.</span>"
+						to_chat(src, SPAN_WARNING("Major electrical distruption detected: System rebooting."))
 						alert = 1
 					if(prob(75))
 						emp_damage -= 1
@@ -137,7 +140,7 @@
 					ear_damage = 1
 					if(!alert)
 						emote("alert")
-						src << "<span class='warning'>Primary systems are now online.</span>"
+						to_chat(src, SPAN_WARNING("Primary systems are now online."))
 						alert = 1
 					if(prob(50))
 						emp_damage -= 1
@@ -149,13 +152,13 @@
 				if(2 to 9)//Low level of EMP damage, has few effects(handled elsewhere)
 					if(!alert)
 						emote("notice")
-						src << "<span class='warning'>System reboot nearly complete.</span>"
+						to_chat(src, SPAN_WARNING("System reboot nearly complete."))
 						alert = 1
 					if(prob(25))
 						emp_damage -= 1
 				if(1)
 					alert = 0
-					src << "<span class='warning'>All systems restored.</span>"
+					to_chat(src, SPAN_WARNING("All systems restored."))
 					emp_damage -= 1
 
 		//Other
@@ -163,18 +166,12 @@
 	return 1
 
 /mob/living/carbon/brain/handle_regular_hud_updates()
-	if (stat == 2 || (XRAY in src.mutations))
-		sight |= SEE_TURFS
-		sight |= SEE_MOBS
-		sight |= SEE_OBJS
-		see_in_dark = 8
-		see_invisible = SEE_INVISIBLE_LEVEL_TWO
-	else if (stat != 2)
-		sight &= ~SEE_TURFS
-		sight &= ~SEE_MOBS
-		sight &= ~SEE_OBJS
-		see_in_dark = 2
-		see_invisible = SEE_INVISIBLE_LIVING
+	if(stat == DEAD || (mutations & XRAY))
+		set_sight(sight|SEE_TURFS|SEE_MOBS|SEE_OBJS)
+		set_see_invisible(SEE_INVISIBLE_LEVEL_TWO)
+	else if(stat != DEAD)
+		set_sight(sight&(~SEE_TURFS)&(~SEE_MOBS)&(~SEE_OBJS))
+		set_see_invisible(SEE_INVISIBLE_LIVING)
 
 	if (healths)
 		if (stat != 2)
@@ -196,63 +193,32 @@
 		else
 			healths.icon_state = "health7"
 
-		if (stat == 2 || (XRAY in src.mutations))
-			sight |= SEE_TURFS
-			sight |= SEE_MOBS
-			sight |= SEE_OBJS
-			see_in_dark = 8
-			see_invisible = SEE_INVISIBLE_LEVEL_TWO
-		else if (stat != 2)
-			sight &= ~SEE_TURFS
-			sight &= ~SEE_MOBS
-			sight &= ~SEE_OBJS
-			see_in_dark = 2
-			see_invisible = SEE_INVISIBLE_LIVING
+		if(stat == DEAD || (mutations & XRAY))
+			set_sight(sight|SEE_TURFS|SEE_MOBS|SEE_OBJS)
+			set_see_invisible(SEE_INVISIBLE_LEVEL_TWO)
+		else if(stat != DEAD)
+			set_sight(sight&(~SEE_TURFS)&(~SEE_MOBS)&(~SEE_OBJS))
+			set_see_invisible(SEE_INVISIBLE_LIVING)
+
 	if (client)
-		client.screen.Remove(global_hud.blurry,global_hud.druggy,global_hud.vimpaired)
+		client.screen.Remove(GLOB.global_hud.blurry, GLOB.global_hud.druggy, GLOB.global_hud.vimpaired)
 
-	if ((blind && stat != 2))
-		if ((blinded))
-			blind.invisibility = 0
+	if(stat != DEAD)
+		if(blinded)
+			overlay_fullscreen("blind", /atom/movable/screen/fullscreen/blind)
 		else
-			blind.invisibility = 101
-
-			if (disabilities & NEARSIGHTED)
-				client.screen += global_hud.vimpaired
-
-			if (eye_blurry)
-				client.screen += global_hud.blurry
-
-			if (druggy)
-				client.screen += global_hud.druggy
-
-	if (stat != 2)
-		if (machine)
-			if (!( machine.check_eye(src) ))
+			clear_fullscreen("blind")
+			set_fullscreen(disabilities & NEARSIGHTED, "impaired", /atom/movable/screen/fullscreen/impaired, 1)
+			set_fullscreen(eye_blurry, "blurry", /atom/movable/screen/fullscreen/blurry)
+			if(druggy > 5)
+				add_client_color(/datum/client_color/oversaturated)
+			else
+				remove_client_color(/datum/client_color/oversaturated)
+		if(machine)
+			if(machine.check_eye(src) < 1)
 				reset_view(null)
 		else
-			if(client && !client.adminobs)
+			if(!client?.adminobs)
 				reset_view(null)
 
 	return 1
-
-	if (stat != 2)
-		if (machine)
-			if (machine.check_eye(src) < 0)
-				reset_view(null)
-		else
-			if(client && !client.adminobs)
-				reset_view(null)
-
-/*/mob/living/carbon/brain/emp_act(severity)
-	if(!(container && istype(container, /obj/item/device/mmi)))
-		return
-	else
-		switch(severity)
-			if(1)
-				emp_damage += rand(20,30)
-			if(2)
-				emp_damage += rand(10,20)
-			if(3)
-				emp_damage += rand(0,10)
-	..()*/

@@ -1,5 +1,3 @@
-/var/datum/controller/subsystem/processing/airflow/SSairflow
-
 #define CLEAR_OBJECT(TARGET)                \
 	processing -= TARGET;                   \
 	TARGET.airflow_dest = null;             \
@@ -10,16 +8,14 @@
 		TARGET.density = 0;                 \
 	}
 
-/datum/controller/subsystem/processing/airflow
+PROCESSING_SUBSYSTEM_DEF(airflow)
 	name = "Airflow"
 	wait = 1
 	flags = SS_NO_INIT
 	priority = SS_PRIORITY_AIRFLOW
 
-/datum/controller/subsystem/processing/airflow/New()
-	NEW_SS_GLOBAL(SSairflow)
-
 /datum/controller/subsystem/processing/airflow/fire(resumed = FALSE)
+	CAN_BE_REDEFINED(TRUE)
 	if (!resumed)
 		currentrun = processing.Copy()	// Defined in parent.
 
@@ -42,9 +38,9 @@
 			continue
 		else if (target.airflow_process_delay)
 			target.airflow_process_delay = 0
-		
+
 		target.airflow_speed = min(target.airflow_speed, 15)
-		target.airflow_speed -= vsc.airflow_speed_decay
+		target.airflow_speed -= GLOB.vsc.airflow_speed_decay
 		if (!target.airflow_skip_speedcheck)
 			if (target.airflow_speed > 7)
 				if (target.airflow_time++ >= target.airflow_speed - 7)
@@ -84,25 +80,20 @@
 			if (MC_TICK_CHECK)
 				return
 			continue
-		
+
 		step_towards(target, target.airflow_dest)
-		if (ismob(target) && target:client)
-			target:setMoveCooldown(vsc.airflow_mob_slowdown)
+		if(ismob(target))
+			var/mob/target_mob = target
+			if(target_mob.client)
+				target_mob:setMoveCooldown(GLOB.vsc.airflow_mob_slowdown)
 
 		if (MC_TICK_CHECK)
 			return
 
-#undef CLEAR_OBJECT		
-
-/atom/movable
-	var/tmp/airflow_xo
-	var/tmp/airflow_yo
-	var/tmp/airflow_od
-	var/tmp/airflow_process_delay
-	var/tmp/airflow_skip_speedcheck
+#undef CLEAR_OBJECT
 
 /atom/movable/proc/prepare_airflow(n)
-	if (!airflow_dest || airflow_speed < 0 || last_airflow > world.time - vsc.airflow_delay)
+	if (!airflow_dest || airflow_speed < 0 || last_airflow > world.time - GLOB.vsc.airflow_delay)
 		return FALSE
 	if (airflow_speed)
 		airflow_speed = n / max(get_dist(src, airflow_dest), 1)
@@ -115,7 +106,7 @@
 		return FALSE
 
 	if (ismob(src))
-		src << span("danger", "You are pushed away by airflow!")
+		to_chat(src, SPAN_DANGER("You are pushed away by airflow!"))
 
 	last_airflow = world.time
 	var/airflow_falloff = 9 - sqrt((x - airflow_dest.x) ** 2 + (y - airflow_dest.y) ** 2)
@@ -123,9 +114,9 @@
 	if (airflow_falloff < 1)
 		airflow_dest = null
 		return FALSE
-	
-	airflow_speed = min(max(n * (9 / airflow_falloff), 1), 9)	
-	
+
+	airflow_speed = min(max(n * (9 / airflow_falloff), 1), 9)
+
 	airflow_od = 0
 
 	if (!density)
@@ -148,7 +139,7 @@
 /atom/movable/proc/RepelAirflowDest(n)
 	if (!prepare_airflow(n))
 		return
-	
+
 	airflow_xo = -(airflow_dest.x - src.x)
 	airflow_yo = -(airflow_dest.y - src.y)
 

@@ -1,24 +1,50 @@
-#ifndef T_BOARD
-#error T_BOARD macro is not defined but we need it! 
-#endif
-
-/obj/item/weapon/circuitboard/smes
+/obj/item/circuitboard/smes
 	name = T_BOARD("superconductive magnetic energy storage")
-	build_path = "/obj/machinery/power/smes/buildable"
-	board_type = "machine"
+	build_path = /obj/structure/machinery/power/smes/buildable
+	board_type = BOARD_MACHINE
 	origin_tech = list(TECH_POWER = 6, TECH_ENGINEERING = 4)
-	req_components = list("/obj/item/weapon/smes_coil" = 1, "/obj/item/stack/cable_coil" = 30)
+	req_components = list("/obj/item/smes_coil" = 1, "/obj/item/stack/cable_coil" = 30)
 
-/obj/item/weapon/circuitboard/batteryrack
+/obj/item/circuitboard/batteryrack
 	name = T_BOARD("battery rack PSU")
-	build_path = "/obj/machinery/power/smes/batteryrack"
-	board_type = "machine"
+	build_path = /obj/structure/machinery/power/smes/batteryrack
+	board_type = BOARD_MACHINE
 	origin_tech = list(TECH_POWER = 3, TECH_ENGINEERING = 2)
-	req_components = list("/obj/item/weapon/cell" = 3)
+	req_components = list("/obj/item/cell" = 3)
 
-/obj/item/weapon/circuitboard/ghettosmes
+/obj/item/circuitboard/radial_floodlight
+	name = T_BOARD("radial floodlight")
+	build_path = /obj/structure/machinery/power/radial_floodlight
+	board_type = BOARD_MACHINE
+	origin_tech = list(TECH_POWER = 2, TECH_ENGINEERING = 2)
+	req_components = list()
+
+/obj/item/circuitboard/radial_floodlight/construct(obj/structure/machinery/power/radial_floodlight/floodlight)
+	. = ..()
+	if(.)
+		floodlight.anchored = TRUE
+		floodlight.connect_to_network()
+
+/obj/item/circuitboard/floodlight
+	name = T_BOARD("industrial floodlight")
+	build_path = /obj/structure/machinery/floodlight
+	board_type = BOARD_MACHINE
+	origin_tech = list(TECH_POWER = 1, TECH_ENGINEERING = 1)
+	anchor_on_construction = FALSE
+	req_components = list(
+		"/obj/item/cell" = 1
+	)
+
+/obj/item/circuitboard/ghettosmes
 	name = T_BOARD("makeshift PSU")
-	desc = "An APC circuit repurposed into some power storage device controller"
-	build_path = "/obj/machinery/power/smes/batteryrack/makeshift"
-	board_type = "machine"
-	req_components = list("/obj/item/weapon/cell" = 3)
+	desc = "An APC circuit repurposed into some power storage device controller."
+	build_path = /obj/structure/machinery/power/smes/batteryrack/makeshift
+	board_type = BOARD_MACHINE
+	req_components = list("/obj/item/cell" = 3)
+
+/obj/item/circuitboard/ghettosmes/attackby(obj/item/attacking_item, mob/user)
+	if(attacking_item.tool_behaviour == TOOL_MULTITOOL)
+		var/obj/item/module/power_control/new_circuit = new /obj/item/module/power_control(get_turf(src))
+		to_chat(user, SPAN_NOTICE("You modify \the [src] into an APC power control module."))
+		qdel(src)
+		user.put_in_hands(new_circuit)
